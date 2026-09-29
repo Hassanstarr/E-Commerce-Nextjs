@@ -7,6 +7,7 @@ import { errorResponse } from "@/lib/apiError";
 import AppError from "@/lib/AppError";
 import { getCurrentUser } from "@/services/auth.service";
 import { requireAuth } from "@/middleware/auth";
+import { requireAdmin } from "@/middleware/auth";
 
 export async function signupController(req: NextRequest) {
     try {
@@ -136,5 +137,27 @@ export async function meController() {
         console.error("Get current user error:", error);
 
         return errorResponse("Unable to get current user");
+    }
+}
+
+export async function adminTestController() {
+    try {
+        const admin = await requireAdmin();
+
+        return successResponse(
+            {
+                userId: admin.userId,
+                role: admin.role,
+            },
+            "Admin access granted"
+        );
+    } catch (error) {
+        if (error instanceof AppError) {
+            return errorResponse(error.message, error.statusCode);
+        }
+
+        console.error("Admin authorization error:", error);
+
+        return errorResponse("Unable to verify admin access");
     }
 }
