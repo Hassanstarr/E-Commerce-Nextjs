@@ -20,22 +20,3 @@ export async function requireAuth(): Promise<AuthPayload> {
 
     return payload;
 }
-
-export async function requireAdmin(): Promise<AuthPayload> {
-    const user = await requireAuth();
-
-    const dbUser = await User.findById(user.userId).select("role");
-
-    if (!dbUser) {
-        throw new AppError("User not found", 404);
-    }
-
-    if (dbUser.role !== "admin") {
-        throw new AppError("Admin access required", 403);
-    }
-
-    return {
-        ...user,
-        role: dbUser.role,
-    };
-}
