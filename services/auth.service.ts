@@ -54,3 +54,20 @@ export async function loginUser(data: LoginInput) {
         role: user.role,
     };
 }
+
+export async function getCurrentUser(userId: string) {
+    const user = await User.findById(userId).select("-password");
+
+    if (!user) {
+        throw new AppError("User not found", 404);
+    }
+
+    return {
+        id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+    };
+}

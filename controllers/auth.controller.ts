@@ -5,6 +5,8 @@ import { createToken } from "@/lib/auth";
 import { successResponse } from "@/lib/apiResponse";
 import { errorResponse } from "@/lib/apiError";
 import AppError from "@/lib/AppError";
+import { getCurrentUser } from "@/services/auth.service";
+import { requireAuth } from "@/middleware/auth";
 
 export async function signupController(req: NextRequest) {
     try {
@@ -112,4 +114,27 @@ export async function logoutController() {
     });
 
     return response;
+}
+
+export async function meController() {
+    try {
+        const authUser = await requireAuth();
+
+        const user = await getCurrentUser(authUser.userId);
+
+        return successResponse(
+            {
+                user,
+            },
+            "Authenticated user retrieved successfully"
+        );
+    } catch (error) {
+        if (error instanceof AppError) {
+            return errorResponse(error.message, error.statusCode);
+        }
+
+        console.error("Get current user error:", error);
+
+        return errorResponse("Unable to get current user");
+    }
 }
