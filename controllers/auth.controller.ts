@@ -7,7 +7,7 @@ import { errorResponse } from "@/lib/apiError";
 import AppError from "@/lib/AppError";
 import { getCurrentUser } from "@/services/auth.service";
 import { requireAuth } from "@/middleware/auth";
-import { requireAdmin } from "@/middleware/auth";
+import { requireAdmin } from "@/middleware/admin";
 
 export async function signupController(req: NextRequest) {
     try {
