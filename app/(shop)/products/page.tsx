@@ -1,22 +1,65 @@
-import EmptyState from "@/components/ui/EmptyState";
+import ProductGrid from "@/components/product/ProductGrid";
 
-export default function ProductsPage() {
+type Product = {
+    _id: string;
+    name: string;
+    description: string;
+    price: number;
+    image: string;
+    stock: number;
+    category: {
+        _id: string;
+        name: string;
+    };
+};
+
+type ProductsResponse = {
+    success: boolean;
+    data: {
+        products: Product[];
+    };
+};
+
+async function getProducts(): Promise<Product[]> {
+    const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/products`,
+        {
+            cache: "no-store",
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error("Failed to fetch products");
+    }
+
+    const result: ProductsResponse = await response.json();
+
+    return result.data.products;
+}
+
+export default async function ProductsPage() {
+    const products = await getProducts();
+
     return (
-        <section className="mx-auto min-h-[70vh] max-w-7xl px-4 py-12">
-            <div className="mb-10">
-                <h1 className="text-3xl font-bold text-gray-900">
-                    Products
-                </h1>
+        <section className="min-h-screen bg-gray-50">
+            <div className="mx-auto max-w-7xl px-4 py-12">
+                <div className="mb-10">
+                    <p className="text-sm font-medium text-gray-500">
+                        Shop
+                    </p>
 
-                <p className="mt-2 text-gray-500">
-                    Lorem ipsum dolor sit amet consectetur adipisicing elit. Expedita error odit facilis quisquam aliquid eveniet natus, illo fuga. Repellendus commodi harum fugit reprehenderit suscipit assumenda cum aliquam rem provident delectus..
-                </p>
+                    <h1 className="mt-2 text-3xl font-bold text-gray-900 md:text-4xl">
+                        All Products
+                    </h1>
+
+                    <p className="mt-3 max-w-2xl text-gray-500">
+                        Browse our collection of products and find something
+                        that fits your needs.
+                    </p>
+                </div>
+
+                <ProductGrid products={products} />
             </div>
-
-            <EmptyState
-                title="No products available"
-                message="Products will appear here once they are added."
-            />
         </section>
     );
 }
