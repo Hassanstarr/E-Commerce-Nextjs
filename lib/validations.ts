@@ -51,7 +51,42 @@ export const categorySchema = z.object({
         .or(z.literal("")),
 });
 
+export const productSchema = z.object({
+    name: z
+        .string()
+        .trim()
+        .min(2, "Product name must contain at least 2 characters")
+        .max(100, "Product name cannot exceed 100 characters"),
+
+    description: z
+        .string()
+        .trim()
+        .min(10, "Description must contain at least 10 characters")
+        .max(2000, "Description cannot exceed 2000 characters"),
+
+    price: z
+        .number()
+        .min(0, "Price cannot be negative"),
+
+    image: z
+        .string()
+        .trim()
+        .url("Image must be a valid URL"),
+
+    category: z
+        .string()
+        .trim()
+        .min(1, "Category is required"),
+
+    stock: z
+        .number()
+        .int("Stock must be a whole number")
+        .min(0, "Stock cannot be negative"),
+});
+
+
 
 export type SignupInput = z.infer<typeof signupSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CategoryInput = z.infer<typeof categorySchema>;
+export type ProductInput = z.infer<typeof productSchema>;
