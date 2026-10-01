@@ -8,8 +8,8 @@ export default function AdminPage() {
 
     return (
         <AdminRoute>
-            <section className="min-h-155 bg-gray-50"> 
-                <main className="mx-auto max-w-7xl px-4 py-12">
+            <section className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+                <main className="w-full max-w-7xl">
                     <div className="mb-8">
                         <h1 className="text-3xl font-bold text-gray-900">
                             Admin Dashboard
@@ -47,7 +47,7 @@ export default function AdminPage() {
                             </h2>
 
                             <p className="mt-2 text-sm text-gray-600">
-                                Manage User.
+                                Manage users.
                             </p>
                         </div>
                     </div>

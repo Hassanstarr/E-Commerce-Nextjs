@@ -8,9 +8,9 @@ export default function AccountPage() {
 
     return (
         <ProtectedRoute>
-            <section className="min-h-155 bg-gray-50">
-                <main className="mx-auto max-w-4xl px-4 py-12 ">
-                    <div className="mb-8">
+            <section className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+                <main className="w-full max-w-4xl">
+                    <div className="mb-8 text-center">
                         <h1 className="text-3xl font-bold text-gray-900">
                             My Account
                         </h1>

@@ -101,7 +101,7 @@ export default async function ProductsPage({searchParams}: ProductsPageProps) {
     );
 
     return (
-        <section className="min-h-screen bg-gray-50">
+        <section className="flex min-h-screen bg-gray-50 items-center justify-center">
             <div className="mx-auto max-w-7xl px-4 py-12">
                 <div className="mb-10">
                     <p className="text-sm font-medium text-gray-500">
