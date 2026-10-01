@@ -76,7 +76,11 @@ export default async function ProductsPage({searchParams}: ProductsPageProps) {
     let errorMessage = "";
 
     try {
-        products = await getProducts(category);
+        
+        products = (await getProducts(category)).toSorted((a, b) =>
+            a.name.localeCompare(b.name)
+        );
+
     } catch (error) {
         if (error instanceof Error) {
             errorMessage =
@@ -88,7 +92,9 @@ export default async function ProductsPage({searchParams}: ProductsPageProps) {
         }
     }
 
-    const categories = await getCategories();
+    const categories = (await getCategories()).sort((a, b) =>
+        a.name.localeCompare(b.name)
+    );
 
     const selectedCategory = categories.find(
         (item) => item._id === category
