@@ -8,9 +8,7 @@ type RouteContext = {
     }>;
 };
 
-export async function GET(
-    req: NextRequest,
-    context: RouteContext) {
+export async function GET( req: NextRequest, context: RouteContext ) {
     await connectDB();
 
     const { id } = await context.params;
@@ -18,10 +16,7 @@ export async function GET(
     return getCategoryController(id);
 }
 
-export async function PUT(
-    req: NextRequest,
-    context: RouteContext
-) {
+export async function PUT( req: NextRequest, context: RouteContext ) {
     await connectDB();
 
     const { id } = await context.params;
@@ -29,10 +24,7 @@ export async function PUT(
     return updateCategoryController(req, id);
 }
 
-export async function DELETE(
-    req: NextRequest,
-    context: RouteContext
-) {
+export async function DELETE( req: NextRequest, context: RouteContext ) {
     await connectDB();
 
     const { id } = await context.params;
