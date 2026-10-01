@@ -27,12 +27,26 @@ export async function createProduct(data: ProductInput) {
     return await product.populate("category");
 }
 
-export async function getProducts() {
-    return await Product.find()
+export async function getProducts(categoryId?: string) {
+    const filter: { category?: string } = {};
+
+    if (categoryId) {
+        if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+            throw new AppError("Invalid category ID", 400);
+        }
+
+        const category = await Category.findById(categoryId);
+
+        if (!category) {
+            throw new AppError("Category not found", 404);
+        }
+
+        filter.category = categoryId;
+    }
+
+    return await Product.find(filter)
         .populate("category", "name image")
-        .sort({
-            createdAt: -1,
-        });
+        .sort({ createdAt: -1 });
 }
 
 export async function getProductById(id: string) {

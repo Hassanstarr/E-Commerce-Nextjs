@@ -13,21 +13,21 @@ type ProductGridProps = {
             name: string;
         };
     }[];
+    emptyTitle?: string;
+    emptyMessage?: string;
 };
 
-export default function ProductGrid({ products }: ProductGridProps) {
+export default function ProductGrid({ products, emptyTitle, emptyMessage }: ProductGridProps) {
     if (products.length === 0) {
         return (
-            <div className="flex min-h-75 items-center justify-center text-center">
-                <div>
-                    <h2 className="text-xl font-semibold text-gray-900">
-                        No products found
-                    </h2>
+            <div className="flex min-h-75 flex-col items-center justify-center text-center">
+                <h2 className="text-xl font-semibold text-gray-900">
+                    {emptyTitle}
+                </h2>
 
-                    <p className="mt-2 text-sm text-gray-500">
-                        There are currently no products available.
-                    </p>
-                </div>
+                <p className="mt-2 max-w-md text-sm text-gray-500">
+                    {emptyMessage}
+                </p>
             </div>
         );
     }
