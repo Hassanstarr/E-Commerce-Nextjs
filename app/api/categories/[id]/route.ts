@@ -10,8 +10,7 @@ type RouteContext = {
 
 export async function GET(
     req: NextRequest,
-    context: RouteContext
-) {
+    context: RouteContext) {
     await connectDB();
 
     const { id } = await context.params;
