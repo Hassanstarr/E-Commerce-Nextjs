@@ -18,7 +18,7 @@ type ProductCardProps = {
 
 export default function ProductCard({ product }: ProductCardProps) {
     return (
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white transition hover:-translate-y-1 hover:shadow-lg">
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white transition-all duration-300 ease-out hover:scale-[1.03] hover:shadow-xl">
             <Link href={`/products/${product._id}`}>
                 <div className="relative h-56 w-full bg-gray-100">
                     <Image

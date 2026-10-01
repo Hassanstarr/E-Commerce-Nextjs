@@ -48,22 +48,24 @@ export async function createProductController(req: NextRequest) {
     }
 }
 
-export async function getProductsController() {
+export async function getProductsController(req: NextRequest) {
     try {
-        const products = await getProducts();
+        const categoryId = req.nextUrl.searchParams.get("category") || undefined;
+
+        const products = await getProducts(categoryId);
 
         return successResponse(
-            {
-                products,
-            },
+            { products },
             "Products retrieved successfully"
         );
     } catch (error) {
+        if (error instanceof AppError) {
+            return errorResponse(error.message, error.statusCode);
+        }
+
         console.error("Get products error:", error);
 
-        return errorResponse(
-            "Unable to retrieve products"
-        );
+        return errorResponse("Unable to retrieve products");
     }
 }
 
