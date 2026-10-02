@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import AddToCartButton from "@/components/cart/AddToCartButton";
 
 type Product = {
     _id: string;
@@ -115,13 +116,10 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
                         </div>
 
                         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                            <button
-                                type="button"
-                                disabled={product.stock === 0}
-                                className="rounded-lg bg-black px-6 py-3 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
-                            >
-                                Add to Cart
-                            </button>
+                            <AddToCartButton
+                                productId={product._id}
+                                stock={product.stock}
+                            />
 
                             <button
                                 type="button"
