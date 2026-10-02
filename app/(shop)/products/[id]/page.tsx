@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import AddToCartButton from "@/components/cart/AddToCartButton";
+import AddToWishlistButton from "@/components/wishlist/AddToWishlistButton";
 
 type Product = {
     _id: string;
@@ -120,13 +121,9 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
                                 productId={product._id}
                                 stock={product.stock}
                             />
-
-                            <button
-                                type="button"
-                                className="rounded-lg border border-gray-300 px-6 py-3 text-sm font-medium text-gray-700 transition hover:border-black hover:text-black"
-                            >
-                                Add to Wishlist
-                            </button>
+                            <AddToWishlistButton
+                                productId={product._id}
+                            />
                         </div>
                     </div>
                 </div>
