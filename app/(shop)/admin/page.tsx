@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export default function AdminPage() {
     return (
-        <section className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+        <section className="min-h-screen bg-gray-50 px-4">
             <main className="mx-auto max-w-7xl px-4 py-12">
                 <div className="mb-10">
                     <h1 className="text-3xl font-bold text-gray-900">
@@ -14,7 +14,7 @@ export default function AdminPage() {
                     </p>
                 </div>
 
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-6 sm:grid-cols-2">
                     <Link
                         href="/admin/products"
                         className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
@@ -40,16 +40,6 @@ export default function AdminPage() {
                             Create and manage product categories.
                         </p>
                     </Link>
-
-                    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                        <h2 className="text-xl font-semibold text-gray-900">
-                            Store Management
-                        </h2>
-
-                        <p className="mt-2 text-sm text-gray-600">
-                            Manage your ecommerce content from one place.
-                        </p>
-                    </div>
                 </div>
             </main>
         </section>
