@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Input from "@/components/ui/Input";
 import { createAdminProduct, updateAdminProduct } from "@/services/admin.api";
+import { uploadImage } from "@/services/upload.api";
 import type { ProductInput } from "@/types";
 
 type Category = {
@@ -30,6 +31,7 @@ export default function ProductForm({ categories, initialData }: ProductFormProp
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    const [uploading, setUploading] = useState(false);
 
     useEffect(() => {
         if (initialData) {
@@ -58,6 +60,34 @@ export default function ProductForm({ categories, initialData }: ProductFormProp
                     ? Number(value)
                     : value,
         }));
+    };
+
+    const handleImageUpload = async ( event: React.ChangeEvent<HTMLInputElement> ) => {
+        const file = event.target.files?.[0];
+
+        if (!file) {
+            return;
+        }
+
+        try {
+            setUploading(true);
+            setError("");
+
+            const imageUrl = await uploadImage(file);
+
+            setFormData((previous) => ({
+                ...previous,
+                image: imageUrl,
+            }));
+        } catch (error) {
+            if (error instanceof Error) {
+                setError(error.message);
+            } else {
+                setError("Unable to upload image");
+            }
+        } finally {
+            setUploading(false);
+        }
     };
 
     const handleSubmit = async (
@@ -156,16 +186,43 @@ export default function ProductForm({ categories, initialData }: ProductFormProp
                 />
             </div>
 
-            <Input
-                label="Image URL"
-                name="image"
-                className="text-black"
-                type="url"
-                value={formData.image}
-                onChange={handleChange}
-                placeholder="https://example.com/image.jpg"
-                required
-            />
+            <div>
+                <label
+                    htmlFor="image"
+                    className="mb-2 block text-sm font-medium text-gray-700"
+                >
+                    Product Image
+                </label>
+
+                <input
+                    id="image"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    disabled={uploading}
+                    className="block w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-gray-100 file:px-4 file:py-2 file:text-sm file:font-medium"
+                />
+
+                {uploading && (
+                    <p className="mt-2 text-sm text-gray-500">
+                        Uploading image...
+                    </p>
+                )}
+
+                {formData.image && (
+                    <div className="mt-4">
+                        <p className="mb-2 text-sm text-gray-500">
+                            Selected image
+                        </p>
+
+                        <img
+                            src={formData.image}
+                            alt="Product preview"
+                            className="h-32 w-32 rounded-lg object-cover"
+                        />
+                    </div>
+                )}
+            </div>
 
             <div>
                 <label
@@ -200,10 +257,12 @@ export default function ProductForm({ categories, initialData }: ProductFormProp
 
             <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || uploading}
                 className="w-full rounded-lg bg-black px-5 py-3 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
             >
-                {loading
+                {uploading
+                    ? "Uploading image..."
+                    : loading
                     ? "Saving..."
                     : initialData
                     ? "Update Product"
