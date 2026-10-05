@@ -14,11 +14,20 @@ export async function createCategoryController( req: NextRequest ) {
 
         const validation = categorySchema.safeParse(body);
 
+        // if (!validation.success) {
+        //     return errorResponse(
+        //         "Validation failed",
+        //         400,
+        //         validation.error.flatten().fieldErrors
+        //     );
+        // }
+
         if (!validation.success) {
             return errorResponse(
-                "Validation failed",
-                400,
-                validation.error.flatten().fieldErrors
+                validation.error.issues
+                    .map((issue) => issue.message)
+                    .join(", "),
+                400
             );
         }
 

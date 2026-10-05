@@ -15,6 +15,21 @@ export async function createProduct(data: ProductInput) {
         throw new AppError("Category not found", 404);
     }
 
+    const existingProduct = await Product.findOne({
+        name: {
+            $regex: `^${data.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+            $options: "i",
+        },
+        category: data.category,
+    });
+
+    if (existingProduct) {
+        throw new AppError(
+            "A product with this name already exists in this category",
+            409
+        );
+    }
+
     const product = await Product.create({
         name: data.name,
         description: data.description,
@@ -85,6 +100,21 @@ export async function updateProduct( id: string, data: ProductInput ) {
 
     if (!category) {
         throw new AppError("Category not found", 404);
+    }
+
+    const existingProduct = await Product.findOne({
+        name: {
+            $regex: `^${data.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+            $options: "i",
+        },
+        category: data.category,
+    });
+
+    if (existingProduct) {
+        throw new AppError(
+            "A product with this name already exists in this category",
+            409
+        );
     }
 
     product.name = data.name;

@@ -15,11 +15,20 @@ export async function createProductController(req: NextRequest) {
 
         const validation = productSchema.safeParse(body);
 
+        // if (!validation.success) {
+        //     return errorResponse(
+        //         "Validation failed",
+        //         400,
+        //         validation.error.flatten().fieldErrors
+        //     );
+        // }
+
         if (!validation.success) {
             return errorResponse(
-                "Validation failed",
-                400,
-                validation.error.flatten().fieldErrors
+                validation.error.issues
+                    .map((issue) => issue.message)
+                    .join(", "),
+                400
             );
         }
 

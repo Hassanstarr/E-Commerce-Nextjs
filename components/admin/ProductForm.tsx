@@ -90,10 +90,9 @@ export default function ProductForm({ categories, initialData }: ProductFormProp
         }
     };
 
-    const handleSubmit = async (
-        event: React.FormEvent<HTMLFormElement>
-    ) => {
+    const handleSubmit = async ( event: React.FormEvent<HTMLFormElement> ) => {
         event.preventDefault();
+        
 
         try {
             setLoading(true);

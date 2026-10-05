@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
@@ -9,6 +10,7 @@ import Spinner from "@/components/ui/Spinner";
 import { useAuth } from "@/context/AuthContext";
 import { getCart, updateCartItem, removeFromCart, clearCart } from "@/services/cart.api";
 import type { Cart } from "@/types/cart";
+import { FiArrowRight, FiShoppingBag } from "react-icons/fi";
 
 export default function CartPage() {
     return (
@@ -235,13 +237,23 @@ function CartContent() {
                                 </div>
                             </div>
 
-                            <button
-                                type="button"
-                                onClick={() => router.push("/")}
-                                className="mt-6 w-full rounded-lg bg-black px-5 py-3 text-sm font-medium text-white transition hover:bg-gray-800"
-                            >
-                                Continue Shopping
-                            </button>
+                            <div className="mt-6 space-y-3">
+                                <Link
+                                    href="/checkout"
+                                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-black px-5 py-3 text-sm font-medium text-white transition hover:bg-gray-800"
+                                >
+                                    <FiShoppingBag />
+                                    Proceed to Checkout
+                                    <FiArrowRight />
+                                </Link>
+
+                                <Link
+                                    href="/products"
+                                    className="flex w-full items-center justify-center rounded-lg border border-gray-300 px-5 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                                >
+                                    Continue Shopping
+                                </Link>
+                            </div>
                         </aside>
                     </div>
                 )}

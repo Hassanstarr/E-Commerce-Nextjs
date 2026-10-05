@@ -76,9 +76,7 @@ export default function CategoryForm({ initialData }: CategoryFormProps) {
         }
     };
 
-    const handleSubmit = async (
-        event: React.FormEvent<HTMLFormElement>
-    ) => {
+    const handleSubmit = async ( event: React.FormEvent<HTMLFormElement> ) => {
         event.preventDefault();
 
         try {
@@ -142,7 +140,7 @@ export default function CategoryForm({ initialData }: CategoryFormProps) {
                     value={formData.description}
                     onChange={handleChange}
                     rows={4}
-                    className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-black focus:ring-1 focus:ring-black"
+                    className="w-full rounded-lg text-black border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-black focus:ring-1 focus:ring-black"
                     placeholder="Enter category description"
                 />
             </div>
