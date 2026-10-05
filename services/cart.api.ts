@@ -8,7 +8,7 @@ export async function getCart() {
         data: {
             cart: Cart;
         };
-    }>("/api/cart");
+    }>("/api/cart", { cache: "no-store" });
 
     return result.data.cart;
 }

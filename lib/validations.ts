@@ -84,9 +84,52 @@ export const productSchema = z.object({
         .min(0, "Stock cannot be negative"),
 });
 
+export const checkoutSchema = z.object({
+    customerName: z
+        .string()
+        .trim()
+        .min(2, "Name must contain at least 2 characters")
+        .max(100, "Name cannot exceed 100 characters"),
 
+    customerEmail: z
+        .string()
+        .trim()
+        .email("Please enter a valid email address"),
+
+    confirmEmail: z
+        .string()
+        .trim()
+        .email("Please enter a valid confirmation email"),
+
+    phone: z
+        .string()
+        .trim()
+        .min(7, "Phone number is required")
+        .max(20, "Phone number cannot exceed 20 characters"),
+
+    address: z
+        .string()
+        .trim()
+        .min(5, "Address must contain at least 5 characters")
+        .max(300, "Address cannot exceed 300 characters"),
+
+    city: z
+        .string()
+        .trim()
+        .min(2, "City must contain at least 2 characters")
+        .max(100, "City cannot exceed 100 characters"),
+
+    postalCode: z
+        .string()
+        .trim()
+        .min(3, "Postal code is required")
+        .max(20, "Postal code cannot exceed 20 characters"),
+
+    paymentMethod: z.literal("cod"),
+});
 
 export type SignupInput = z.infer<typeof signupSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CategoryInput = z.infer<typeof categorySchema>;
 export type ProductInput = z.infer<typeof productSchema>;
+export type ChectutInput = z.infer<typeof checkoutSchema>;
