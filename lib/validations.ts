@@ -66,7 +66,7 @@ export const productSchema = z.object({
 
     price: z
         .number()
-        .min(0, "Price cannot be negative"),
+        .min(1, "Please enter a valid price greater than 0."),
 
     image: z
         .string()
