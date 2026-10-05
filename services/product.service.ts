@@ -103,6 +103,7 @@ export async function updateProduct( id: string, data: ProductInput ) {
     }
 
     const existingProduct = await Product.findOne({
+        _id: { $ne: id },
         name: {
             $regex: `^${data.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
             $options: "i",
