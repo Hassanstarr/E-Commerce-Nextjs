@@ -1,9 +1,20 @@
+import Link from "next/link";
 import CategoryForm from "@/components/admin/CategoryForm";
 
 export default function AddCategoryPage() {
     return (
         <section className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
             <main className="mx-auto w-full max-w-5xl px-4 py-12">
+
+                <div className="mb-6">
+                    <Link
+                        href="/admin/categories"
+                        className="text-sm font-medium text-gray-500 transition hover:text-black"
+                    >
+                        ← Back to Categories
+                    </Link>
+                </div>
+                        
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold text-gray-900">
                         Add Category

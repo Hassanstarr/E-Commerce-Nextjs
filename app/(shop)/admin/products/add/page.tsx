@@ -1,3 +1,4 @@
+import Link from "next/link";
 import ProductForm from "@/components/admin/ProductForm";
 
 type Category = {
@@ -30,6 +31,16 @@ export default async function AddProductPage() {
     return (
         <section className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
             <main className="mx-auto w-full max-w-5xl px-4 py-12">
+
+                <div className="mb-6">
+                    <Link
+                        href="/admin/products"
+                        className="text-sm font-medium text-gray-500 transition hover:text-black"
+                    >
+                        ← Back to Products
+                    </Link>
+                </div>
+
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold text-gray-900">
                         Add Product
