@@ -118,7 +118,7 @@ export default async function HomePage() {
                 </div>
             </section>
 
-            {/* Featured Products */}
+
             <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
                 <div className="mb-8 flex items-end justify-between gap-4">
                     <div>
@@ -173,7 +173,6 @@ export default async function HomePage() {
                 )}
             </section>
 
-            {/* Categories */}
             <section className="border-y border-gray-200 bg-gray-50">
                 <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
                     <div className="mb-8">
