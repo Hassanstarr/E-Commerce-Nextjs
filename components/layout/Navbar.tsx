@@ -1,16 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useState } from "react";
 import { HiOutlineBars3, HiOutlineXMark } from "react-icons/hi2";
 import { useAuth } from "@/context/AuthContext";
 
 export default function Navbar() {
     const router = useRouter();
+    const pathname = usePathname();
     const { user, loading, logout } = useAuth();
 
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+    const isAdminRoute = pathname.startsWith("/admin");
 
     const handleLogout = async () => {
         await logout();
@@ -30,7 +33,6 @@ export default function Navbar() {
                     ShopEase
                 </Link>
 
-                {/* Desktop Navbar */}
                 <div className="hidden items-center gap-5 md:flex">
                     <Link
                         href="/products"
@@ -98,10 +100,19 @@ export default function Navbar() {
                     )}
                 </div>
 
-                {/* Mobile Hamburger */}
+
                 <button
                     type="button"
-                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                    onClick={() => {
+                        if (isAdminRoute) {
+                            window.dispatchEvent(
+                                new Event("admin-sidebar-toggle")
+                            );
+                            return;
+                        }
+
+                        setMobileMenuOpen(!mobileMenuOpen);
+                    }}
                     className="rounded-md p-2 text-gray-600 hover:bg-gray-100 hover:text-black md:hidden"
                     aria-label="Toggle menu"
                 >
@@ -113,10 +124,10 @@ export default function Navbar() {
                 </button>
             </nav>
 
-            {/* Mobile Navbar */}
+
             {mobileMenuOpen && (
                 <div className="border-t border-gray-200 bg-white md:hidden">
-                    <div className="mx-auto flex max-w-7xl flex-col px-4 py-2">
+                    <div className="mx-auto flex max-w-7xl flex-col px-4 py-2 w-full absolute bg-white">
 
                         <Link
                             href="/products"
