@@ -2,7 +2,7 @@ import AnalyticsCharts from "@/components/admin/AnalyticsCharts";
 
 export default function AdminAnalyticsPage() {
     return (
-        <div className="p-4 sm:p-6 lg:p-8">
+        <div className="p-4 sm:p-6 lg:p-8 mx-auto max-w-7xl">
             <div className="mb-8">
                 <p className="mb-2 text-sm font-medium text-gray-500">
                     Admin / Analytics

@@ -74,7 +74,7 @@ export default function CustomerDetailsPage() {
     };
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8">
+        <div className="p-4 sm:p-6 lg:p-8 mx-auto max-w-7xl">
             <div className="mb-6">
                 <Link
                     href="/admin/customers"
