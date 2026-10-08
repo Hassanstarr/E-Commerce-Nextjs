@@ -7,7 +7,7 @@ export type AdminCustomer = {
     _id: string;
     name: string;
     email: string;
-    phone: string;
+    phone?: string;
     ordersCount: number;
     totalSpent: number;
     lastOrder: string | null;
@@ -17,9 +17,10 @@ export type AdminCustomer = {
 
 type CustomerTableProps = {
     customers: AdminCustomer[];
+    loading?: boolean;
 };
 
-export default function CustomerTable({ customers }: CustomerTableProps) {
+export default function CustomerTable({ customers, loading }: CustomerTableProps) {
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
 
@@ -30,23 +31,27 @@ export default function CustomerTable({ customers }: CustomerTableProps) {
             const matchesSearch =
                 customer.name.toLowerCase().includes(searchValue) ||
                 customer.email.toLowerCase().includes(searchValue) ||
-                customer.phone.toLowerCase().includes(searchValue) ||
+                (customer.phone && customer.phone.toLowerCase().includes(searchValue)) ||
                 customer._id.toLowerCase().includes(searchValue);
 
             const matchesStatus =
-                statusFilter === "all" ||
-                customer.status === statusFilter;
+                statusFilter === "all" || customer.status === statusFilter;
 
             return matchesSearch && matchesStatus;
         });
     }, [customers, search, statusFilter]);
 
     const formatDate = (date: string | null) => {
-        if (!date) {
-            return "No orders yet";
+        if (!date || date === "-" || date === "N/A") {
+            return "-";
         }
 
-        return new Date(date).toLocaleDateString("en-PK", {
+        const parsedDate = new Date(date);
+        if (isNaN(parsedDate.getTime())) {
+            return "-";
+        }
+
+        return parsedDate.toLocaleDateString("en-PK", {
             day: "numeric",
             month: "short",
             year: "numeric",
@@ -143,8 +148,8 @@ export default function CustomerTable({ customers }: CustomerTableProps) {
                                     <div className="flex items-center gap-3">
                                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold text-gray-700">
                                             {customer.name
-                                                .charAt(0)
-                                                .toUpperCase()}
+                                                ? customer.name.charAt(0).toUpperCase()
+                                                : "U"}
                                         </div>
 
                                         <div>
@@ -165,7 +170,9 @@ export default function CustomerTable({ customers }: CustomerTableProps) {
                                     </p>
 
                                     <p className="mt-1 text-xs text-gray-500">
-                                        {customer.phone}
+                                        {customer.phone && customer.phone !== "N/A"
+                                            ? customer.phone
+                                            : "-"}
                                     </p>
                                 </td>
 
@@ -206,7 +213,7 @@ export default function CustomerTable({ customers }: CustomerTableProps) {
                     </tbody>
                 </table>
 
-                {filteredCustomers.length === 0 && (
+                {filteredCustomers.length === 0 && !loading && (
                     <div className="px-6 py-16 text-center">
                         <p className="font-medium text-gray-900">
                             No customers found

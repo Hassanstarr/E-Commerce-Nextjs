@@ -253,40 +253,23 @@ export const adminCustomersController = async (req: NextRequest) => {
     try {
         await requireAdmin();
 
-        const { searchParams } =
-            new URL(req.url);
+        const { searchParams } = new URL(req.url);
 
-        const page = Math.max(
-            1,
-            Number(
-                searchParams.get(
-                    "page"
-                ) || 1
-            )
-        );
+        const page = Math.max(1, Number(searchParams.get("page") || 1));
 
         const limit = Math.min(
             100,
-            Math.max(
-                1,
-                Number(
-                    searchParams.get(
-                        "limit"
-                    ) || 10
-                )
-            )
+            Math.max(1, Number(searchParams.get("limit") || 10))
         );
 
-        const search = searchParams.get(
-                "search"
-            ) || "";
+        const search = searchParams.get("search") || "";
 
         const data = await getAdminCustomers({
-                page,
-                limit,
-                search,
-            });
-
+            page,
+            limit,
+            search,
+        });
+            
         return NextResponse.json({
             success: true,
             data,

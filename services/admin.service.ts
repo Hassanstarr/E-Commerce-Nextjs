@@ -381,8 +381,7 @@ export const getAdminCustomers = async ({
 
     const skip = (page - 1) * limit;
 
-    const [customers, totalCustomers] =
-        await Promise.all([
+    const [customers, totalCustomers] = await Promise.all([
             User.find(query)
                 .select("-password")
                 .sort({ createdAt: -1 })
@@ -393,9 +392,7 @@ export const getAdminCustomers = async ({
             User.countDocuments(query),
         ]);
 
-    const customerIds = customers.map(
-        (customer) => customer._id
-    );
+    const customerIds = customers.map((customer) => customer._id);
 
     const orderStats = await Order.aggregate([
             {
@@ -443,9 +440,7 @@ export const getAdminCustomers = async ({
             page,
             limit,
             total: totalCustomers,
-            totalPages: Math.ceil(
-                totalCustomers / limit
-            ),
+            totalPages: Math.ceil(totalCustomers / limit),
         },
     };
 };
