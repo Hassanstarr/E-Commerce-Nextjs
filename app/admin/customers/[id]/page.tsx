@@ -1,233 +1,340 @@
-import Link from "next/link";
+"use client";
 
-type CustomerDetails = {
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import { adminFetch } from "@/lib/admin-api";
+
+type Customer = {
     _id: string;
     name: string;
     email: string;
     phone: string;
-    status: "Active" | "Inactive";
-    joinedAt: string;
-    totalSpent: number;
-    ordersCount: number;
-    address: string;
+    role: string;
+    createdAt: string;
 };
 
-const customer: CustomerDetails = {
-    _id: "CUS-1001",
-    name: "Ali Raza",
-    email: "ali.raza@example.com",
-    phone: "+92 300 1234567",
-    status: "Active",
-    joinedAt: "2026-05-12T10:30:00",
-    totalSpent: 52400,
-    ordersCount: 8,
-    address: "Johar Town, Lahore, Punjab, Pakistan",
+type CustomerOrder = {
+    _id: string;
+    createdAt: string;
+    total: number;
+    orderStatus: "pending" | "confirmed" | "shipped" | "delivered" | "cancelled";
+    paymentStatus: "pending" | "paid";
 };
 
-const orders = [
-    {
-        id: "ORD-1001",
-        date: "2026-10-03T10:30:00",
-        total: 12500,
-        status: "Pending",
-    },
-    {
-        id: "ORD-0987",
-        date: "2026-09-18T14:20:00",
-        total: 8400,
-        status: "Delivered",
-    },
-    {
-        id: "ORD-0942",
-        date: "2026-08-27T12:10:00",
-        total: 21900,
-        status: "Delivered",
-    },
-    {
-        id: "ORD-0881",
-        date: "2026-07-15T16:30:00",
-        total: 5600,
-        status: "Delivered",
-    },
-];
+type CustomerDetailsResponse = {
+    success: boolean;
+    data: {
+        customer: Customer;
+        statistics: {
+            totalOrders: number;
+            totalSpent: number;
+        };
+        orders: CustomerOrder[];
+    };
+};
 
 export default function CustomerDetailsPage() {
+    const params = useParams();
+    const id = params.id as string;
+
+    const [customer, setCustomer] = useState<Customer | null>(null);
+    const [statistics, setStatistics] = useState({
+        totalOrders: 0,
+        totalSpent: 0,
+    });
+    const [orders, setOrders] = useState<CustomerOrder[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
+    useEffect(() => {
+        if (!id) return;
+
+        const loadCustomer = async () => {
+            try {
+                setLoading(true);
+                setError("");
+
+                const response =
+                    await adminFetch<CustomerDetailsResponse>(
+                        `/api/admin/customers/${id}`
+                    );
+
+                setCustomer(response.data.customer);
+                setStatistics(response.data.statistics);
+                setOrders(response.data.orders);
+            } catch (error: any) {
+                console.error(
+                    "Failed to load customer:",
+                    error
+                );
+
+                setError(
+                    error?.message ||
+                        "Failed to load customer"
+                );
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadCustomer();
+    }, [id]);
+
     const formatDate = (date: string) => {
-        return new Date(date).toLocaleDateString("en-PK", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-        });
+        return new Date(date).toLocaleDateString(
+            "en-PK",
+            {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+            }
+        );
+    };
+
+    const formatCurrency = (amount: number) => {
+        return `Rs. ${amount.toLocaleString("en-PK")}`;
     };
 
     const getStatusClass = (status: string) => {
         switch (status) {
-            case "Delivered":
-                return "border-green-200 bg-green-50 text-green-700";
-            case "Pending":
-                return "border-amber-200 bg-amber-50 text-amber-700";
-            case "Cancelled":
-                return "border-red-200 bg-red-50 text-red-700";
+            case "delivered":
+                return "bg-green-100 text-green-700";
+
+            case "cancelled":
+                return "bg-red-100 text-red-700";
+
+            case "shipped":
+                return "bg-blue-100 text-blue-700";
+
+            case "confirmed":
+                return "bg-purple-100 text-purple-700";
+
+            case "pending":
+                return "bg-yellow-100 text-yellow-700";
+
             default:
-                return "border-gray-200 bg-gray-50 text-gray-700";
+                return "bg-gray-100 text-gray-700";
         }
     };
+
+    if (loading) {
+        return (
+            <div className="p-4 sm:p-6 lg:p-8 mx-auto max-w-7xl">
+                <div className="flex min-h-100 items-center justify-center">
+                    <p className="text-sm text-gray-500">
+                        Loading customer...
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error || !customer) {
+        return (
+            <div className="p-4 sm:p-6 lg:p-8 mx-auto max-w-7xl">
+                <Link
+                    href="/admin/customers"
+                    className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                >
+                    ← Back to Customers
+                </Link>
+
+                <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-6">
+                    <p className="text-sm text-red-600">
+                        {error || "Customer not found"}
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
+    const averageOrder =
+        statistics.totalOrders > 0
+            ? Math.round(
+                  statistics.totalSpent /
+                      statistics.totalOrders
+              )
+            : 0;
 
     return (
         <div className="p-4 sm:p-6 lg:p-8 mx-auto max-w-7xl">
             <div className="mb-6">
                 <Link
                     href="/admin/customers"
-                    className="text-sm font-medium text-gray-500 transition hover:text-black"
+                    className="text-sm font-medium text-gray-600 hover:text-gray-900"
                 >
                     ← Back to Customers
                 </Link>
             </div>
 
-            <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-                <div className="flex items-center gap-4">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 text-xl font-bold text-gray-700">
-                        {customer.name.charAt(0)}
-                    </div>
+            <div className="mb-6 rounded-xl border border-gray-200 bg-white p-5 sm:p-6">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xl font-semibold text-gray-700">
+                            {customer.name
+                                .charAt(0)
+                                .toUpperCase()}
+                        </div>
 
-                    <div>
-                        <div className="flex flex-wrap items-center gap-3">
-                            <h1 className="text-2xl font-bold text-gray-900">
+                        <div>
+                            <h1 className="text-xl font-semibold text-gray-900">
                                 {customer.name}
                             </h1>
 
-                            <span className="rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700">
-                                {customer.status}
-                            </span>
-                        </div>
+                            <p className="text-sm text-gray-500">
+                                {customer.email}
+                            </p>
 
-                        <p className="mt-1 text-sm text-gray-500">
-                            Customer ID: #{customer._id}
+                            <p className="mt-1 text-xs text-gray-400">
+                                Customer ID: {customer._id}
+                            </p>
+                        </div>
+                    </div>
+
+                    <span className="w-fit rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
+                        Active
+                    </span>
+                </div>
+            </div>
+
+            <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-xl border border-gray-200 bg-white p-5">
+                    <p className="text-sm text-gray-500">
+                        Total Orders
+                    </p>
+
+                    <p className="mt-2 text-2xl font-semibold text-gray-900">
+                        {statistics.totalOrders}
+                    </p>
+                </div>
+
+                <div className="rounded-xl border border-gray-200 bg-white p-5">
+                    <p className="text-sm text-gray-500">
+                        Total Spent
+                    </p>
+
+                    <p className="mt-2 text-2xl font-semibold text-gray-900">
+                        {formatCurrency(
+                            statistics.totalSpent
+                        )}
+                    </p>
+                </div>
+
+                <div className="rounded-xl border border-gray-200 bg-white p-5">
+                    <p className="text-sm text-gray-500">
+                        Average Order
+                    </p>
+
+                    <p className="mt-2 text-2xl font-semibold text-gray-900">
+                        {formatCurrency(averageOrder)}
+                    </p>
+                </div>
+
+                <div className="rounded-xl border border-gray-200 bg-white p-5">
+                    <p className="text-sm text-gray-500">
+                        Joined
+                    </p>
+
+                    <p className="mt-2 text-lg font-semibold text-gray-900">
+                        {formatDate(
+                            customer.createdAt
+                        )}
+                    </p>
+                </div>
+            </div>
+
+            <div className="mb-6 rounded-xl border border-gray-200 bg-white">
+                <div className="border-b border-gray-200 px-5 py-4">
+                    <h2 className="font-semibold text-gray-900">
+                        Customer Information
+                    </h2>
+                </div>
+
+                <div className="grid grid-cols-1 gap-5 p-5 sm:grid-cols-2">
+                    <div>
+                        <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                            Name
+                        </p>
+
+                        <p className="mt-1 text-sm text-gray-900">
+                            {customer.name}
+                        </p>
+                    </div>
+
+                    <div>
+                        <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                            Email
+                        </p>
+
+                        <p className="mt-1 text-sm text-gray-900">
+                            {customer.email}
+                        </p>
+                    </div>
+
+                    <div>
+                        <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                            Phone
+                        </p>
+
+                        <p className="mt-1 text-sm text-gray-900">
+                            {customer.phone || "Not provided"}
+                        </p>
+                    </div>
+
+                    <div>
+                        <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                            Account Created
+                        </p>
+
+                        <p className="mt-1 text-sm text-gray-900">
+                            {formatDate(
+                                customer.createdAt
+                            )}
                         </p>
                     </div>
                 </div>
             </div>
 
-            <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-                    <p className="text-sm text-gray-500">
-                        Total Orders
-                    </p>
-
-                    <p className="mt-2 text-2xl font-bold text-gray-900">
-                        {customer.ordersCount}
-                    </p>
-                </div>
-
-                <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-                    <p className="text-sm text-gray-500">
-                        Total Spent
-                    </p>
-
-                    <p className="mt-2 text-2xl font-bold text-gray-900">
-                        Rs. {customer.totalSpent.toLocaleString()}
-                    </p>
-                </div>
-
-                <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-                    <p className="text-sm text-gray-500">
-                        Average Order
-                    </p>
-
-                    <p className="mt-2 text-2xl font-bold text-gray-900">
-                        Rs.{" "}
-                        {Math.round(
-                            customer.totalSpent / customer.ordersCount
-                        ).toLocaleString()}
-                    </p>
-                </div>
-
-                <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-                    <p className="text-sm text-gray-500">
-                        Joined
-                    </p>
-
-                    <p className="mt-2 text-lg font-bold text-gray-900">
-                        {formatDate(customer.joinedAt)}
-                    </p>
-                </div>
-            </div>
-
-            <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
-                <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                    <h2 className="mb-5 text-lg font-semibold text-gray-900">
-                        Customer Information
-                    </h2>
-
-                    <div className="space-y-4">
-                        <div>
-                            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                                Name
-                            </p>
-
-                            <p className="mt-1 text-sm text-gray-900">
-                                {customer.name}
-                            </p>
-                        </div>
-
-                        <div>
-                            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                                Email
-                            </p>
-
-                            <p className="mt-1 break-all text-sm text-gray-900">
-                                {customer.email}
-                            </p>
-                        </div>
-
-                        <div>
-                            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                                Phone
-                            </p>
-
-                            <p className="mt-1 text-sm text-gray-900">
-                                {customer.phone}
-                            </p>
-                        </div>
-
-                        <div>
-                            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                                Address
-                            </p>
-
-                            <p className="mt-1 text-sm leading-6 text-gray-900">
-                                {customer.address}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="lg:col-span-2 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                    <h2 className="mb-5 text-lg font-semibold text-gray-900">
+            <div className="rounded-xl border border-gray-200 bg-white">
+                <div className="border-b border-gray-200 px-5 py-4">
+                    <h2 className="font-semibold text-gray-900">
                         Purchase History
                     </h2>
+                </div>
 
+                {orders.length === 0 ? (
+                    <div className="p-6 text-center">
+                        <p className="text-sm text-gray-500">
+                            This customer has no orders yet.
+                        </p>
+                    </div>
+                ) : (
                     <div className="overflow-x-auto">
-                        <table className="w-full min-w-150 text-left text-sm">
-                            <thead className="border-b border-gray-200">
-                                <tr>
-                                    <th className="px-3 py-3 font-semibold text-gray-700">
+                        <table className="w-full min-w-175">
+                            <thead>
+                                <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                                    <th className="px-5 py-3">
                                         Order
                                     </th>
 
-                                    <th className="px-3 py-3 font-semibold text-gray-700">
+                                    <th className="px-5 py-3">
                                         Date
                                     </th>
 
-                                    <th className="px-3 py-3 font-semibold text-gray-700">
+                                    <th className="px-5 py-3">
                                         Total
                                     </th>
 
-                                    <th className="px-3 py-3 font-semibold text-gray-700">
+                                    <th className="px-5 py-3">
+                                        Payment
+                                    </th>
+
+                                    <th className="px-5 py-3">
                                         Status
                                     </th>
 
-                                    <th className="px-3 py-3 text-right font-semibold text-gray-700">
+                                    <th className="px-5 py-3 text-right">
                                         Action
                                     </th>
                                 </tr>
@@ -236,33 +343,67 @@ export default function CustomerDetailsPage() {
                             <tbody>
                                 {orders.map((order) => (
                                     <tr
-                                        key={order.id}
+                                        key={order._id}
                                         className="border-b border-gray-100 last:border-0"
                                     >
-                                        <td className="px-3 py-4 font-medium text-gray-900">
-                                            #{order.id}
-                                        </td>
-
-                                        <td className="whitespace-nowrap px-3 py-4 text-gray-600">
-                                            {formatDate(order.date)}
-                                        </td>
-
-                                        <td className="whitespace-nowrap px-3 py-4 font-medium text-gray-900">
-                                            Rs. {order.total.toLocaleString()}
-                                        </td>
-
-                                        <td className="px-3 py-4">
-                                            <span
-                                                className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${getStatusClass(order.status)}`}
+                                        <td className="px-5 py-4">
+                                            <Link
+                                                href={`/admin/orders/${order._id}`}
+                                                className="text-sm font-medium text-gray-900 hover:text-blue-600"
                                             >
-                                                {order.status}
+                                                {order._id}
+                                            </Link>
+                                        </td>
+
+                                        <td className="px-5 py-4 text-sm text-gray-600">
+                                            {formatDate(
+                                                order.createdAt
+                                            )}
+                                        </td>
+
+                                        <td className="px-5 py-4 text-sm font-medium text-gray-900">
+                                            {formatCurrency(
+                                                order.total
+                                            )}
+                                        </td>
+
+                                        <td className="px-5 py-4">
+                                            <span
+                                                className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                                                    order.paymentStatus ===
+                                                    "paid"
+                                                        ? "bg-green-100 text-green-700"
+                                                        : "bg-yellow-100 text-yellow-700"
+                                                }`}
+                                            >
+                                                {order.paymentStatus
+                                                    .charAt(0)
+                                                    .toUpperCase() +
+                                                    order.paymentStatus.slice(
+                                                        1
+                                                    )}
                                             </span>
                                         </td>
 
-                                        <td className="px-3 py-4 text-right">
+                                        <td className="px-5 py-4">
+                                            <span
+                                                className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getStatusClass(
+                                                    order.orderStatus
+                                                )}`}
+                                            >
+                                                {order.orderStatus
+                                                    .charAt(0)
+                                                    .toUpperCase() +
+                                                    order.orderStatus.slice(
+                                                        1
+                                                    )}
+                                            </span>
+                                        </td>
+
+                                        <td className="px-5 py-4 text-right">
                                             <Link
-                                                href={`/admin/orders/${order.id}`}
-                                                className="text-sm font-medium text-gray-600 hover:text-black"
+                                                href={`/admin/orders/${order._id}`}
+                                                className="text-sm font-medium text-gray-700 hover:text-gray-900"
                                             >
                                                 View
                                             </Link>
@@ -272,19 +413,8 @@ export default function CustomerDetailsPage() {
                             </tbody>
                         </table>
                     </div>
-                </div>
+                )}
             </div>
-
-            {/* <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <h2 className="text-lg font-semibold text-gray-900">
-                    Customer Notes
-                </h2>
-
-                <p className="mt-2 text-sm text-gray-500">
-                    Customer notes and activity will be connected to the
-                    backend later.
-                </p>
-            </div> */}
         </div>
     );
 }
