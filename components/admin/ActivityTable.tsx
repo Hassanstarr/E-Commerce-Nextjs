@@ -9,7 +9,7 @@ export type AdminActivity = {
         | "Product"
         | "Category"
         | "Customer"
-        | "Stock"
+        // | "Stock"
         | "System";
     action: string;
     description: string;
@@ -22,9 +22,7 @@ type ActivityTableProps = {
     activities: AdminActivity[];
 };
 
-export default function ActivityTable({
-    activities,
-}: ActivityTableProps) {
+export default function ActivityTable({ activities }: ActivityTableProps) {
     const [search, setSearch] = useState("");
     const [typeFilter, setTypeFilter] = useState("all");
 
@@ -72,8 +70,8 @@ export default function ActivityTable({
                 return "border-indigo-200 bg-indigo-50 text-indigo-700";
             case "Customer":
                 return "border-green-200 bg-green-50 text-green-700";
-            case "Stock":
-                return "border-amber-200 bg-amber-50 text-amber-700";
+            // case "Stock":
+            //     return "border-amber-200 bg-amber-50 text-amber-700";
             case "System":
                 return "border-gray-200 bg-gray-50 text-gray-700";
             default:
@@ -97,9 +95,7 @@ export default function ActivityTable({
                             id="activity-search"
                             type="text"
                             value={search}
-                            onChange={(event) =>
-                                setSearch(event.target.value)
-                            }
+                            onChange={(event) => setSearch(event.target.value)}
                             placeholder="Search activity, user, action or reference..."
                             className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-black focus:ring-1 focus:ring-black"
                         />
@@ -107,9 +103,7 @@ export default function ActivityTable({
 
                     <select
                         value={typeFilter}
-                        onChange={(event) =>
-                            setTypeFilter(event.target.value)
-                        }
+                        onChange={(event) => setTypeFilter(event.target.value)}
                         className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-700 outline-none transition focus:border-black focus:ring-1 focus:ring-black"
                     >
                         <option value="all">All Activity</option>
@@ -117,7 +111,7 @@ export default function ActivityTable({
                         <option value="Product">Products</option>
                         <option value="Category">Categories</option>
                         <option value="Customer">Customers</option>
-                        <option value="Stock">Stock</option>
+                        {/* <option value="Stock">Stock</option> */}
                         <option value="System">System</option>
                     </select>
                 </div>

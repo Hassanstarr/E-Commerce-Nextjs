@@ -97,13 +97,9 @@ export default function AdminOrdersPage() {
                     `/api/admin/orders?${params.toString()}`
                 );
 
-                setOrders(
-                    response.data.orders
-                );
+                setOrders(response.data.orders);
+                setPagination(response.data.pagination);
 
-                setPagination(
-                    response.data.pagination
-                );
             } catch (error: any) {
                 setError(error?.message || "Failed to load orders");
             } finally {
@@ -123,8 +119,7 @@ export default function AdminOrdersPage() {
     useEffect(() => {
         const loadOrderSummary = async () => {
             try {
-                const response =
-                    await adminFetch<{
+                const response = await adminFetch<{
                         success: boolean;
                         data: DashboardResponse;
                     }>(

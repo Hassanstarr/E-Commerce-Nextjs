@@ -122,10 +122,7 @@ export async function updateProductController( req: NextRequest, id: string ) {
             );
         }
 
-        const product = await updateProduct(
-            id,
-            validation.data
-        );
+        const product = await updateProduct(id, validation.data);
 
         await createActivityLog({
             user: admin.userId,

@@ -14,6 +14,7 @@ import TopProducts from "@/components/admin/TopProducts";
 import LowStockProducts from "@/components/admin/LowStockProducts";
 
 import { adminFetch } from "@/lib/admin-api";
+import Spinner from "@/components/ui/Spinner";
 
 interface DashboardData {
     summary: {
@@ -46,8 +47,7 @@ export default function AdminPage() {
                 setLoading(true);
                 setError("");
 
-                const response =
-                    await adminFetch<{
+                const response = await adminFetch<{
                         success: boolean;
                         data: DashboardData;
                     }>("/api/admin/dashboard");
@@ -70,8 +70,9 @@ export default function AdminPage() {
 
     if (loading) {
         return (
-            <section className="px-4 py-6 sm:px-6 lg:px-8">
-                <div className="mx-auto max-w-7xl">
+            <section className="flex min-h-[60vh] items-center justify-center px-4 py-6 sm:px-6 lg:px-8">
+                <div className="flex flex-col items-center justify-center gap-3">
+                    <Spinner />
                     <p className="text-sm text-gray-500">
                         Loading dashboard...
                     </p>

@@ -27,6 +27,7 @@ export const getAdminDashboardData = async () => {
 
         Order.find({
             orderStatus: "delivered",
+            paymentStatus: "paid",
         }).lean(),
 
         Order.find()
@@ -62,25 +63,16 @@ export const getAdminDashboardData = async () => {
         }),
     ]);
 
-    const totalRevenue =
-        deliveredOrders.reduce(
-            (sum, order) =>
-                sum + order.total,
+    const totalRevenue = deliveredOrders.reduce((sum, order) =>
+            sum + order.total,
             0
         );
 
-    const productsSold =
-        deliveredOrders.reduce(
-            (sum, order) => {
+    const productsSold = deliveredOrders.reduce((sum, order) => {
                 return (
-                    sum +
-                    order.items.reduce(
-                        (
-                            itemSum,
-                            item
-                        ) =>
-                            itemSum +
-                            item.quantity,
+                    sum + order.items.reduce(
+                        (itemSum, item) =>
+                        itemSum + item.quantity,
                         0
                     )
                 );

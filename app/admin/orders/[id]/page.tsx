@@ -176,14 +176,8 @@ export default function AdminOrderDetailsPage() {
                 {
                     method: "PATCH",
                     body: JSON.stringify({
-                        orderStatus:
-                            statusChanged
-                                ? selectedStatus
-                                : undefined,
-                        paymentStatus:
-                            paymentChanged
-                                ? selectedPaymentStatus
-                                : undefined,
+                        orderStatus: statusChanged ? selectedStatus : undefined,
+                        paymentStatus: paymentChanged ? selectedPaymentStatus : undefined,
                         note,
                     }),
                 }

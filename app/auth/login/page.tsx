@@ -31,18 +31,14 @@ export default function LoginPage() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
-    const handleChange = (
-        event: React.ChangeEvent<HTMLInputElement>
-    ) => {
+    const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({
             ...formData,
             [event.target.name]: event.target.value,
         });
     };
 
-    const handleSubmit = async (
-        event: React.FormEvent<HTMLFormElement>
-    ) => {
+    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
         setError("");
