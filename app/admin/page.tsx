@@ -1,47 +1,130 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import {
     HiOutlineArrowTrendingUp,
     HiOutlineCube,
     HiOutlineShoppingCart,
     HiOutlineUsers,
 } from "react-icons/hi2";
+
 import RevenueChart from "@/components/admin/RevenueChart";
 import RecentOrders from "@/components/admin/RecentOrders";
 import TopProducts from "@/components/admin/TopProducts";
 import LowStockProducts from "@/components/admin/LowStockProducts";
 
+import { adminFetch } from "@/lib/admin-api";
 
-const stats = [
-    {
-        title: "Total Revenue",
-        value: "Rs. 1,245,500",
-        change: "+12.5%",
-        description: "from last month",
-        icon: HiOutlineArrowTrendingUp,
-    },
-    {
-        title: "Total Orders",
-        value: "248",
-        change: "+8.2%",
-        description: "from last month",
-        icon: HiOutlineShoppingCart,
-    },
-    {
-        title: "Products Sold",
-        value: "1,284",
-        change: "+15.4%",
-        description: "from last month",
-        icon: HiOutlineCube,
-    },
-    {
-        title: "Customers",
-        value: "482",
-        change: "+6.8%",
-        description: "from last month",
-        icon: HiOutlineUsers,
-    },
-];
+interface DashboardData {
+    summary: {
+        totalRevenue: number;
+        totalOrders: number;
+        productsSold: number;
+        totalCustomers: number;
+    };
+
+    orderSummary: {
+        pending: number;
+        confirmed: number;
+        shipped: number;
+        delivered: number;
+        cancelled: number;
+    };
+
+    recentOrders: any[];
+    lowStockProducts: any[];
+}
 
 export default function AdminPage() {
+    const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
+    useEffect(() => {
+        const loadDashboard = async () => {
+            try {
+                setLoading(true);
+                setError("");
+
+                const response =
+                    await adminFetch<{
+                        success: boolean;
+                        data: DashboardData;
+                    }>("/api/admin/dashboard");
+
+                setDashboardData(
+                    response.data
+                );
+            } catch (error: any) {
+                setError(
+                    error?.message ||
+                    "Failed to load dashboard"
+                );
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadDashboard();
+    }, []);
+
+    if (loading) {
+        return (
+            <section className="px-4 py-6 sm:px-6 lg:px-8">
+                <div className="mx-auto max-w-7xl">
+                    <p className="text-sm text-gray-500">
+                        Loading dashboard...
+                    </p>
+                </div>
+            </section>
+        );
+    }
+
+    if (error) {
+        return (
+            <section className="px-4 py-6 sm:px-6 lg:px-8">
+                <div className="mx-auto max-w-7xl">
+                    <div className="rounded-2xl border border-red-200 bg-red-50 p-5">
+                        <p className="text-sm font-medium text-red-600">
+                            {error}
+                        </p>
+                    </div>
+                </div>
+            </section>
+        );
+    }
+
+    if (!dashboardData) {
+        return null;
+    }
+
+    const stats = [
+        {
+            title: "Total Revenue",
+            value: `Rs. ${dashboardData.summary.totalRevenue.toLocaleString()}`,
+            description: "from delivered orders",
+            icon: HiOutlineArrowTrendingUp,
+        },
+        {
+            title: "Total Orders",
+            value: dashboardData.summary.totalOrders.toLocaleString(),
+            description: "all orders",
+            icon: HiOutlineShoppingCart,
+        },
+        {
+            title: "Products Sold",
+            value: dashboardData.summary.productsSold.toLocaleString(),
+            description: "from delivered orders",
+            icon: HiOutlineCube,
+        },
+        {
+            title: "Customers",
+            value: dashboardData.summary.totalCustomers.toLocaleString(),
+            description: "registered users",
+            icon: HiOutlineUsers,
+        },
+    ];
+
     return (
         <section className="px-4 py-6 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-7xl">
@@ -86,12 +169,8 @@ export default function AdminPage() {
                                     </div>
                                 </div>
 
-                                <div className="mt-4 flex items-center gap-2 text-sm">
-                                    <span className="font-medium text-green-600">
-                                        {stat.change}
-                                    </span>
-
-                                    <span className="text-gray-400">
+                                <div className="mt-4">
+                                    <span className="text-sm text-gray-400">
                                         {stat.description}
                                     </span>
                                 </div>
@@ -134,7 +213,6 @@ export default function AdminPage() {
 
                         <RevenueChart />
                     </div>
-                    
 
                     <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
                         <div>
@@ -155,7 +233,7 @@ export default function AdminPage() {
                                 </span>
 
                                 <span className="font-semibold text-gray-900">
-                                    24
+                                    {dashboardData.orderSummary.pending}
                                 </span>
                             </div>
 
@@ -165,7 +243,7 @@ export default function AdminPage() {
                                 </span>
 
                                 <span className="font-semibold text-gray-900">
-                                    18
+                                    {dashboardData.orderSummary.confirmed}
                                 </span>
                             </div>
 
@@ -175,7 +253,7 @@ export default function AdminPage() {
                                 </span>
 
                                 <span className="font-semibold text-gray-900">
-                                    31
+                                    {dashboardData.orderSummary.shipped}
                                 </span>
                             </div>
 
@@ -185,7 +263,7 @@ export default function AdminPage() {
                                 </span>
 
                                 <span className="font-semibold text-gray-900">
-                                    162
+                                    {dashboardData.orderSummary.delivered}
                                 </span>
                             </div>
 
@@ -195,7 +273,7 @@ export default function AdminPage() {
                                 </span>
 
                                 <span className="font-semibold text-gray-900">
-                                    13
+                                    {dashboardData.orderSummary.cancelled}
                                 </span>
                             </div>
 
@@ -204,12 +282,18 @@ export default function AdminPage() {
                 </div>
 
                 <div className="mt-6">
-                    <RecentOrders />
+                    <RecentOrders
+                        orders={dashboardData.recentOrders}
+                    />
                 </div>
 
                 <div className="mt-6 grid gap-6 lg:grid-cols-2">
                     <TopProducts />
-                    <LowStockProducts />
+                    <LowStockProducts
+                        products={
+                            dashboardData.lowStockProducts
+                        }
+                    />
                 </div>
 
             </div>

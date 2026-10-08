@@ -11,24 +11,23 @@ import { createActivityLog } from "./activity.service";
 export const getAdminDashboardData = async () => {
     const [
         totalOrders,
-        totalProducts,
         totalCustomers,
         deliveredOrders,
         recentOrders,
         lowStockProducts,
+        pendingOrders,
+        confirmedOrders,
+        shippedOrders,
+        deliveredOrderCount,
+        cancelledOrders,
     ] = await Promise.all([
         Order.countDocuments(),
 
-        Product.countDocuments(),
-
-        User.countDocuments({
-            role: "user",
-        }),
+        User.countDocuments(),
 
         Order.find({
             orderStatus: "delivered",
-        }).select("total items")
-            .lean(),
+        }).lean(),
 
         Order.find()
             .sort({ createdAt: -1 })
@@ -37,27 +36,57 @@ export const getAdminDashboardData = async () => {
 
         Product.find({
             stock: { $lte: 5 },
-        }).sort({ stock: 1 })
+        })
+            .sort({ stock: 1 })
             .limit(5)
             .lean(),
+
+        Order.countDocuments({
+            orderStatus: "pending",
+        }),
+
+        Order.countDocuments({
+            orderStatus: "confirmed",
+        }),
+
+        Order.countDocuments({
+            orderStatus: "shipped",
+        }),
+
+        Order.countDocuments({
+            orderStatus: "delivered",
+        }),
+
+        Order.countDocuments({
+            orderStatus: "cancelled",
+        }),
     ]);
 
-    const totalRevenue = deliveredOrders.reduce(
-        (sum, order) => sum + order.total,
-        0
-    );
+    const totalRevenue =
+        deliveredOrders.reduce(
+            (sum, order) =>
+                sum + order.total,
+            0
+        );
 
-    const productsSold = deliveredOrders.reduce(
-        (sum, order) => {
-            return (
-                sum + order.items.reduce(
-                    (itemSum, item) => itemSum + item.quantity,
-                    0
-                )
-            );
-        },
-        0
-    );
+    const productsSold =
+        deliveredOrders.reduce(
+            (sum, order) => {
+                return (
+                    sum +
+                    order.items.reduce(
+                        (
+                            itemSum,
+                            item
+                        ) =>
+                            itemSum +
+                            item.quantity,
+                        0
+                    )
+                );
+            },
+            0
+        );
 
     return {
         summary: {
@@ -66,6 +95,15 @@ export const getAdminDashboardData = async () => {
             productsSold,
             totalCustomers,
         },
+
+        orderSummary: {
+            pending: pendingOrders,
+            confirmed: confirmedOrders,
+            shipped: shippedOrders,
+            delivered: deliveredOrderCount,
+            cancelled: cancelledOrders,
+        },
+
         recentOrders,
         lowStockProducts,
     };

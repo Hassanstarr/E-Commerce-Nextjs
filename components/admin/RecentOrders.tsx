@@ -1,55 +1,35 @@
 import Link from "next/link";
 
-const recentOrders = [
-    {
-        id: "#1024",
-        customer: "Muhammad Hassan",
-        items: 3,
-        total: "Rs. 45,200",
-        status: "Delivered",
-        date: "Oct 6, 2026",
-    },
-    {
-        id: "#1023",
-        customer: "Ali Ahmed",
-        items: 1,
-        total: "Rs. 12,500",
-        status: "Shipped",
-        date: "Oct 6, 2026",
-    },
-    {
-        id: "#1022",
-        customer: "Ahmed Khan",
-        items: 4,
-        total: "Rs. 32,800",
-        status: "Pending",
-        date: "Oct 5, 2026",
-    },
-    {
-        id: "#1021",
-        customer: "Usman Ali",
-        items: 2,
-        total: "Rs. 18,900",
-        status: "Confirmed",
-        date: "Oct 5, 2026",
-    },
-];
+interface RecentOrder {
+    _id: string;
+    customerName: string;
+    items: {
+        quantity: number;
+    }[];
+    total: number;
+    orderStatus: string;
+    createdAt: string;
+}
+
+interface RecentOrdersProps {
+    orders: RecentOrder[];
+}
 
 function getStatusClass(status: string) {
     switch (status) {
-        case "Delivered":
+        case "delivered":
             return "bg-green-50 text-green-700";
 
-        case "Shipped":
+        case "shipped":
             return "bg-blue-50 text-blue-700";
 
-        case "Confirmed":
+        case "confirmed":
             return "bg-purple-50 text-purple-700";
 
-        case "Pending":
+        case "pending":
             return "bg-yellow-50 text-yellow-700";
 
-        case "Cancelled":
+        case "cancelled":
             return "bg-red-50 text-red-700";
 
         default:
@@ -57,7 +37,14 @@ function getStatusClass(status: string) {
     }
 }
 
-export default function RecentOrders() {
+function formatStatus(status: string) {
+    return (
+        status.charAt(0).toUpperCase() +
+        status.slice(1)
+    );
+}
+
+export default function RecentOrders({ orders }: RecentOrdersProps) {
     return (
         <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
@@ -106,44 +93,73 @@ export default function RecentOrders() {
                     </thead>
 
                     <tbody>
-                        {recentOrders.map((order) => (
-                            <tr
-                                key={order.id}
-                                className="border-b border-gray-50 last:border-b-0"
-                            >
-                                <td className="px-5 py-4 text-sm font-medium text-gray-900">
-                                    {order.id}
-                                </td>
-
-                                <td className="px-5 py-4">
-                                    <p className="text-sm font-medium text-gray-900">
-                                        {order.customer}
-                                    </p>
-
-                                    <p className="mt-1 text-xs text-gray-400">
-                                        {order.date}
-                                    </p>
-                                </td>
-
-                                <td className="px-5 py-4 text-sm text-gray-500">
-                                    {order.items}
-                                </td>
-
-                                <td className="px-5 py-4 text-sm font-medium text-gray-900">
-                                    {order.total}
-                                </td>
-
-                                <td className="px-5 py-4">
-                                    <span
-                                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getStatusClass(
-                                            order.status
-                                        )}`}
-                                    >
-                                        {order.status}
-                                    </span>
+                        {orders.length === 0 ? (
+                            <tr>
+                                <td
+                                    colSpan={5}
+                                    className="px-5 py-8 text-center text-sm text-gray-500"
+                                >
+                                    No orders found.
                                 </td>
                             </tr>
-                        ))}
+                        ) : (
+                            orders.map((order) => {
+                                const itemCount =
+                                    order.items.reduce(
+                                        (
+                                            total,
+                                            item
+                                        ) =>
+                                            total +
+                                            item.quantity,
+                                        0
+                                    );
+
+                                return (
+                                    <tr
+                                        key={order._id}
+                                        className="border-b border-gray-50 last:border-b-0"
+                                    >
+                                        <td className="px-5 py-4 text-sm font-medium text-gray-900">
+                                            #{order._id.slice(-6)}
+                                        </td>
+
+                                        <td className="px-5 py-4">
+                                            <p className="text-sm font-medium text-gray-900">
+                                                {order.customerName}
+                                            </p>
+
+                                            <p className="mt-1 text-xs text-gray-400">
+                                                {new Date(
+                                                    order.createdAt
+                                                ).toLocaleDateString()}
+                                            </p>
+                                        </td>
+
+                                        <td className="px-5 py-4 text-sm text-gray-500">
+                                            {itemCount}
+                                        </td>
+
+                                        <td className="px-5 py-4 text-sm font-medium text-gray-900">
+                                            Rs.{" "}
+                                            {order.total.toLocaleString()}
+                                        </td>
+
+                                        <td className="px-5 py-4">
+                                            <span
+                                                className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getStatusClass(
+                                                    order.orderStatus
+                                                )}`}
+                                            >
+                                                {formatStatus(
+                                                    order.orderStatus
+                                                )}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                );
+                            })
+                        )}
                     </tbody>
                 </table>
             </div>
