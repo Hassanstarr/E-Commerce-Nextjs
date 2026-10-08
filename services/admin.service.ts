@@ -314,15 +314,6 @@ export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentS
         });
     }
 
-    if( orderStatus && orderStatus !== previousStatus ){
-        await OrderHistory.create({
-            order: orderId,
-            status: orderStatus,
-            changedBy,
-            note
-        });
-    }
-
     if ( orderStatus && orderStatus !== previousStatus ) {
         await OrderHistory.create({
             order: orderId,
