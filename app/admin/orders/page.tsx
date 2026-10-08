@@ -1,123 +1,191 @@
-import OrderTable, {
-    type AdminOrder,
-} from "@/components/admin/OrderTable";
+"use client";
 
-const mockOrders: AdminOrder[] = [
-    {
-        _id: "ORD-1001",
-        customerName: "Ali Raza",
-        customerEmail: "ali@example.com",
-        total: 12500,
-        paymentMethod: "COD",
-        paymentStatus: "Pending",
-        orderStatus: "Pending",
-        itemsCount: 2,
-        createdAt: "2026-10-05T10:30:00",
-    },
-    {
-        _id: "ORD-1002",
-        customerName: "Ahmed Khan",
-        customerEmail: "ahmed@example.com",
-        total: 8400,
-        paymentMethod: "Card",
-        paymentStatus: "Paid",
-        orderStatus: "Confirmed",
-        itemsCount: 1,
-        createdAt: "2026-10-04T15:20:00",
-    },
-    {
-        _id: "ORD-1003",
-        customerName: "Sara Malik",
-        customerEmail: "sara@example.com",
-        total: 21900,
-        paymentMethod: "Card",
-        paymentStatus: "Paid",
-        orderStatus: "Shipped",
-        itemsCount: 3,
-        createdAt: "2026-10-03T11:45:00",
-    },
-    {
-        _id: "ORD-1004",
-        customerName: "Usman Ali",
-        customerEmail: "usman@example.com",
-        total: 5600,
-        paymentMethod: "COD",
-        paymentStatus: "Paid",
-        orderStatus: "Delivered",
-        itemsCount: 2,
-        createdAt: "2026-10-02T09:15:00",
-    },
-    {
-        _id: "ORD-1005",
-        customerName: "Hina Ahmed",
-        customerEmail: "hina@example.com",
-        total: 15700,
-        paymentMethod: "Card",
-        paymentStatus: "Paid",
-        orderStatus: "Delivered",
-        itemsCount: 4,
-        createdAt: "2026-10-01T14:10:00",
-    },
-    {
-        _id: "ORD-1006",
-        customerName: "Hamza Shah",
-        customerEmail: "hamza@example.com",
-        total: 7200,
-        paymentMethod: "COD",
-        paymentStatus: "Pending",
-        orderStatus: "Confirmed",
-        itemsCount: 1,
-        createdAt: "2026-09-30T16:40:00",
-    },
-    {
-        _id: "ORD-1007",
-        customerName: "Fatima Noor",
-        customerEmail: "fatima@example.com",
-        total: 9300,
-        paymentMethod: "Card",
-        paymentStatus: "Paid",
-        orderStatus: "Cancelled",
-        itemsCount: 2,
-        createdAt: "2026-09-29T12:25:00",
-    },
-    {
-        _id: "ORD-1008",
-        customerName: "Bilal Hassan",
-        customerEmail: "bilal@example.com",
-        total: 18200,
-        paymentMethod: "COD",
-        paymentStatus: "Pending",
-        orderStatus: "Shipped",
-        itemsCount: 3,
-        createdAt: "2026-09-28T10:05:00",
-    },
-];
+import { useEffect, useState } from "react";
+import OrderTable, { type AdminOrder } from "@/components/admin/OrderTable";
+import { adminFetch } from "@/lib/admin-api";
+
+interface OrdersResponse {
+    orders: AdminOrder[];
+    pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+    };
+}
+
+interface DashboardResponse {
+    orderSummary: {
+        pending: number;
+        confirmed: number;
+        shipped: number;
+        delivered: number;
+        cancelled: number;
+    };
+    summary: {
+        totalOrders: number;
+    };
+}
 
 export default function AdminOrdersPage() {
-    const totalOrders = mockOrders.length;
+    const [orders, setOrders] = useState<AdminOrder[]>([]);
 
-    const pendingOrders = mockOrders.filter(
-        (order) => order.orderStatus === "Pending"
-    ).length;
+    const [pagination, setPagination] = useState({
+        page: 1,
+        limit: 10,
+        total: 0,
+        totalPages: 0,
+    });
 
-    const activeOrders = mockOrders.filter(
-        (order) =>
-            order.orderStatus === "Confirmed" ||
-            order.orderStatus === "Shipped"
-    ).length;
+    const [orderSummary, setOrderSummary] = useState<DashboardResponse["orderSummary"]>({
+        pending: 0,
+        confirmed: 0,
+        shipped: 0,
+        delivered: 0,
+        cancelled: 0,
+    });
 
-    const deliveredOrders = mockOrders.filter(
-        (order) => order.orderStatus === "Delivered"
-    ).length;
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+    const [search, setSearch] = useState("");
+    const [orderStatus, setOrderStatus] = useState("");
+    const [paymentStatus, setPaymentStatus] = useState("");
 
-    const cancelledOrders = mockOrders.filter(
-        (order) => order.orderStatus === "Cancelled"
-    ).length;
+    useEffect(() => {
+        const loadOrders = async () => {
+            try {
+                setLoading(true);
+                setError("");
+
+                const params = new URLSearchParams();
+
+                params.set(
+                    "page",
+                    String(pagination.page)
+                );
+
+                params.set(
+                    "limit",
+                    String(pagination.limit)
+                );
+
+                if (search.trim()) {
+                    params.set(
+                        "search",
+                        search.trim()
+                    );
+                }
+
+                if (orderStatus) {
+                    params.set(
+                        "orderStatus",
+                        orderStatus
+                    );
+                }
+
+                if (paymentStatus) {
+                    params.set(
+                        "paymentStatus",
+                        paymentStatus
+                    );
+                }
+
+                const response = await adminFetch<{
+                    success: boolean;
+                    data: OrdersResponse;
+                }>(
+                    `/api/admin/orders?${params.toString()}`
+                );
+
+                setOrders(response.data.orders);
+                setPagination(response.data.pagination);
+
+            } catch (error: any) {
+                setError(error?.message || "Failed to load orders");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadOrders();
+    }, [
+        pagination.page,
+        pagination.limit,
+        search,
+        orderStatus,
+        paymentStatus,
+    ]);
+
+    useEffect(() => {
+        const loadOrderSummary = async () => {
+            try {
+                const response = await adminFetch<{
+                        success: boolean;
+                        data: DashboardResponse;
+                    }>(
+                        "/api/admin/dashboard"
+                    );
+
+                setOrderSummary(
+                    response.data.orderSummary
+                );
+            } catch (error) {
+                console.error("Failed to load order summary:", error);
+            }
+        };
+
+        loadOrderSummary();
+    }, []);
+
+    const totalOrders =
+        orderSummary.pending +
+        orderSummary.confirmed +
+        orderSummary.shipped +
+        orderSummary.delivered +
+        orderSummary.cancelled;
+
+    const pendingOrders = orderSummary.pending;
+    const activeOrders = orderSummary.confirmed + orderSummary.shipped;
+    const deliveredOrders = orderSummary.delivered;
+    const cancelledOrders = orderSummary.cancelled;
+    
+    const handleSearchChange = ( value: string ) => {
+        setPagination((current) => ({
+            ...current,
+            page: 1,
+        }));
+
+        setSearch(value);
+    };
+
+    const handleStatusChange = ( value: string ) => {
+        setPagination((current) => ({
+            ...current,
+            page: 1,
+        }));
+
+        setOrderStatus(value);
+    };
+
+    const handlePaymentChange = (value: string) => {
+        setPagination((current) => ({
+            ...current,
+            page: 1,
+        }));
+
+        setPaymentStatus(value);
+    };
+
+    const handlePageChange = (page: number) => {
+        setPagination((current) => ({
+            ...current,
+            page,
+        }));
+    };
 
     return (
         <section className="min-h-screen bg-gray-50 px-4 py-8 sm:px-6 lg:px-8">
             <main className="mx-auto max-w-7xl">
-
                 <div className="mb-8">
                     <p className="mb-2 text-sm font-medium text-gray-500">
                         Store Management
@@ -132,7 +200,6 @@ export default function AdminOrdersPage() {
                         delivery status.
                     </p>
                 </div>
-                
 
                 <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
                     <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -190,7 +257,28 @@ export default function AdminOrdersPage() {
                     </div>
                 </div>
 
-                <OrderTable orders={mockOrders} />
+                {error && (
+                    <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4">
+                        <p className="text-sm font-medium text-red-600">
+                            {error}
+                        </p>
+                    </div>
+                )}
+
+                <OrderTable
+                    orders={orders}
+                    loading={loading}
+                    total={pagination.total}
+                    page={pagination.page}
+                    totalPages={pagination.totalPages}
+                    search={search}
+                    statusFilter={orderStatus}
+                    paymentFilter={paymentStatus}
+                    onSearchChange={handleSearchChange}
+                    onStatusChange={handleStatusChange}
+                    onPaymentChange={handlePaymentChange}
+                    onPageChange={handlePageChange}
+                />
             </main>
         </section>
     );

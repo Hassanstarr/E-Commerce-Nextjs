@@ -2,6 +2,8 @@ import Order from "@/models/Order";
 import Product from "@/models/Product";
 import User from "@/models/User";
 import Category from "@/models/Category";
+import OrderHistory from "@/models/OrderHistory";
+import { createActivityLog } from "./activity.service";
 
 
 //DASHBOARD
@@ -9,24 +11,24 @@ import Category from "@/models/Category";
 export const getAdminDashboardData = async () => {
     const [
         totalOrders,
-        totalProducts,
         totalCustomers,
         deliveredOrders,
         recentOrders,
         lowStockProducts,
+        pendingOrders,
+        confirmedOrders,
+        shippedOrders,
+        deliveredOrderCount,
+        cancelledOrders,
     ] = await Promise.all([
         Order.countDocuments(),
 
-        Product.countDocuments(),
-
-        User.countDocuments({
-            role: "user",
-        }),
+        User.countDocuments(),
 
         Order.find({
             orderStatus: "delivered",
-        }).select("total items")
-            .lean(),
+            paymentStatus: "paid",
+        }).lean(),
 
         Order.find()
             .sort({ createdAt: -1 })
@@ -35,27 +37,48 @@ export const getAdminDashboardData = async () => {
 
         Product.find({
             stock: { $lte: 5 },
-        }).sort({ stock: 1 })
+        })
+            .sort({ stock: 1 })
             .limit(5)
             .lean(),
+
+        Order.countDocuments({
+            orderStatus: "pending",
+        }),
+
+        Order.countDocuments({
+            orderStatus: "confirmed",
+        }),
+
+        Order.countDocuments({
+            orderStatus: "shipped",
+        }),
+
+        Order.countDocuments({
+            orderStatus: "delivered",
+        }),
+
+        Order.countDocuments({
+            orderStatus: "cancelled",
+        }),
     ]);
 
-    const totalRevenue = deliveredOrders.reduce(
-        (sum, order) => sum + order.total,
-        0
-    );
+    const totalRevenue = deliveredOrders.reduce((sum, order) =>
+            sum + order.total,
+            0
+        );
 
-    const productsSold = deliveredOrders.reduce(
-        (sum, order) => {
-            return (
-                sum + order.items.reduce(
-                    (itemSum, item) => itemSum + item.quantity,
-                    0
-                )
-            );
-        },
-        0
-    );
+    const productsSold = deliveredOrders.reduce((sum, order) => {
+                return (
+                    sum + order.items.reduce(
+                        (itemSum, item) =>
+                        itemSum + item.quantity,
+                        0
+                    )
+                );
+            },
+            0
+        );
 
     return {
         summary: {
@@ -64,6 +87,15 @@ export const getAdminDashboardData = async () => {
             productsSold,
             totalCustomers,
         },
+
+        orderSummary: {
+            pending: pendingOrders,
+            confirmed: confirmedOrders,
+            shipped: shippedOrders,
+            delivered: deliveredOrderCount,
+            cancelled: cancelledOrders,
+        },
+
         recentOrders,
         lowStockProducts,
     };
@@ -182,9 +214,11 @@ const validPaymentStatuses = [
 interface UpdateAdminOrderParams {
     orderStatus?: string;
     paymentStatus?: string;
+    changedBy: string;
+    note?: string;
 }
 
-export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentStatus }: UpdateAdminOrderParams ) => {
+export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentStatus, changedBy, note="" }: UpdateAdminOrderParams ) => {
     if (orderStatus === undefined && paymentStatus === undefined) {
         const error: any = new Error(
             "No update data provided"
@@ -215,6 +249,15 @@ export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentS
         throw error;
     }
 
+    const existingOrder = await Order.findById(orderId)
+
+    if(!existingOrder){
+        const error: any = new Error("Order not found");
+        error.statusCode = 404;
+
+        throw error;
+    }
+
     const updateData: any = {};
 
     if (orderStatus) {
@@ -224,6 +267,9 @@ export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentS
     if (paymentStatus) {
         updateData.paymentStatus = paymentStatus;
     }
+
+    const previousStatus = existingOrder.orderStatus;
+    const previousPaymentStatus = existingOrder.paymentStatus;
 
     const updatedOrder = await Order.findByIdAndUpdate(
             orderId,
@@ -246,7 +292,57 @@ export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentS
         throw error;
     }
 
+    if ( paymentStatus && paymentStatus !== previousPaymentStatus ) {
+        await createActivityLog({
+            user: changedBy,
+            action: "update_payment_status",
+            entityType: "order",
+            entityId: orderId,
+            description: `Order payment status changed from ${previousPaymentStatus} to ${paymentStatus}`,
+            metadata: {
+                previousStatus: previousPaymentStatus,
+                newStatus: paymentStatus,
+            },
+        });
+    }
+
+    if ( orderStatus && orderStatus !== previousStatus ) {
+        await OrderHistory.create({
+            order: orderId,
+            status: orderStatus,
+            changedBy,
+            note,
+        });
+
+        await createActivityLog({
+            user: changedBy,
+            action: "update_order_status",
+            entityType: "order",
+            entityId: orderId,
+            description: `Order status changed from ${previousStatus} to ${orderStatus}`,
+            metadata: {
+                previousStatus,
+                newStatus: orderStatus,
+                note,
+            },
+        });
+    }
+
     return updatedOrder;
+};
+
+
+export const getAdminOrderHistory = async ( orderId: string ) => {
+    const history =await OrderHistory.find({
+            order: orderId,
+        }).populate(
+            "changedBy",
+            "name email"
+        ).sort({
+            createdAt: -1,
+        }).lean();
+
+    return history;
 };
 
 

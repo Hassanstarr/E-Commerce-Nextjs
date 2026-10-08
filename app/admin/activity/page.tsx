@@ -1,129 +1,94 @@
-import ActivityTable, { AdminActivity } from "@/components/admin/ActivityTable";
+"use client";
 
-const activities: AdminActivity[] = [
-    {
-        _id: "ACT-1001",
-        type: "Order",
-        action: "New order created",
-        description:
-            "A new COD order was placed by Ali Raza for Rs. 12,500.",
-        performedBy: "Ali Raza",
-        reference: "ORD-1001",
-        createdAt: "2026-10-06T21:45:00",
-    },
-    {
-        _id: "ACT-1002",
-        type: "Order",
-        action: "Order status updated",
-        description:
-            "Order status was changed from Confirmed to Shipped.",
-        performedBy: "Admin",
-        reference: "ORD-1003",
-        createdAt: "2026-10-06T20:30:00",
-    },
-    {
-        _id: "ACT-1003",
-        type: "Product",
-        action: "Product added",
-        description:
-            "A new Wireless Mechanical Keyboard product was added.",
-        performedBy: "Admin",
-        reference: "PROD-1024",
-        createdAt: "2026-10-06T19:20:00",
-    },
-    {
-        _id: "ACT-1004",
-        type: "Stock",
-        action: "Stock updated",
-        description:
-            "Stock quantity was updated from 12 to 28 units.",
-        performedBy: "Admin",
-        reference: "PROD-1018",
-        createdAt: "2026-10-06T18:15:00",
-    },
-    {
-        _id: "ACT-1005",
-        type: "Customer",
-        action: "New customer registered",
-        description:
-            "A new customer account was successfully created.",
-        performedBy: "Ayesha Tariq",
-        reference: "CUS-1009",
-        createdAt: "2026-10-06T17:40:00",
-    },
-    {
-        _id: "ACT-1006",
-        type: "Category",
-        action: "Category created",
-        description:
-            "A new product category named Smart Home was created.",
-        performedBy: "Admin",
-        reference: "CAT-1012",
-        createdAt: "2026-10-06T16:25:00",
-    },
-    {
-        _id: "ACT-1007",
-        type: "Product",
-        action: "Product updated",
-        description:
-            "Product price and description were updated.",
-        performedBy: "Admin",
-        reference: "PROD-1007",
-        createdAt: "2026-10-06T15:50:00",
-    },
-    {
-        _id: "ACT-1008",
-        type: "Order",
-        action: "Order cancelled",
-        description:
-            "Order was cancelled after customer cancellation request.",
-        performedBy: "Admin",
-        reference: "ORD-1007",
-        createdAt: "2026-10-06T14:30:00",
-    },
-    {
-        _id: "ACT-1009",
-        type: "Customer",
-        action: "Customer registered",
-        description:
-            "A new customer account was successfully created.",
-        performedBy: "Zain Abbas",
-        reference: "CUS-1010",
-        createdAt: "2026-10-05T21:10:00",
-    },
-    {
-        _id: "ACT-1010",
-        type: "Stock",
-        action: "Low stock detected",
-        description:
-            "Wireless Headphones stock dropped below the configured threshold.",
-        performedBy: "System",
-        reference: "PROD-1002",
-        createdAt: "2026-10-05T19:45:00",
-    },
-    {
-        _id: "ACT-1011",
-        type: "Product",
-        action: "Product deleted",
-        description:
-            "An outdated product was removed from the store.",
-        performedBy: "Admin",
-        reference: "PROD-0991",
-        createdAt: "2026-10-05T17:20:00",
-    },
-    {
-        _id: "ACT-1012",
-        type: "System",
-        action: "Admin login",
-        description:
-            "An administrator successfully logged into the admin panel.",
-        performedBy: "Admin",
-        reference: "SESSION-8821",
-        createdAt: "2026-10-05T16:05:00",
-    },
-];
+import { useEffect, useState } from "react";
+import ActivityTable, { AdminActivity } from "@/components/admin/ActivityTable";
+import { adminFetch } from "@/lib/admin-api";
+import Spinner from "@/components/ui/Spinner";
+
+interface PaginationInfo {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+}
 
 export default function AdminActivityPage() {
+    const [activities, setActivities] = useState<AdminActivity[]>([]);
+    const [pagination, setPagination] = useState<PaginationInfo>({
+        page: 1,
+        limit: 20,
+        total: 0,
+        totalPages: 1,
+    });
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+    const [page, setPage] = useState(1);
+
+    const formatType = (rawType: string): AdminActivity["type"] => {
+        if (!rawType) return "System";
+        const normalized = rawType.toLowerCase();
+        switch (normalized) {
+            case "order":
+                return "Order";
+            case "product":
+                return "Product";
+            case "category":
+                return "Category";
+            case "customer":
+            case "user":
+                return "Customer";
+            default:
+                return "System";
+        }
+    };
+
+    const loadActivities = async () => {
+        try {
+            setLoading(true);
+            setError("");
+
+            const params = new URLSearchParams();
+            params.set("page", page.toString());
+            params.set("limit", "20");
+
+            const response = await adminFetch<{
+                success: boolean;
+                data: {
+                    activities: any[];
+                    pagination: PaginationInfo;
+                };
+            }>(`/api/admin/activity?${params.toString()}`);
+
+            const rawActivities = response?.data?.activities || [];
+            if (response?.data?.pagination) {
+                setPagination(response.data.pagination);
+            }
+
+            const mappedActivities: AdminActivity[] = rawActivities.map((act) => ({
+                _id: act._id,
+                type: formatType(act.entityType),
+                action: act.action ? act.action.replace(/_/g, " ").toUpperCase() : "ACTIVITY LOGGED",
+                description: act.description || "No description available",
+                performedBy:
+                    typeof act.user === "object" && act.user !== null
+                        ? act.user.name || act.user.email || "System"
+                        : act.user || "System",
+                reference: act.entityId || "-",
+                createdAt: act.createdAt || new Date().toISOString(),
+            }));
+
+            setActivities(mappedActivities);
+        } catch (err: any) {
+            setError(err?.message || "Failed to load activity log");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadActivities();
+    }, [page]);
+
     const totalActivities = activities.length;
 
     const orderActivities = activities.filter(
@@ -139,7 +104,7 @@ export default function AdminActivityPage() {
     ).length;
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8 mx-auto max-w-7xl">
+        <div className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
             <div className="mb-8">
                 <p className="mb-2 text-sm font-medium text-gray-500">
                     Admin / Activity
@@ -151,17 +116,20 @@ export default function AdminActivityPage() {
                     </h1>
 
                     <p className="mt-1 text-sm text-gray-500">
-                        Track important actions and changes across the
-                        admin panel.
+                        Track important actions and changes across the admin panel.
                     </p>
                 </div>
             </div>
 
+            {error && (
+                <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                    {error}
+                </div>
+            )}
+
             <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-                    <p className="text-sm text-gray-500">
-                        Total Activities
-                    </p>
+                    <p className="text-sm text-gray-500">Total Activities</p>
 
                     <p className="mt-2 text-2xl font-bold text-gray-900">
                         {totalActivities}
@@ -173,9 +141,7 @@ export default function AdminActivityPage() {
                 </div>
 
                 <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-                    <p className="text-sm text-gray-500">
-                        Order Activities
-                    </p>
+                    <p className="text-sm text-gray-500">Order Activities</p>
 
                     <p className="mt-2 text-2xl font-bold text-gray-900">
                         {orderActivities}
@@ -187,9 +153,7 @@ export default function AdminActivityPage() {
                 </div>
 
                 <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-                    <p className="text-sm text-gray-500">
-                        Product Activities
-                    </p>
+                    <p className="text-sm text-gray-500">Product Activities</p>
 
                     <p className="mt-2 text-2xl font-bold text-gray-900">
                         {productActivities}
@@ -201,9 +165,7 @@ export default function AdminActivityPage() {
                 </div>
 
                 <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-                    <p className="text-sm text-gray-500">
-                        Customer Activities
-                    </p>
+                    <p className="text-sm text-gray-500">Customer Activities</p>
 
                     <p className="mt-2 text-2xl font-bold text-gray-900">
                         {customerActivities}
@@ -215,7 +177,37 @@ export default function AdminActivityPage() {
                 </div>
             </div>
 
-            <ActivityTable activities={activities} />
+            {loading ? (
+                <div className="flex h-64 items-center justify-center rounded-xl border border-gray-200 bg-white shadow-sm">
+                    <Spinner />
+                </div>
+            ) : (
+                <>
+                    <ActivityTable activities={activities} />
+
+                    <div className="mt-6 flex items-center justify-between border-t border-gray-200 pt-4">
+                        <p className="text-sm text-gray-500">
+                            Page {pagination.page} of {pagination.totalPages || 1}
+                        </p>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                                disabled={page === 1}
+                                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                Previous
+                            </button>
+                            <button
+                                onClick={() => setPage((prev) => prev + 1)}
+                                disabled={page >= pagination.totalPages}
+                                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                </>
+            )}
         </div>
     );
 }

@@ -5,23 +5,16 @@ import { successResponse } from "@/lib/apiResponse";
 import { errorResponse } from "@/lib/apiError";
 import AppError from "@/lib/AppError";
 import { requireAdmin } from "@/middleware/admin";
+import { createActivityLog } from "@/services/activity.service";
 
 
 export async function createProductController(req: NextRequest) {
     try {
-        await requireAdmin();
+        const admin = await requireAdmin();
 
         const body = await req.json();
 
         const validation = productSchema.safeParse(body);
-
-        // if (!validation.success) {
-        //     return errorResponse(
-        //         "Validation failed",
-        //         400,
-        //         validation.error.flatten().fieldErrors
-        //     );
-        // }
 
         if (!validation.success) {
             return errorResponse(
@@ -33,6 +26,15 @@ export async function createProductController(req: NextRequest) {
         }
 
         const product = await createProduct(validation.data);
+
+        await createActivityLog({
+            user: admin.userId,
+            action: "create_product",
+            entityType: "product",
+            entityId: product._id.toString(),
+            description:
+                `Product "${product.name}" was created`,
+        });
 
         return successResponse(
             {
@@ -106,7 +108,7 @@ export async function getProductController(id: string) {
 
 export async function updateProductController( req: NextRequest, id: string ) {
     try {
-        await requireAdmin();
+        const admin = await requireAdmin();
 
         const body = await req.json();
 
@@ -120,10 +122,15 @@ export async function updateProductController( req: NextRequest, id: string ) {
             );
         }
 
-        const product = await updateProduct(
-            id,
-            validation.data
-        );
+        const product = await updateProduct(id, validation.data);
+
+        await createActivityLog({
+            user: admin.userId,
+            action: "update_product",
+            entityType: "product",
+            entityId: product._id.toString(),
+            description: `Product "${product.name}" was updated`,
+        });
 
         return successResponse(
             {
@@ -149,9 +156,17 @@ export async function updateProductController( req: NextRequest, id: string ) {
 
 export async function deleteProductController( id: string ) {
     try {
-        await requireAdmin();
+        const admin = await requireAdmin();
 
         const result = await deleteProduct(id);
+
+        await createActivityLog({
+            user: admin.userId,
+            action: "delete_product",
+            entityType: "product",
+            entityId: id,
+            description: `Product was deleted`,
+        });
 
         return successResponse(
             result,

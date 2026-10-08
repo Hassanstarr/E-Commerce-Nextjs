@@ -21,20 +21,15 @@ type ProductTableProps = {
     products: Product[];
 };
 
-export default function ProductTable({
-    products: initialProducts,
-}: ProductTableProps) {
-    const [products, setProducts] =
-        useState<Product[]>(initialProducts);
+export default function ProductTable({ products: initialProducts }: ProductTableProps) {
+    const [products, setProducts] = useState<Product[]>(initialProducts);
 
     const [search, setSearch] = useState("");
     const [categoryFilter, setCategoryFilter] = useState("all");
     const [stockFilter, setStockFilter] = useState("all");
 
     const [deleting, setDeleting] = useState<string | null>(null);
-    const [confirmDelete, setConfirmDelete] = useState<string | null>(
-        null
-    );
+    const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
     const [error, setError] = useState("");
 
     const categories = useMemo(() => {
