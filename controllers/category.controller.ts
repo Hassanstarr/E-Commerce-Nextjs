@@ -5,22 +5,15 @@ import { successResponse } from "@/lib/apiResponse";
 import { errorResponse } from "@/lib/apiError";
 import AppError from "@/lib/AppError";
 import { requireAdmin } from "@/middleware/admin";
+import { createActivityLog } from "@/services/activity.service";
 
 export async function createCategoryController( req: NextRequest ) {
     try {
-        await requireAdmin();
+        const admin = await requireAdmin();
 
         const body = await req.json();
 
         const validation = categorySchema.safeParse(body);
-
-        // if (!validation.success) {
-        //     return errorResponse(
-        //         "Validation failed",
-        //         400,
-        //         validation.error.flatten().fieldErrors
-        //     );
-        // }
 
         if (!validation.success) {
             return errorResponse(
@@ -32,6 +25,14 @@ export async function createCategoryController( req: NextRequest ) {
         }
 
         const category = await createCategory(validation.data);
+
+        await createActivityLog({
+            user: admin.userId,
+            action: "create_category",
+            entityType: "category",
+            entityId: category._id.toString(),
+            description: `Category "${category.name}" was created`,
+        });
 
         return successResponse(
             {
@@ -103,7 +104,7 @@ export async function getCategoryController( id: string ) {
 
 export async function updateCategoryController( req: NextRequest, id: string ) {
     try {
-        await requireAdmin();
+        const admin = await requireAdmin();
 
         const body = await req.json();
 
@@ -121,6 +122,14 @@ export async function updateCategoryController( req: NextRequest, id: string ) {
             id,
             validation.data
         );
+
+        await createActivityLog({
+            user: admin.userId,
+            action: "update_category",
+            entityType: "category",
+            entityId: category._id.toString(),
+            description: `Category "${category.name}" was updated`,
+        });
 
         return successResponse(
             {
@@ -146,9 +155,17 @@ export async function updateCategoryController( req: NextRequest, id: string ) {
 
 export async function deleteCategoryController( id: string ) {
     try {
-        await requireAdmin();
+        const admin = await requireAdmin();
 
         const result = await deleteCategory(id);
+
+        await createActivityLog({
+            user: admin.userId,
+            action: "create_category",
+            entityType: "category",
+            entityId: id,
+            description:`Category was deleted`,
+        });
 
         return successResponse(
             result,

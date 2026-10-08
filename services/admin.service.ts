@@ -2,6 +2,8 @@ import Order from "@/models/Order";
 import Product from "@/models/Product";
 import User from "@/models/User";
 import Category from "@/models/Category";
+import OrderHistory from "@/models/OrderHistory";
+import { createActivityLog } from "./activity.service";
 
 
 //DASHBOARD
@@ -182,9 +184,11 @@ const validPaymentStatuses = [
 interface UpdateAdminOrderParams {
     orderStatus?: string;
     paymentStatus?: string;
+    changedBy: string;
+    note?: string;
 }
 
-export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentStatus }: UpdateAdminOrderParams ) => {
+export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentStatus, changedBy, note="" }: UpdateAdminOrderParams ) => {
     if (orderStatus === undefined && paymentStatus === undefined) {
         const error: any = new Error(
             "No update data provided"
@@ -215,6 +219,15 @@ export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentS
         throw error;
     }
 
+    const existingOrder = await Order.findById(orderId)
+
+    if(!existingOrder){
+        const error: any = new Error("Order not found");
+        error.statusCode = 404;
+
+        throw error;
+    }
+
     const updateData: any = {};
 
     if (orderStatus) {
@@ -224,6 +237,9 @@ export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentS
     if (paymentStatus) {
         updateData.paymentStatus = paymentStatus;
     }
+
+    const previousStatus = existingOrder.orderStatus;
+    const previousPaymentStatus = existingOrder.paymentStatus;
 
     const updatedOrder = await Order.findByIdAndUpdate(
             orderId,
@@ -246,7 +262,66 @@ export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentS
         throw error;
     }
 
+    if ( paymentStatus && paymentStatus !== previousPaymentStatus ) {
+        await createActivityLog({
+            user: changedBy,
+            action: "update_payment_status",
+            entityType: "order",
+            entityId: orderId,
+            description: `Order payment status changed from ${previousPaymentStatus} to ${paymentStatus}`,
+            metadata: {
+                previousStatus: previousPaymentStatus,
+                newStatus: paymentStatus,
+            },
+        });
+    }
+
+    if( orderStatus && orderStatus !== previousStatus ){
+        await OrderHistory.create({
+            order: orderId,
+            status: orderStatus,
+            changedBy,
+            note
+        });
+    }
+
+    if ( orderStatus && orderStatus !== previousStatus ) {
+        await OrderHistory.create({
+            order: orderId,
+            status: orderStatus,
+            changedBy,
+            note,
+        });
+
+        await createActivityLog({
+            user: changedBy,
+            action: "update_order_status",
+            entityType: "order",
+            entityId: orderId,
+            description: `Order status changed from ${previousStatus} to ${orderStatus}`,
+            metadata: {
+                previousStatus,
+                newStatus: orderStatus,
+                note,
+            },
+        });
+    }
+
     return updatedOrder;
+};
+
+
+export const getAdminOrderHistory = async ( orderId: string ) => {
+    const history =await OrderHistory.find({
+            order: orderId,
+        }).populate(
+            "changedBy",
+            "name email"
+        ).sort({
+            createdAt: -1,
+        }).lean();
+
+    return history;
 };
 
 

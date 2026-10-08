@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import User from "@/models/User";
 import AppError from "@/lib/AppError";
 import type { LoginInput, SignupInput } from "@/lib/validations";
+import { createActivityLog } from "./activity.service";
 
 export async function signupUser(data: SignupInput) {
     const existingUser = await User.findOne({
@@ -21,6 +22,13 @@ export async function signupUser(data: SignupInput) {
         role: "user",
     });
 
+    await createActivityLog({
+        action: "register",
+        entityType: "customer",
+        entityId: user._id.toString(),
+        description: `New customer "${user.name}" registered`,
+    });
+    
     return {
         id: user._id.toString(),
         name: user.name,
