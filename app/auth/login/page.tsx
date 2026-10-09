@@ -32,28 +32,37 @@ export default function LoginPage() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
-    const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChange = (
+        event: React.ChangeEvent<HTMLInputElement>
+    ) => {
         setFormData({
             ...formData,
             [event.target.name]: event.target.value,
         });
     };
 
-    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    const handleSubmit = async (
+        event: React.FormEvent<HTMLFormElement>
+    ) => {
         event.preventDefault();
 
         setError("");
         setLoading(true);
 
         try {
-            const res = await apiRequest<LoginResponse>("/api/auth/login", {
-                method: "POST",
-                body: JSON.stringify(formData),
-            });
+            const res = await apiRequest<LoginResponse>(
+                "/api/auth/login",
+                {
+                    method: "POST",
+                    body: JSON.stringify(formData),
+                }
+            );
 
             await refreshUser();
 
-            const targetPath = res.data?.redirectTo || (res.data?.user?.role === "admin" ? "/admin" : "/");
+            const targetPath =
+                res.data?.redirectTo ||
+                (res.data?.user?.role === "admin" ? "/admin" : "/");
 
             router.push(targetPath);
             router.refresh();
@@ -71,15 +80,24 @@ export default function LoginPage() {
     return (
         <section className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12">
             <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-sm md:p-8">
-                <div className="mb-8 text-center">
-                    <h1 className="text-3xl font-bold text-gray-900">
+
+                <div className="relative mb-4 flex min-h-12 items-center justify-center">
+                    <Link
+                        href="/"
+                        className="absolute left-0 inline-flex items-center gap-1 text-xs font-medium text-gray-500 transition hover:text-black"
+                    >
+                        <span aria-hidden="true">←</span>
+                        Home
+                    </Link>
+
+                    <h1 className="text-center text-xl font-bold text-gray-900 sm:text-2xl">
                         Welcome Back
                     </h1>
-
-                    <p className="mt-2 text-sm text-gray-500">
-                        Login to your ShopEase account
-                    </p>
                 </div>
+
+                <p className="-mt-5 mb-8 text-center text-sm text-gray-500">
+                    Login to your ShopEase account
+                </p>
 
                 {error && (
                     <div className="mb-5 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
@@ -87,7 +105,10 @@ export default function LoginPage() {
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-5">
+                <form
+                    onSubmit={handleSubmit}
+                    className="space-y-5"
+                >
                     <div>
                         <label
                             htmlFor="email"

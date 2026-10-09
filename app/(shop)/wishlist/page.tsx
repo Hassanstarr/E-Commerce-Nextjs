@@ -27,12 +27,8 @@ function WishlistContent() {
     });
 
     const [loading, setLoading] = useState(true);
-    const [removingProduct, setRemovingProduct] = useState<
-        string | null
-    >(null);
-    const [addingProduct, setAddingProduct] = useState<
-        string | null
-    >(null);
+    const [removingProduct, setRemovingProduct] = useState< string | null >(null);
+    const [addingProduct, setAddingProduct] = useState< string | null >(null);
     const [error, setError] = useState("");
     const [message, setMessage] = useState("");
 
@@ -108,9 +104,14 @@ function WishlistContent() {
 
     if (loading) {
         return (
-            <main className="flex min-h-[60vh] items-center justify-center">
-                <Spinner />
-            </main>
+            <section className="flex min-h-screen w-full bg-white items-center justify-center px-4 py-6 sm:px-6 lg:px-8">
+                <div className="flex flex-col items-center justify-center gap-3">
+                    <Spinner />
+                    <p className="text-sm text-gray-500">
+                        Loading wishlist...
+                    </p>
+                </div>
+            </section>
         );
     }
 

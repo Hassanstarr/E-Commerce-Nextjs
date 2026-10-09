@@ -46,6 +46,20 @@ export default function Navbar() {
                         Categories
                     </Link>
 
+                    <Link
+                        href="/cart"
+                        className="text-sm text-gray-500 transition hover:text-black"
+                    >
+                        Cart
+                    </Link>
+
+                    <Link
+                        href="/wishlist"
+                        className="text-sm text-gray-500 transition hover:text-black"
+                    >
+                        Wishlist
+                    </Link>
+
                     {!loading && !user && (
                         <Link
                             href="/auth/login"
@@ -57,19 +71,7 @@ export default function Navbar() {
 
                     {!loading && user && (
                         <>
-                            <Link
-                                href="/cart"
-                                className="text-sm text-gray-500 transition hover:text-black"
-                            >
-                                Cart
-                            </Link>
 
-                            <Link
-                                href="/wishlist"
-                                className="text-sm text-gray-500 transition hover:text-black"
-                            >
-                                Wishlist
-                            </Link>
 
                             <Link
                                 href="/account"

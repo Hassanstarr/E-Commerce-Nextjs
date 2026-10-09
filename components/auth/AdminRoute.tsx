@@ -14,26 +14,33 @@ export default function AdminRoute({ children }: AdminRouteProps) {
     const { user, loading } = useAuth();
 
     useEffect(() => {
-        if (!loading && !user) {
+        if (loading) return;
+
+        if (!user) {
             router.replace("/auth/login");
             return;
         }
 
-        if (!loading && user && user.role !== "admin") {
+        if (user.role !== "admin") {
             router.replace("/");
         }
     }, [loading, user, router]);
 
-    if (
-        loading ||
-        !user ||
-        user.role !== "admin"
-    ) {
+    if (loading) {
         return (
-            <div className="flex min-h-[60vh] items-center justify-center">
-                <Spinner />
+            <div className="flex flex-1 items-center justify-center bg-white">
+                <div className="flex flex-col items-center gap-3">
+                    <Spinner />
+                    <p className="text-sm text-gray-500">
+                        Checking admin access...
+                    </p>
+                </div>
             </div>
         );
+    }
+
+    if (!user || user.role !== "admin") {
+        return null;
     }
 
     return <>{children}</>;
