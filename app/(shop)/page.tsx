@@ -48,9 +48,7 @@ async function getProducts(): Promise<Product[]> {
 
 async function getCategories(): Promise<Category[]> {
     try {
-        const baseUrl =
-            process.env.NEXT_PUBLIC_API_URL ||
-            "http://localhost:3000";
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
         const response = await fetch(
             `${baseUrl}/api/categories`,

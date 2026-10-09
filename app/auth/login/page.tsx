@@ -31,14 +31,14 @@ export default function LoginPage() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
-    const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChange = ( event: React.ChangeEvent<HTMLInputElement> ) => {
         setFormData({
             ...formData,
             [event.target.name]: event.target.value,
         });
     };
 
-    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    const handleSubmit = async ( event: React.FormEvent<HTMLFormElement> ) => {
         event.preventDefault();
 
         setError("");
@@ -51,6 +51,7 @@ export default function LoginPage() {
             });
 
             await refreshUser();
+
             router.push("/");
             router.refresh();
         } catch (error) {
@@ -67,23 +68,36 @@ export default function LoginPage() {
     return (
         <section className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12">
             <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-sm md:p-8">
-                <div className="mb-8 text-center">
-                    <h1 className="text-3xl font-bold text-gray-900">
+                
+                <div className="relative mb-4 flex min-h-12 items-center justify-center">
+                    <Link
+                        href="/"
+                        className="absolute left-0 inline-flex items-center gap-1 text-xs font-medium text-gray-500 transition hover:text-black"
+                    >
+                        <span aria-hidden="true">←</span>
+                        Home
+                    </Link>
+
+                    <h1 className="text-center text-xl font-bold text-gray-900 sm:text-2xl">
                         Welcome Back
                     </h1>
-
-                    <p className="mt-2 text-sm text-gray-500">
-                        Login to your ShopEase account
-                    </p>
                 </div>
 
+                <p className="-mt-5 mb-8 text-center text-sm text-gray-500">
+                    Login to your ShopEase account
+                </p>
+                
                 {error && (
                     <div className="mb-5 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
                         {error}
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-5">
+                
+                <form
+                    onSubmit={handleSubmit}
+                    className="space-y-5"
+                >
                     <div>
                         <label
                             htmlFor="email"
@@ -100,7 +114,7 @@ export default function LoginPage() {
                             onChange={handleChange}
                             placeholder="you@example.com"
                             required
-                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-600 text-sm outline-none transition focus:border-black focus:ring-1 focus:ring-black"
+                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-600 outline-none transition focus:border-black focus:ring-1 focus:ring-black"
                         />
                     </div>
 
@@ -120,7 +134,7 @@ export default function LoginPage() {
                             onChange={handleChange}
                             placeholder="Enter your password"
                             required
-                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-600 text-sm outline-none transition focus:border-black focus:ring-1 focus:ring-black"
+                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-600 outline-none transition focus:border-black focus:ring-1 focus:ring-black"
                         />
                     </div>
 
@@ -133,6 +147,7 @@ export default function LoginPage() {
                     </button>
                 </form>
 
+                
                 <p className="mt-6 text-center text-sm text-gray-500">
                     Don't have an account?{" "}
                     <Link

@@ -3,16 +3,15 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import Spinner from "@/components/ui/Spinner";
 
 type ProtectedRouteProps = {
-    children: React.ReactNode;
+children: React.ReactNode;
 };
 
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     const router = useRouter();
     const { user, loading } = useAuth();
-
+    
     useEffect(() => {
         if (!loading && !user) {
             router.replace("/auth/login");
@@ -21,9 +20,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
 
     if (loading || !user) {
         return (
-            <div className="flex min-h-[60vh] items-center justify-center">
-                <Spinner />
-            </div>
+            <div className="min-h-screen flex-1 bg-white" />
         );
     }
 
