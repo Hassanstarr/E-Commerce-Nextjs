@@ -9,7 +9,6 @@ type Customer = {
     _id: string;
     name: string;
     email: string;
-    phone: string;
     role: string;
     createdAt: string;
 };
@@ -18,7 +17,13 @@ type CustomerOrder = {
     _id: string;
     createdAt: string;
     total: number;
-    orderStatus: "pending" | "confirmed" | "shipped" | "delivered" | "cancelled";
+    phone?: string;
+    orderStatus:
+        | "pending"
+        | "confirmed"
+        | "shipped"
+        | "delivered"
+        | "cancelled";
     paymentStatus: "pending" | "paid";
 };
 
@@ -35,14 +40,16 @@ type CustomerDetailsResponse = {
 };
 
 export default function CustomerDetailsPage() {
-    const params = useParams();
-    const id = params.id as string;
+    const params = useParams<{ id: string }>();
+    const id = params.id;
 
     const [customer, setCustomer] = useState<Customer | null>(null);
+
     const [statistics, setStatistics] = useState({
         totalOrders: 0,
         totalSpent: 0,
     });
+
     const [orders, setOrders] = useState<CustomerOrder[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -50,35 +57,44 @@ export default function CustomerDetailsPage() {
     useEffect(() => {
         if (!id) return;
 
+        let cancelled = false;
+
         const loadCustomer = async () => {
             try {
                 setLoading(true);
                 setError("");
 
-                const response =
-                    await adminFetch<CustomerDetailsResponse>(
+                const response = await adminFetch<CustomerDetailsResponse>(
                         `/api/admin/customers/${id}`
                     );
+
+                if (cancelled) return;
 
                 setCustomer(response.data.customer);
                 setStatistics(response.data.statistics);
                 setOrders(response.data.orders);
-            } catch (error: any) {
-                console.error(
-                    "Failed to load customer:",
-                    error
-                );
 
-                setError(
-                    error?.message ||
-                        "Failed to load customer"
+            } catch (error: unknown) {
+                if (cancelled) return;
+
+                console.error("Failed to load customer:", error);
+
+                setError(error instanceof Error
+                        ? error.message
+                        : "Failed to load customer"
                 );
             } finally {
-                setLoading(false);
+                if (!cancelled) {
+                    setLoading(false);
+                }
             }
         };
 
         loadCustomer();
+
+        return () => {
+            cancelled = true;
+        };
     }, [id]);
 
     const formatDate = (date: string) => {
@@ -96,23 +112,31 @@ export default function CustomerDetailsPage() {
         return `Rs. ${amount.toLocaleString("en-PK")}`;
     };
 
+    const latestOrder = orders[0] ?? null;
+    const phone = latestOrder?.phone || "";
+
+    const isActive = latestOrder
+                    ? Date.now() - new Date(latestOrder.createdAt).getTime() <= 30 * 24 * 60 * 60 * 1000
+                    : false;
+
+    const customerStatus = isActive ? "Active" : "Inactive";
+
+    const averageOrder = statistics.totalOrders > 0
+                        ? Math.round(statistics.totalSpent / statistics.totalOrders)
+                        : 0;
+
     const getStatusClass = (status: string) => {
         switch (status) {
             case "delivered":
                 return "bg-green-100 text-green-700";
-
             case "cancelled":
                 return "bg-red-100 text-red-700";
-
             case "shipped":
                 return "bg-blue-100 text-blue-700";
-
             case "confirmed":
                 return "bg-purple-100 text-purple-700";
-
             case "pending":
                 return "bg-yellow-100 text-yellow-700";
-
             default:
                 return "bg-gray-100 text-gray-700";
         }
@@ -120,7 +144,7 @@ export default function CustomerDetailsPage() {
 
     if (loading) {
         return (
-            <div className="p-4 sm:p-6 lg:p-8 mx-auto max-w-7xl">
+            <div className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
                 <div className="flex min-h-100 items-center justify-center">
                     <p className="text-sm text-gray-500">
                         Loading customer...
@@ -132,7 +156,7 @@ export default function CustomerDetailsPage() {
 
     if (error || !customer) {
         return (
-            <div className="p-4 sm:p-6 lg:p-8 mx-auto max-w-7xl">
+            <div className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
                 <Link
                     href="/admin/customers"
                     className="text-sm font-medium text-gray-600 hover:text-gray-900"
@@ -149,16 +173,8 @@ export default function CustomerDetailsPage() {
         );
     }
 
-    const averageOrder =
-        statistics.totalOrders > 0
-            ? Math.round(
-                  statistics.totalSpent /
-                      statistics.totalOrders
-              )
-            : 0;
-
     return (
-        <div className="p-4 sm:p-6 lg:p-8 mx-auto max-w-7xl">
+        <div className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
             <div className="mb-6">
                 <Link
                     href="/admin/customers"
@@ -172,9 +188,7 @@ export default function CustomerDetailsPage() {
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-4">
                         <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xl font-semibold text-gray-700">
-                            {customer.name
-                                .charAt(0)
-                                .toUpperCase()}
+                            {customer.name.charAt(0).toUpperCase()}
                         </div>
 
                         <div>
@@ -192,8 +206,14 @@ export default function CustomerDetailsPage() {
                         </div>
                     </div>
 
-                    <span className="w-fit rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
-                        Active
+                    <span
+                        className={`w-fit rounded-full px-3 py-1 text-xs font-medium ${
+                            isActive
+                                ? "bg-green-100 text-green-700"
+                                : "bg-gray-100 text-gray-600"
+                        }`}
+                    >
+                        {customerStatus}
                     </span>
                 </div>
             </div>
@@ -203,7 +223,6 @@ export default function CustomerDetailsPage() {
                     <p className="text-sm text-gray-500">
                         Total Orders
                     </p>
-
                     <p className="mt-2 text-2xl font-semibold text-gray-900">
                         {statistics.totalOrders}
                     </p>
@@ -213,11 +232,8 @@ export default function CustomerDetailsPage() {
                     <p className="text-sm text-gray-500">
                         Total Spent
                     </p>
-
                     <p className="mt-2 text-2xl font-semibold text-gray-900">
-                        {formatCurrency(
-                            statistics.totalSpent
-                        )}
+                        {formatCurrency(statistics.totalSpent)}
                     </p>
                 </div>
 
@@ -225,7 +241,6 @@ export default function CustomerDetailsPage() {
                     <p className="text-sm text-gray-500">
                         Average Order
                     </p>
-
                     <p className="mt-2 text-2xl font-semibold text-gray-900">
                         {formatCurrency(averageOrder)}
                     </p>
@@ -235,11 +250,8 @@ export default function CustomerDetailsPage() {
                     <p className="text-sm text-gray-500">
                         Joined
                     </p>
-
                     <p className="mt-2 text-lg font-semibold text-gray-900">
-                        {formatDate(
-                            customer.createdAt
-                        )}
+                        {formatDate(customer.createdAt)}
                     </p>
                 </div>
             </div>
@@ -256,7 +268,6 @@ export default function CustomerDetailsPage() {
                         <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
                             Name
                         </p>
-
                         <p className="mt-1 text-sm text-gray-900">
                             {customer.name}
                         </p>
@@ -266,8 +277,7 @@ export default function CustomerDetailsPage() {
                         <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
                             Email
                         </p>
-
-                        <p className="mt-1 text-sm text-gray-900">
+                        <p className="mt-1 break-all text-sm text-gray-900">
                             {customer.email}
                         </p>
                     </div>
@@ -276,21 +286,19 @@ export default function CustomerDetailsPage() {
                         <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
                             Phone
                         </p>
-
                         <p className="mt-1 text-sm text-gray-900">
-                            {customer.phone || "Not provided"}
+                            {phone || "Not provided"}
                         </p>
                     </div>
 
                     <div>
                         <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                            Account Created
+                            Last Order
                         </p>
-
                         <p className="mt-1 text-sm text-gray-900">
-                            {formatDate(
-                                customer.createdAt
-                            )}
+                            {latestOrder
+                                ? formatDate(latestOrder.createdAt)
+                                : "No orders yet"}
                         </p>
                     </div>
                 </div>
@@ -301,6 +309,9 @@ export default function CustomerDetailsPage() {
                     <h2 className="font-semibold text-gray-900">
                         Purchase History
                     </h2>
+                    <p className="mt-1 text-sm text-gray-500">
+                        {orders.length} order(s), newest first
+                    </p>
                 </div>
 
                 {orders.length === 0 ? (
@@ -317,23 +328,18 @@ export default function CustomerDetailsPage() {
                                     <th className="px-5 py-3">
                                         Order
                                     </th>
-
                                     <th className="px-5 py-3">
                                         Date
                                     </th>
-
                                     <th className="px-5 py-3">
                                         Total
                                     </th>
-
                                     <th className="px-5 py-3">
                                         Payment
                                     </th>
-
                                     <th className="px-5 py-3">
                                         Status
                                     </th>
-
                                     <th className="px-5 py-3 text-right">
                                         Action
                                     </th>
@@ -356,32 +362,22 @@ export default function CustomerDetailsPage() {
                                         </td>
 
                                         <td className="px-5 py-4 text-sm text-gray-600">
-                                            {formatDate(
-                                                order.createdAt
-                                            )}
+                                            {formatDate(order.createdAt)}
                                         </td>
 
                                         <td className="px-5 py-4 text-sm font-medium text-gray-900">
-                                            {formatCurrency(
-                                                order.total
-                                            )}
+                                            {formatCurrency(order.total)}
                                         </td>
 
                                         <td className="px-5 py-4">
                                             <span
                                                 className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
-                                                    order.paymentStatus ===
-                                                    "paid"
+                                                    order.paymentStatus === "paid"
                                                         ? "bg-green-100 text-green-700"
                                                         : "bg-yellow-100 text-yellow-700"
                                                 }`}
                                             >
-                                                {order.paymentStatus
-                                                    .charAt(0)
-                                                    .toUpperCase() +
-                                                    order.paymentStatus.slice(
-                                                        1
-                                                    )}
+                                                {order.paymentStatus.charAt(0).toUpperCase() + order.paymentStatus.slice(1)}
                                             </span>
                                         </td>
 
@@ -391,12 +387,7 @@ export default function CustomerDetailsPage() {
                                                     order.orderStatus
                                                 )}`}
                                             >
-                                                {order.orderStatus
-                                                    .charAt(0)
-                                                    .toUpperCase() +
-                                                    order.orderStatus.slice(
-                                                        1
-                                                    )}
+                                                {order.orderStatus.charAt(0).toUpperCase() + order.orderStatus.slice(1)}
                                             </span>
                                         </td>
 

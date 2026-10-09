@@ -359,6 +359,10 @@ export const getAdminCustomers = async ({
     limit = 10,
     search = "",
 }: GetAdminCustomersParams) => {
+    
+    const currentPage = Math.max(1, Math.floor(page) || 1);
+    const pageSize = Math.min(100, Math.max(1, Math.floor(limit) || 10));
+
     const query: any = {
         role: "user",
     };
@@ -370,50 +374,82 @@ export const getAdminCustomers = async ({
         };
 
         query.$or = [
-            {
-                name: searchRegex,
-            },
-            {
-                email: searchRegex,
-            },
+            { name: searchRegex },
+            { email: searchRegex },
         ];
     }
 
-    const skip = (page - 1) * limit;
+    const skip = (currentPage - 1) * pageSize;
 
     const [customers, totalCustomers] = await Promise.all([
-            User.find(query)
-                .select("-password")
-                .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(limit)
-                .lean(),
+        User.find(query)
+            .select("-password")
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(pageSize)
+            .lean(),
 
-            User.countDocuments(query),
-        ]);
+        User.countDocuments(query),
+    ]);
 
-    const customerIds = customers.map((customer) => customer._id);
+    const customerIds = customers.map(
+        (customer) => customer._id
+    );
 
     const orderStats = await Order.aggregate([
-            {
-                $match: {
-                    user: {
-                        $in: customerIds,
+        {
+            $match: {
+                user: { $in: customerIds },
+            },
+        },
+        {
+            $sort: {
+                createdAt: -1,
+            },
+        },
+        {
+            $group: {
+                _id: "$user",
+
+                totalOrders: {
+                    $sum: 1,
+                },
+
+                totalSpent: {
+                    $sum: {
+                        $cond: [
+                            {
+                                $and: [
+                                    {
+                                        $eq: [
+                                            "$orderStatus",
+                                            "delivered",
+                                        ],
+                                    },
+                                    {
+                                        $eq: [
+                                            "$paymentStatus",
+                                            "paid",
+                                        ],
+                                    },
+                                ],
+                            },
+                            "$total",
+                            0,
+                        ],
                     },
                 },
-            },
-            {
-                $group: {
-                    _id: "$user",
-                    totalOrders: {
-                        $sum: 1,
-                    },
-                    totalSpent: {
-                        $sum: "$total",
-                    },
+
+                latestOrder: {
+                    $first: "$createdAt",
+                },
+
+                latestPhone: {
+                    $first: "$phone",
                 },
             },
-        ]);
+        },
+    ]);
 
     const statsMap = new Map(
         orderStats.map((item) => [
@@ -422,29 +458,63 @@ export const getAdminCustomers = async ({
         ])
     );
 
-    const customersWithStats = customers.map((customer) => {
-            const stats = statsMap.get(
-                customer._id.toString()
-            );
+    const now = Date.now();
+    const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
 
-            return {
-                ...customer,
-                totalOrders: stats?.totalOrders || 0,
-                totalSpent: stats?.totalSpent || 0,
-            };
-        });
+    const customersWithStats = customers.map((customer) => {
+        const stats = statsMap.get(
+            customer._id.toString()
+        );
+
+        const lastOrder = stats?.latestOrder
+                        ? new Date(stats.latestOrder).toISOString()
+                        : null;
+
+        const status = lastOrder && now - new Date(lastOrder).getTime() <= thirtyDaysInMs
+                    ? "Active"
+                    : "Inactive";
+
+        return {
+            _id: customer._id.toString(),
+            name: customer.name,
+            email: customer.email,
+            phone: stats?.latestPhone || "",
+            ordersCount: stats?.totalOrders || 0,
+            totalSpent: stats?.totalSpent || 0,
+            lastOrder,
+            status,
+            joinedAt: customer.createdAt,
+        };
+    });
+
+    customersWithStats.sort((a, b) => {
+        if (!a.lastOrder && !b.lastOrder) {
+            return 0;
+        }
+
+        if (!a.lastOrder) {
+            return 1;
+        }
+
+        if (!b.lastOrder) {
+            return -1;
+        }
+
+        return (
+            new Date(b.lastOrder).getTime() - new Date(a.lastOrder).getTime()
+        );
+    });
 
     return {
         customers: customersWithStats,
         pagination: {
-            page,
-            limit,
+            page: currentPage,
+            limit: pageSize,
             total: totalCustomers,
-            totalPages: Math.ceil(totalCustomers / limit),
+            totalPages: Math.ceil(totalCustomers / pageSize),
         },
     };
 };
-
 
 // CUSTOMER DETAILS
 
