@@ -359,6 +359,10 @@ export const getAdminCustomers = async ({
     limit = 10,
     search = "",
 }: GetAdminCustomersParams) => {
+    
+    const currentPage = Math.max(1, Math.floor(page) || 1);
+    const pageSize = Math.min(100, Math.max(1, Math.floor(limit) || 10));
+
     const query: any = {
         role: "user",
     };
@@ -370,50 +374,82 @@ export const getAdminCustomers = async ({
         };
 
         query.$or = [
-            {
-                name: searchRegex,
-            },
-            {
-                email: searchRegex,
-            },
+            { name: searchRegex },
+            { email: searchRegex },
         ];
     }
 
-    const skip = (page - 1) * limit;
+    const skip = (currentPage - 1) * pageSize;
 
     const [customers, totalCustomers] = await Promise.all([
-            User.find(query)
-                .select("-password")
-                .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(limit)
-                .lean(),
+        User.find(query)
+            .select("-password")
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(pageSize)
+            .lean(),
 
-            User.countDocuments(query),
-        ]);
+        User.countDocuments(query),
+    ]);
 
-    const customerIds = customers.map((customer) => customer._id);
+    const customerIds = customers.map(
+        (customer) => customer._id
+    );
 
     const orderStats = await Order.aggregate([
-            {
-                $match: {
-                    user: {
-                        $in: customerIds,
+        {
+            $match: {
+                user: { $in: customerIds },
+            },
+        },
+        {
+            $sort: {
+                createdAt: -1,
+            },
+        },
+        {
+            $group: {
+                _id: "$user",
+
+                totalOrders: {
+                    $sum: 1,
+                },
+
+                totalSpent: {
+                    $sum: {
+                        $cond: [
+                            {
+                                $and: [
+                                    {
+                                        $eq: [
+                                            "$orderStatus",
+                                            "delivered",
+                                        ],
+                                    },
+                                    {
+                                        $eq: [
+                                            "$paymentStatus",
+                                            "paid",
+                                        ],
+                                    },
+                                ],
+                            },
+                            "$total",
+                            0,
+                        ],
                     },
                 },
-            },
-            {
-                $group: {
-                    _id: "$user",
-                    totalOrders: {
-                        $sum: 1,
-                    },
-                    totalSpent: {
-                        $sum: "$total",
-                    },
+
+                latestOrder: {
+                    $first: "$createdAt",
+                },
+
+                latestPhone: {
+                    $first: "$phone",
                 },
             },
-        ]);
+        },
+    ]);
 
     const statsMap = new Map(
         orderStats.map((item) => [
@@ -422,29 +458,63 @@ export const getAdminCustomers = async ({
         ])
     );
 
-    const customersWithStats = customers.map((customer) => {
-            const stats = statsMap.get(
-                customer._id.toString()
-            );
+    const now = Date.now();
+    const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
 
-            return {
-                ...customer,
-                totalOrders: stats?.totalOrders || 0,
-                totalSpent: stats?.totalSpent || 0,
-            };
-        });
+    const customersWithStats = customers.map((customer) => {
+        const stats = statsMap.get(
+            customer._id.toString()
+        );
+
+        const lastOrder = stats?.latestOrder
+                        ? new Date(stats.latestOrder).toISOString()
+                        : null;
+
+        const status = lastOrder && now - new Date(lastOrder).getTime() <= thirtyDaysInMs
+                    ? "Active"
+                    : "Inactive";
+
+        return {
+            _id: customer._id.toString(),
+            name: customer.name,
+            email: customer.email,
+            phone: stats?.latestPhone || "",
+            ordersCount: stats?.totalOrders || 0,
+            totalSpent: stats?.totalSpent || 0,
+            lastOrder,
+            status,
+            joinedAt: customer.createdAt,
+        };
+    });
+
+    customersWithStats.sort((a, b) => {
+        if (!a.lastOrder && !b.lastOrder) {
+            return 0;
+        }
+
+        if (!a.lastOrder) {
+            return 1;
+        }
+
+        if (!b.lastOrder) {
+            return -1;
+        }
+
+        return (
+            new Date(b.lastOrder).getTime() - new Date(a.lastOrder).getTime()
+        );
+    });
 
     return {
         customers: customersWithStats,
         pagination: {
-            page,
-            limit,
+            page: currentPage,
+            limit: pageSize,
             total: totalCustomers,
-            totalPages: Math.ceil(totalCustomers / limit),
+            totalPages: Math.ceil(totalCustomers / pageSize),
         },
     };
 };
-
 
 // CUSTOMER DETAILS
 
@@ -483,150 +553,381 @@ export const getAdminCustomerById = async ( customerId: string ) => {
 
 // ANALYTICS
 
-export const getAdminAnalytics = async () => {
-    const deliveredOrders =
-        await Order.find({
-            orderStatus: "delivered",
-        }).select("total items createdAt").sort({ createdAt: 1 }).lean();
+type AnalyticsPeriod = "7" | "30" | "90" | "180" | "year";
 
-    const totalRevenue =deliveredOrders.reduce((sum, order) => sum + order.total, 0);
+const getAnalyticsDateRange = (period: AnalyticsPeriod) => {
+    const end = new Date();
+    const start = new Date(end);
 
-    const totalOrders = deliveredOrders.length;
+    if (period === "year") {
+        start.setMonth(0, 1);
+        start.setHours(0, 0, 0, 0);
+    } else {
+        start.setDate(start.getDate() - Number(period) + 1);
+        start.setHours(0, 0, 0, 0);
+    }
 
-    const productsSold = deliveredOrders.reduce(
-            (sum, order) => sum + order.items.reduce((itemSum, item) =>
-                    itemSum + item.quantity,
-                    0
-                ),
-            0
-        );
+    const duration = end.getTime() - start.getTime();
+    const previousEnd = new Date(start.getTime() - 1);
+    const previousStart = new Date(previousEnd.getTime() - duration);
 
-    // MONTHLY REVENUE
+    return { start, end, previousStart, previousEnd };
+};
 
-    const monthlyMap =
-        new Map<
-            string,
-            {
-                revenue: number;
-                orders: number;
-            }
-        >();
+const getPercentageChange = (current: number, previous: number) => {
+    if (previous === 0) {
+        return current === 0 ? 0 : 100;
+    }
 
-    deliveredOrders.forEach((order) => {
-        const date = new Date(
-            order.createdAt
-        );
+    return Number((((current - previous) / previous) * 100).toFixed(1));
+};
 
-        const monthKey = `${date.getFullYear()}-${String(
-                date.getMonth() + 1
-            ).padStart(2, "0")}`;
+export const getAdminAnalytics = async ( requestedPeriod: string = "30" ) => {
+    const allowedPeriods: AnalyticsPeriod[] = [
+        "7",
+        "30",
+        "90",
+        "180",
+        "year",
+    ];
 
-        const existing = monthlyMap.get(monthKey) || {
-                revenue: 0,
-                orders: 0,
-            };
+    const period: AnalyticsPeriod = allowedPeriods.includes(requestedPeriod as AnalyticsPeriod)
+        ? (requestedPeriod as AnalyticsPeriod)
+        : "30";
 
-        existing.revenue += order.total;
+    const { start, end, previousStart, previousEnd } = getAnalyticsDateRange(period);
 
-        existing.orders += 1;
+    const revenueMatch = {
+        orderStatus: "delivered" as const,
+        paymentStatus: "paid" as const,
+    };
 
-        monthlyMap.set(
-            monthKey,
-            existing
-        );
-    });
+    const currentDateMatch = {
+        createdAt: { $gte: start, $lte: end },
+    };
 
-    const monthlyRevenue = Array.from(
-            monthlyMap.entries()
-        ).map(
-            ([
-                month,
-                data,
-            ]) => ({
-                month,
-                revenue:
-                    data.revenue,
-                orders:
-                    data.orders,
-            })
-        );
+    const previousDateMatch = {
+        createdAt: { $gte: previousStart, $lte: previousEnd },
+    };
 
-    // TOP PRODUCTS
+    const [
+        currentRevenueOrders,
+        previousRevenueOrders,
+        totalOrders,
+        previousTotalOrders,
+        orderStatusCounts,
+        paymentStatusCounts,
+        topProducts,
+        salesByCategory,
+    ] = await Promise.all([
+        Order.find({
+            ...revenueMatch,
+            ...currentDateMatch,
+        }).select("total items createdAt").sort({ createdAt: 1 }).lean(),
 
-    const productMap =
-        new Map<
-            string,
-            {
-                name: string;
-                quantity: number;
-                revenue: number;
-            }
-        >();
+        Order.find({
+            ...revenueMatch,
+            ...previousDateMatch,
+        }).select("total items").lean(),
 
-    deliveredOrders.forEach((order) => {
-        order.items.forEach((item) => {
-            const productName = item.name;
+        Order.countDocuments(currentDateMatch),
+        Order.countDocuments(previousDateMatch),
 
-            const existing = productMap.get(
-                    productName
-                ) || {
-                    name: productName,
-                    quantity: 0,
-                    revenue: 0,
-                };
-
-            existing.quantity += item.quantity;
-
-            existing.revenue += item.price * item.quantity;
-
-            productMap.set(
-                productName,
-                existing
-            );
-        });
-    });
-
-    const topProducts = Array.from(
-            productMap.values()
-        ).sort((a, b) => b.quantity - a.quantity).slice(0, 10);
-
-    // ORDER STATUS DISTRIBUTION
-
-    const statusCounts =
-        await Order.aggregate([
+        Order.aggregate([
+            { $match: currentDateMatch },
             {
                 $group: {
                     _id: "$orderStatus",
-                    count: {
-                        $sum: 1,
+                    count: { $sum: 1 },
+                },
+            },
+        ]),
+
+        Order.aggregate([
+            { $match: currentDateMatch },
+            {
+                $group: {
+                    _id: "$paymentStatus",
+                    count: { $sum: 1 },
+                },
+            },
+        ]),
+
+        Order.aggregate([
+            {
+                $match: {
+                    ...revenueMatch,
+                    ...currentDateMatch,
+                },
+            },
+            { $unwind: "$items" },
+            {
+                $group: {
+                    _id: "$items.name",
+                    name: { $first: "$items.name" },
+                    quantity: { $sum: "$items.quantity" },
+                    revenue: {
+                        $sum: {
+                            $multiply: [
+                                "$items.price",
+                                "$items.quantity",
+                            ],
+                        },
                     },
                 },
             },
-        ]);
+            { $sort: { quantity: -1, revenue: -1 } },
+            { $limit: 10 },
+            {
+                $project: {
+                    _id: 0,
+                    name: 1,
+                    quantity: 1,
+                    revenue: 1,
+                },
+            },
+        ]),
 
-    const orderStatusDistribution =
-        statusCounts.map(
-            (item) => ({
-                status: item._id,
-                count: item.count,
-            })
-        );
+        Order.aggregate([
+            {
+                $match: {
+                    ...revenueMatch,
+                    ...currentDateMatch,
+                },
+            },
+            { $unwind: "$items" },
+            {
+                $lookup: {
+                    from: "products",
+                    localField: "items.product",
+                    foreignField: "_id",
+                    as: "product",
+                },
+            },
+            {
+                $unwind: {
+                    path: "$product",
+                    preserveNullAndEmptyArrays: true,
+                },
+            },
+            {
+                $lookup: {
+                    from: "categories",
+                    localField: "product.category",
+                    foreignField: "_id",
+                    as: "category",
+                },
+            },
+            {
+                $unwind: {
+                    path: "$category",
+                    preserveNullAndEmptyArrays: true,
+                },
+            },
+            {
+                $group: {
+                    _id: {
+                        $ifNull: ["$category.name", "Uncategorized"],
+                    },
+                    sales: {
+                        $sum: {
+                            $multiply: [
+                                "$items.price",
+                                "$items.quantity",
+                            ],
+                        },
+                    },
+                },
+            },
+            { $sort: { sales: -1 } },
+            {
+                $project: {
+                    _id: 0,
+                    name: "$_id",
+                    sales: 1,
+                },
+            },
+        ]),
+    ]);
+
+    const totalRevenue = currentRevenueOrders.reduce(
+        (sum, order) => sum + order.total,
+        0
+    );
+
+    const previousRevenue = previousRevenueOrders.reduce(
+        (sum, order) => sum + order.total,
+        0
+    );
+
+    const productsSold = currentRevenueOrders.reduce(
+        (sum, order) => sum + order.items.reduce(
+            (itemSum, item) => itemSum + item.quantity, 
+            0
+        ),
+        0
+    );
+
+    const previousProductsSold = previousRevenueOrders.reduce(
+        (sum, order) => sum + order.items.reduce(
+            (itemSum, item) => itemSum + item.quantity,
+            0
+        ),
+        0
+    );
+
+    const previousProductsSoldTotal = previousProductsSold;
+
+    const paidDeliveredOrderCount = currentRevenueOrders.length;
+
+    const averageOrderValue = paidDeliveredOrderCount > 0
+                            ? totalRevenue / paidDeliveredOrderCount
+                            : 0;
+
+    const previousAverageOrderValue = previousRevenueOrders.length > 0
+                                    ? previousRevenue / previousRevenueOrders.length
+                                    : 0;
+
+    const useMonthlyBuckets = period === "90" || period === "180" || period === "year";
+
+    const bucketMap = new Map< string, { revenue: number; orders: number } >();
+
+    currentRevenueOrders.forEach((order) => {
+        const date = new Date(order.createdAt);
+
+        const key = useMonthlyBuckets
+            ? `${date.getFullYear()} - ${String(
+                  date.getMonth() + 1
+              ).padStart(2, "0")}`
+            : `${date.getFullYear()} - ${String(
+                  date.getMonth() + 1
+              ).padStart(2, "0")} - ${String(
+                  date.getDate()
+              ).padStart(2, "0")}`;
+
+        const existing = bucketMap.get(key) || {
+            revenue: 0,
+            orders: 0,
+        };
+
+        existing.revenue += order.total;
+        existing.orders += 1;
+        bucketMap.set(key, existing);
+    });
+
+    const revenueTrend: {
+        label: string;
+        revenue: number;
+        orders: number;
+    }[] = [];
+
+    const cursor = new Date(start);
+    cursor.setHours(0, 0, 0, 0);
+
+    while (cursor <= end) {
+        const key = useMonthlyBuckets
+            ? `${cursor.getFullYear()}-${String(
+                  cursor.getMonth() + 1
+              ).padStart(2, "0")}`
+            : `${cursor.getFullYear()}-${String(
+                  cursor.getMonth() + 1
+              ).padStart(2, "0")}-${String(
+                  cursor.getDate()
+              ).padStart(2, "0")}`;
+
+        const bucket = bucketMap.get(key);
+
+        revenueTrend.push({
+            label: useMonthlyBuckets
+                ? cursor.toLocaleDateString("en", {
+                      month: "short",
+                      year: period === "year" ? "numeric" : undefined,
+                  })
+                : cursor.toLocaleDateString("en", {
+                      month: "short",
+                      day: "numeric",
+                  }),
+            revenue: bucket?.revenue || 0,
+            orders: bucket?.orders || 0,
+        });
+
+        if (useMonthlyBuckets) {
+            cursor.setMonth(cursor.getMonth() + 1);
+        } else {
+            cursor.setDate(cursor.getDate() + 1);
+        }
+    }
+
+    const statusOrder = [
+        "pending",
+        "confirmed",
+        "shipped",
+        "delivered",
+        "cancelled",
+    ];
+
+    const paymentOrder = ["pending", "paid"];
+
+    const orderStatusMap = new Map(
+        orderStatusCounts.map((item) => [
+            item._id,
+            item.count,
+        ])
+    );
+
+    const paymentStatusMap = new Map(
+        paymentStatusCounts.map((item) => [
+            item._id,
+            item.count,
+        ])
+    );
+
+    const orderStatusDistribution = statusOrder.map((status) => ({
+        status,
+        count: orderStatusMap.get(status) || 0,
+    }));
+
+    const paymentStatusDistribution = paymentOrder.map((status) => ({
+        name: status === "paid" ? "Paid" : "Pending",
+        count: paymentStatusMap.get(status) || 0,
+    }));
 
     return {
+        period,
+        dateRange: {
+            start: start.toISOString(),
+            end: end.toISOString(),
+        },
         summary: {
             totalRevenue,
             totalOrders,
             productsSold,
+            averageOrderValue,
+            paidDeliveredOrderCount,
+            revenueChange: getPercentageChange(
+                totalRevenue,
+                previousRevenue
+            ),
+            ordersChange: getPercentageChange(
+                totalOrders,
+                previousTotalOrders
+            ),
+            productsSoldChange: getPercentageChange(
+                productsSold,
+                previousProductsSoldTotal
+            ),
+            averageOrderValueChange: getPercentageChange(
+                averageOrderValue,
+                previousAverageOrderValue
+            ),
         },
-
-        monthlyRevenue,
-
+        revenueTrend,
         topProducts,
-
+        salesByCategory,
+        paymentStatusDistribution,
         orderStatusDistribution,
     };
 };
-
 
 // ACTIVITY
 

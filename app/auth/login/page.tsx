@@ -16,6 +16,7 @@ type LoginResponse = {
             email: string;
             role: "user" | "admin";
         };
+        redirectTo?: string;
     };
 };
 
@@ -31,28 +32,39 @@ export default function LoginPage() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
-    const handleChange = ( event: React.ChangeEvent<HTMLInputElement> ) => {
+    const handleChange = (
+        event: React.ChangeEvent<HTMLInputElement>
+    ) => {
         setFormData({
             ...formData,
             [event.target.name]: event.target.value,
         });
     };
 
-    const handleSubmit = async ( event: React.FormEvent<HTMLFormElement> ) => {
+    const handleSubmit = async (
+        event: React.FormEvent<HTMLFormElement>
+    ) => {
         event.preventDefault();
 
         setError("");
         setLoading(true);
 
         try {
-            await apiRequest<LoginResponse>("/api/auth/login", {
-                method: "POST",
-                body: JSON.stringify(formData),
-            });
+            const res = await apiRequest<LoginResponse>(
+                "/api/auth/login",
+                {
+                    method: "POST",
+                    body: JSON.stringify(formData),
+                }
+            );
 
             await refreshUser();
 
-            router.push("/");
+            const targetPath =
+                res.data?.redirectTo ||
+                (res.data?.user?.role === "admin" ? "/admin" : "/");
+
+            router.push(targetPath);
             router.refresh();
         } catch (error) {
             setError(
@@ -68,7 +80,7 @@ export default function LoginPage() {
     return (
         <section className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12">
             <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-sm md:p-8">
-                
+
                 <div className="relative mb-4 flex min-h-12 items-center justify-center">
                     <Link
                         href="/"
@@ -86,14 +98,13 @@ export default function LoginPage() {
                 <p className="-mt-5 mb-8 text-center text-sm text-gray-500">
                     Login to your ShopEase account
                 </p>
-                
+
                 {error && (
                     <div className="mb-5 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
                         {error}
                     </div>
                 )}
 
-                
                 <form
                     onSubmit={handleSubmit}
                     className="space-y-5"
@@ -147,7 +158,6 @@ export default function LoginPage() {
                     </button>
                 </form>
 
-                
                 <p className="mt-6 text-center text-sm text-gray-500">
                     Don't have an account?{" "}
                     <Link
