@@ -338,30 +338,23 @@ export const adminAnalyticsController = async (req: NextRequest) => {
     try {
         await requireAdmin();
 
-        const data =
-            await getAdminAnalytics();
+        const period = new URL(req.url).searchParams.get("period") || "30";
+        const data = await getAdminAnalytics(period);
 
         return NextResponse.json({
             success: true,
             data,
         });
     } catch (error: any) {
-        console.error(
-            "Admin analytics controller error:",
-            error
-        );
+        console.error("Admin analytics controller error:", error);
 
         return NextResponse.json(
             {
                 success: false,
-                message:
-                    error?.message ||
-                    "Failed to load analytics",
+                message: error?.message || "Failed to load analytics",
             },
             {
-                status:
-                    error?.statusCode ||
-                    500,
+                status: error?.statusCode || 500,
             }
         );
     }

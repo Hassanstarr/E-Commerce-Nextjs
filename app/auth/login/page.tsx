@@ -16,6 +16,7 @@ type LoginResponse = {
             email: string;
             role: "user" | "admin";
         };
+        redirectTo?: string;
     };
 };
 
@@ -45,13 +46,16 @@ export default function LoginPage() {
         setLoading(true);
 
         try {
-            await apiRequest<LoginResponse>("/api/auth/login", {
+            const res = await apiRequest<LoginResponse>("/api/auth/login", {
                 method: "POST",
                 body: JSON.stringify(formData),
             });
 
             await refreshUser();
-            router.push("/");
+
+            const targetPath = res.data?.redirectTo || (res.data?.user?.role === "admin" ? "/admin" : "/");
+
+            router.push(targetPath);
             router.refresh();
         } catch (error) {
             setError(
@@ -100,7 +104,7 @@ export default function LoginPage() {
                             onChange={handleChange}
                             placeholder="you@example.com"
                             required
-                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-600 text-sm outline-none transition focus:border-black focus:ring-1 focus:ring-black"
+                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-600 outline-none transition focus:border-black focus:ring-1 focus:ring-black"
                         />
                     </div>
 
@@ -120,7 +124,7 @@ export default function LoginPage() {
                             onChange={handleChange}
                             placeholder="Enter your password"
                             required
-                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-600 text-sm outline-none transition focus:border-black focus:ring-1 focus:ring-black"
+                            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-600 outline-none transition focus:border-black focus:ring-1 focus:ring-black"
                         />
                     </div>
 

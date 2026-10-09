@@ -73,9 +73,12 @@ export async function loginController(req: NextRequest) {
 
         const token = await createToken(user.id, user.role);
 
+        const redirectTo = user.role === "admin" ? "/admin" : "/";
+
         const response = successResponse(
             {
                 user,
+                redirectTo,
             },
             "Login successful"
         );
