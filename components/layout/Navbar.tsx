@@ -136,6 +136,22 @@ export default function Navbar() {
                             Categories
                         </Link>
 
+                        <Link
+                            href="/cart"
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="block py-3 text-sm text-gray-500 hover:text-black"
+                        >
+                            Cart
+                        </Link>
+
+                        <Link
+                            href="/wishlist"
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="block py-3 text-sm text-gray-500 hover:text-black"
+                        >
+                            Wishlist
+                        </Link>
+
                         {!loading && !user && (
                             <Link
                                 href="/auth/login"
