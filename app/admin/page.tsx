@@ -36,12 +36,30 @@ interface DashboardData {
     lowStockProducts: any[];
 }
 
+interface AnalyticsSnippet {
+    revenueTrend: { label: string; revenue: number; orders: number }[];
+    topProducts: {
+        name: string;
+        category?: string;
+        image?: string;
+        quantity: number;
+        revenue: number;
+    }[];
+}
+
 export default function AdminPage() {
     const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
+    const [revenuePeriod, setRevenuePeriod] = useState("30");
+    const [analyticsData, setAnalyticsData] = useState<AnalyticsSnippet | null>(null);
+    const [loadingAnalytics, setLoadingAnalytics] = useState(true);
+    const [analyticsError, setAnalyticsError] = useState("");
+
     useEffect(() => {
+        let isMounted = true;
+
         const loadDashboard = async () => {
             try {
                 setLoading(true);
@@ -52,21 +70,62 @@ export default function AdminPage() {
                         data: DashboardData;
                     }>("/api/admin/dashboard");
 
-                setDashboardData(
-                    response.data
-                );
+                if (isMounted) {
+                    setDashboardData(response.data);
+                }
             } catch (error: any) {
-                setError(
-                    error?.message ||
-                    "Failed to load dashboard"
-                );
+                if (isMounted) {
+                    setError(error?.message || "Failed to load dashboard");
+                }
             } finally {
-                setLoading(false);
+                if (isMounted) {
+                    setLoading(false);
+                }
             }
         };
 
         loadDashboard();
+
+        return () => {
+            isMounted = false;
+        };
     }, []);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const loadAnalytics = async () => {
+            try {
+                setLoadingAnalytics(true);
+                setAnalyticsError("");
+
+                const response = await adminFetch<{
+                    success: boolean;
+                    data: AnalyticsSnippet;
+                }>(`/api/admin/analytics?period=${revenuePeriod}`);
+
+                if (isMounted) {
+                    setAnalyticsData(response.data);
+                }
+            } catch (err: any) {
+                if (isMounted) {
+                    setAnalyticsError(
+                        err?.message || "Failed to load revenue overview"
+                    );
+                }
+            } finally {
+                if (isMounted) {
+                    setLoadingAnalytics(false);
+                }
+            }
+        };
+
+        loadAnalytics();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [revenuePeriod]);
 
     if (loading) {
         return (
@@ -195,8 +254,9 @@ export default function AdminPage() {
                             </div>
 
                             <select
-                                defaultValue="30"
-                                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 outline-none"
+                                value={revenuePeriod}
+                                onChange={(event) => setRevenuePeriod(event.target.value)}
+                                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 outline-none focus:border-black"
                             >
                                 <option value="7">
                                     Last 7 days
@@ -212,7 +272,11 @@ export default function AdminPage() {
                             </select>
                         </div>
 
-                        <RevenueChart />
+                        <RevenueChart
+                            data={analyticsData?.revenueTrend || []}
+                            loading={loadingAnalytics}
+                            error={analyticsError}
+                        />
                     </div>
 
                     <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -289,7 +353,11 @@ export default function AdminPage() {
                 </div>
 
                 <div className="mt-6 grid gap-6 lg:grid-cols-2">
-                    <TopProducts />
+                    <TopProducts
+                        products={analyticsData?.topProducts || []}
+                        loading={loadingAnalytics}
+                        error={analyticsError}
+                    />
                     <LowStockProducts
                         products={
                             dashboardData.lowStockProducts

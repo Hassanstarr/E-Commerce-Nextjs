@@ -12,7 +12,7 @@ export const getAdminDashboardData = async () => {
     const [
         totalOrders,
         totalCustomers,
-        deliveredOrders,
+        revenueSummary,
         recentOrders,
         lowStockProducts,
         pendingOrders,
@@ -25,10 +25,29 @@ export const getAdminDashboardData = async () => {
 
         User.countDocuments(),
 
-        Order.find({
-            orderStatus: "delivered",
-            paymentStatus: "paid",
-        }).lean(),
+        Order.aggregate([
+            {
+                $match: {
+                    orderStatus: "delivered",
+                    paymentStatus: "paid",
+                },
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalRevenue: { $sum: "$total" },
+                    productsSold: {
+                        $sum: {
+                            $reduce: {
+                                input: "$items",
+                                initialValue: 0,
+                                in: { $add: ["$$value", "$$this.quantity"] },
+                            },
+                        },
+                    },
+                },
+            },
+        ]),
 
         Order.find()
             .sort({ createdAt: -1 })
@@ -63,22 +82,8 @@ export const getAdminDashboardData = async () => {
         }),
     ]);
 
-    const totalRevenue = deliveredOrders.reduce((sum, order) =>
-            sum + order.total,
-            0
-        );
-
-    const productsSold = deliveredOrders.reduce((sum, order) => {
-                return (
-                    sum + order.items.reduce(
-                        (itemSum, item) =>
-                        itemSum + item.quantity,
-                        0
-                    )
-                );
-            },
-            0
-        );
+    const totalRevenue = revenueSummary[0]?.totalRevenue || 0;
+    const productsSold = revenueSummary[0]?.productsSold || 0;
 
     return {
         summary: {
@@ -557,6 +562,7 @@ type AnalyticsPeriod = "7" | "30" | "90" | "180" | "year";
 
 const getAnalyticsDateRange = (period: AnalyticsPeriod) => {
     const end = new Date();
+    end.setHours(23, 59, 59, 999);
     const start = new Date(end);
 
     if (period === "year") {
@@ -575,11 +581,17 @@ const getAnalyticsDateRange = (period: AnalyticsPeriod) => {
 };
 
 const getPercentageChange = (current: number, previous: number) => {
-    if (previous === 0) {
-        return current === 0 ? 0 : 100;
+    if (!Number.isFinite(current) || !Number.isFinite(previous)) {
+        return 0;
     }
 
-    return Number((((current - previous) / previous) * 100).toFixed(1));
+    if (previous === 0) {
+        if (current === 0) return 0;
+        return current > 0 ? 100 : -100;
+    }
+
+    const change = ((current - previous) / previous) * 100;
+    return Number.isFinite(change) ? Number(change.toFixed(1)) : 0;
 };
 
 export const getAdminAnalytics = async ( requestedPeriod: string = "30" ) => {
@@ -663,8 +675,10 @@ export const getAdminAnalytics = async ( requestedPeriod: string = "30" ) => {
             { $unwind: "$items" },
             {
                 $group: {
-                    _id: "$items.name",
+                    _id: { $ifNull: ["$items.product", "$items.name"] },
+                    productId: { $first: "$items.product" },
                     name: { $first: "$items.name" },
+                    image: { $first: "$items.image" },
                     quantity: { $sum: "$items.quantity" },
                     revenue: {
                         $sum: {
@@ -676,12 +690,42 @@ export const getAdminAnalytics = async ( requestedPeriod: string = "30" ) => {
                     },
                 },
             },
+            {
+                $lookup: {
+                    from: "products",
+                    localField: "productId",
+                    foreignField: "_id",
+                    as: "productDoc",
+                },
+            },
+            {
+                $unwind: {
+                    path: "$productDoc",
+                    preserveNullAndEmptyArrays: true,
+                },
+            },
+            {
+                $lookup: {
+                    from: "categories",
+                    localField: "productDoc.category",
+                    foreignField: "_id",
+                    as: "categoryDoc",
+                },
+            },
+            {
+                $unwind: {
+                    path: "$categoryDoc",
+                    preserveNullAndEmptyArrays: true,
+                },
+            },
             { $sort: { quantity: -1, revenue: -1 } },
             { $limit: 10 },
             {
                 $project: {
                     _id: 0,
-                    name: 1,
+                    name: { $ifNull: ["$name", "$productDoc.name", "Unknown Product"] },
+                    image: { $ifNull: ["$image", "$productDoc.image", ""] },
+                    category: { $ifNull: ["$categoryDoc.name", "Uncategorized"] },
                     quantity: 1,
                     revenue: 1,
                 },
@@ -796,12 +840,12 @@ export const getAdminAnalytics = async ( requestedPeriod: string = "30" ) => {
         const date = new Date(order.createdAt);
 
         const key = useMonthlyBuckets
-            ? `${date.getFullYear()} - ${String(
+            ? `${date.getFullYear()}-${String(
                   date.getMonth() + 1
               ).padStart(2, "0")}`
-            : `${date.getFullYear()} - ${String(
+            : `${date.getFullYear()}-${String(
                   date.getMonth() + 1
-              ).padStart(2, "0")} - ${String(
+              ).padStart(2, "0")}-${String(
                   date.getDate()
               ).padStart(2, "0")}`;
 
@@ -822,6 +866,9 @@ export const getAdminAnalytics = async ( requestedPeriod: string = "30" ) => {
     }[] = [];
 
     const cursor = new Date(start);
+    if (useMonthlyBuckets) {
+        cursor.setDate(1);
+    }
     cursor.setHours(0, 0, 0, 0);
 
     while (cursor <= end) {
@@ -852,6 +899,7 @@ export const getAdminAnalytics = async ( requestedPeriod: string = "30" ) => {
         });
 
         if (useMonthlyBuckets) {
+            cursor.setDate(1);
             cursor.setMonth(cursor.getMonth() + 1);
         } else {
             cursor.setDate(cursor.getDate() + 1);
@@ -931,80 +979,79 @@ export const getAdminAnalytics = async ( requestedPeriod: string = "30" ) => {
 
 // ACTIVITY
 
-export const getAdminActivity =
-    async () => {
-        const [
-            recentOrders,
-            recentUsers,
-            recentProducts,
-            recentCategories,
-        ] = await Promise.all([
-            Order.find().sort({ 
-                createdAt: -1
-            }).limit(10).select("customerName total orderStatus createdAt").lean(),
+export const getAdminActivity = async () => {
+    const [
+        recentOrders,
+        recentUsers,
+        recentProducts,
+        recentCategories,
+    ] = await Promise.all([
+        Order.find().sort({ 
+            createdAt: -1
+        }).limit(10).select("customerName total orderStatus createdAt").lean(),
 
-            User.find({ role: "user" }).sort({
-                    createdAt: -1,
-                }).limit(10).select("name email createdAt").lean(),
+        User.find({ role: "user" }).sort({
+                createdAt: -1,
+            }).limit(10).select("name email createdAt").lean(),
 
-            Product.find().sort({
-                    createdAt: -1,
-                }).limit(10).select("name price createdAt").lean(),
+        Product.find().sort({
+                createdAt: -1,
+            }).limit(10).select("name price createdAt").lean(),
 
-            Category.find().sort({
-                    createdAt: -1,
-                }).limit(10).select("name createdAt").lean(),
-        ]);
+        Category.find().sort({
+                createdAt: -1,
+            }).limit(10).select("name createdAt").lean(),
+    ]);
 
-        const activities = [
-            ...recentOrders.map(
-                (order) => ({
-                    type: "order",
-                    title: "New order received",
-                    description: `${order.customerName} placed an order`,
-                    referenceId: order._id,
-                    amount: order.total,
-                    status: order.orderStatus,
-                    createdAt: order.createdAt,
-                })
-            ),
+    const activities = [
+        ...recentOrders.map(
+            (order) => ({
+                type: "order",
+                title: "New order received",
+                description: `${order.customerName} placed an order`,
+                referenceId: order._id,
+                amount: order.total,
+                status: order.orderStatus,
+                createdAt: order.createdAt,
+            })
+        ),
 
-            ...recentUsers.map(
-                (user) => ({
-                    type: "customer",
-                    title: "New customer registered",
-                    description: `${user.name} created an account`,
-                    referenceId: user._id,
-                    email: user.email,
-                    createdAt: user.createdAt,
-                })
-            ),
+        ...recentUsers.map(
+            (user) => ({
+                type: "customer",
+                title: "New customer registered",
+                description: `${user.name} created an account`,
+                referenceId: user._id,
+                email: user.email,
+                createdAt: user.createdAt,
+            })
+        ),
 
-            ...recentProducts.map(
-                (product) => ({
-                    type: "product",
-                    title: "New product added",
-                    description: product.name,
-                    referenceId: product._id,
-                    amount: product.price,
-                    createdAt: product.createdAt,
-                })
-            ),
+        ...recentProducts.map(
+            (product) => ({
+                type: "product",
+                title: "New product added",
+                description: product.name,
+                referenceId: product._id,
+                amount: product.price,
+                createdAt: product.createdAt,
+            })
+        ),
 
-            ...recentCategories.map(
-                (category) => ({
-                    type: "category",
-                    title: "New category added",
-                    description: category.name,
-                    referenceId: category._id,
-                    createdAt: category.createdAt,
-                })
-            ),
-        ];
+        ...recentCategories.map(
+            (category) => ({
+                type: "category",
+                title: "New category added",
+                description: category.name,
+                referenceId: category._id,
+                createdAt: category.createdAt,
+            })
+        ),
+    ];
 
-        activities.sort(
-            (a, b) => new Date( b.createdAt ).getTime() - new Date(a.createdAt).getTime()
-        );
+    activities.sort(
+        (a, b) => new Date( b.createdAt ).getTime() - new Date(a.createdAt).getTime()
+    );
 
-        return activities.slice(0, 20);
-    };
+    return activities.slice(0, 20);
+};
