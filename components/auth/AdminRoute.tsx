@@ -28,7 +28,7 @@ export default function AdminRoute({ children }: AdminRouteProps) {
 
     if (loading) {
         return (
-            <div className="flex flex-1 items-center justify-center bg-white">
+            <div className="flex min-h-screen items-center justify-center bg-white">
                 <div className="flex flex-col items-center gap-3">
                     <Spinner />
                     <p className="text-sm text-gray-500">

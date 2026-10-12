@@ -15,36 +15,43 @@ type Category = {
 type ProductFormProps = {
     categories: Category[];
     initialData?: ProductInput & { _id?: string };
+    onSuccess?: () => void;
+    isModal?: boolean;
 };
 
-export default function ProductForm({ categories, initialData }: ProductFormProps) {
+export default function ProductForm({
+    categories,
+    initialData,
+    onSuccess,
+    isModal = false,
+}: ProductFormProps) {
     const router = useRouter();
 
-    const [formData, setFormData] = useState<ProductInput>({
-        name: "",
-        description: "",
-        price: 0,
-        image: "",
-        category: "",
-        stock: 0,
-    });
+    const [prevId, setPrevId] = useState(initialData?._id);
+    const [formData, setFormData] = useState<ProductInput>(() => ({
+        name: initialData?.name || "",
+        description: initialData?.description || "",
+        price: initialData?.price || 0,
+        image: initialData?.image || "",
+        category: initialData?.category || "",
+        stock: initialData?.stock || 0,
+    }));
+
+    if (initialData?._id !== prevId) {
+        setPrevId(initialData?._id);
+        setFormData({
+            name: initialData?.name || "",
+            description: initialData?.description || "",
+            price: initialData?.price || 0,
+            image: initialData?.image || "",
+            category: initialData?.category || "",
+            stock: initialData?.stock || 0,
+        });
+    }
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [uploading, setUploading] = useState(false);
-
-    useEffect(() => {
-        if (initialData) {
-            setFormData({
-                name: initialData.name,
-                description: initialData.description,
-                price: initialData.price,
-                image: initialData.image,
-                category: initialData.category,
-                stock: initialData.stock,
-            });
-        }
-    }, [initialData]);
 
     const handleChange = (
         event: React.ChangeEvent<
@@ -107,8 +114,12 @@ export default function ProductForm({ categories, initialData }: ProductFormProp
                 await createAdminProduct(formData);
             }
 
-            router.push("/admin/products");
-            router.refresh();
+            if (onSuccess) {
+                onSuccess();
+            } else {
+                router.push("/admin/products");
+                router.refresh();
+            }
         } catch (error) {
             if (error instanceof Error) {
                 setError(error.message);
@@ -123,7 +134,7 @@ export default function ProductForm({ categories, initialData }: ProductFormProp
     return (
         <form
             onSubmit={handleSubmit}
-            className="space-y-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
+            className={`space-y-6 ${isModal ? "" : "rounded-xl border border-gray-200 bg-white p-6 shadow-sm"}`}
         >
             {error && (
                 <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

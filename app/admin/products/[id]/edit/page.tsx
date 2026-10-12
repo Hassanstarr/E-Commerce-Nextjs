@@ -1,13 +1,13 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import ProductForm from "@/components/admin/ProductForm";
+import ProductsView, { Product } from "@/components/admin/ProductsView";
+import ProductEditModal from "@/components/admin/ProductEditModal";
 
 type Category = {
     _id: string;
     name: string;
 };
 
-type Product = {
+type ProductDetail = {
     _id: string;
     name: string;
     description: string;
@@ -28,9 +28,7 @@ type PageProps = {
     }>;
 };
 
-async function getProduct(
-    id: string
-): Promise<Product | null> {
+async function getProduct(id: string): Promise<ProductDetail | null> {
     const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/products/${id}`,
         {
@@ -72,12 +70,32 @@ async function getCategories(): Promise<Category[]> {
     return result.data.categories;
 }
 
+async function getProducts(): Promise<Product[]> {
+    const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/products`,
+        {
+            cache: "no-store",
+        }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            result.message || "Failed to fetch products"
+        );
+    }
+
+    return result.data.products;
+}
+
 export default async function EditProductPage({ params }: PageProps) {
     const { id } = await params;
 
-    const [product, categories] = await Promise.all([
+    const [product, categories, products] = await Promise.all([
         getProduct(id),
         getCategories(),
+        getProducts(),
     ]);
 
     if (!product) {
@@ -90,41 +108,20 @@ export default async function EditProductPage({ params }: PageProps) {
             : product.category._id;
 
     return (
-        <section className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-            <main className="mx-auto w-full max-w-5xl px-4 py-12">
-
-                <div className="mb-6">
-                    <Link
-                        href="/admin/products"
-                        className="text-sm font-medium text-gray-500 transition hover:text-black"
-                    >
-                        ← Back to Products
-                    </Link>
-                </div>
-
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900">
-                        Edit Product
-                    </h1>
-
-                    <p className="mt-2 text-gray-600">
-                        Update product information.
-                    </p>
-                </div>
-
-                <ProductForm
-                    categories={categories}
-                    initialData={{
-                        _id: product._id,
-                        name: product.name,
-                        description: product.description,
-                        price: product.price,
-                        image: product.image,
-                        category: categoryId,
-                        stock: product.stock,
-                    }}
-                />
-            </main>
-        </section>
+        <>
+            <ProductsView products={products} />
+            <ProductEditModal
+                categories={categories}
+                product={{
+                    _id: product._id,
+                    name: product.name,
+                    description: product.description,
+                    price: product.price,
+                    image: product.image,
+                    category: categoryId,
+                    stock: product.stock,
+                }}
+            />
+        </>
     );
 }

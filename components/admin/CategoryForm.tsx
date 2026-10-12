@@ -9,31 +9,36 @@ import type { CategoryInput } from "@/types";
 
 type CategoryFormProps = {
     initialData?: CategoryInput & { _id?: string };
+    onSuccess?: () => void;
+    isModal?: boolean;
 };
 
-export default function CategoryForm({ initialData }: CategoryFormProps) {
+export default function CategoryForm({
+    initialData,
+    onSuccess,
+    isModal = false,
+}: CategoryFormProps) {
     const router = useRouter();
 
-    const [formData, setFormData] =
-        useState<CategoryInput>({
-            name: "",
-            description: "",
-            image: "",
+    const [prevId, setPrevId] = useState(initialData?._id);
+    const [formData, setFormData] = useState<CategoryInput>(() => ({
+        name: initialData?.name || "",
+        description: initialData?.description || "",
+        image: initialData?.image || "",
+    }));
+
+    if (initialData?._id !== prevId) {
+        setPrevId(initialData?._id);
+        setFormData({
+            name: initialData?.name || "",
+            description: initialData?.description || "",
+            image: initialData?.image || "",
         });
+    }
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [uploading, setUploading] = useState(false);
-
-    useEffect(() => {
-        if (initialData) {
-            setFormData({
-                name: initialData.name,
-                description: initialData.description || "",
-                image: initialData.image || "",
-            });
-        }
-    }, [initialData]);
 
     const handleChange = (
         event: React.ChangeEvent<
@@ -92,8 +97,12 @@ export default function CategoryForm({ initialData }: CategoryFormProps) {
                 await createAdminCategory(formData);
             }
 
-            router.push("/admin/categories");
-            router.refresh();
+            if (onSuccess) {
+                onSuccess();
+            } else {
+                router.push("/admin/categories");
+                router.refresh();
+            }
         } catch (error) {
             if (error instanceof Error) {
                 setError(error.message);
@@ -108,7 +117,7 @@ export default function CategoryForm({ initialData }: CategoryFormProps) {
     return (
         <form
             onSubmit={handleSubmit}
-            className="space-y-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
+            className={`space-y-6 ${isModal ? "" : "rounded-xl border border-gray-200 bg-white p-6 shadow-sm"}`}
         >
             {error && (
                 <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

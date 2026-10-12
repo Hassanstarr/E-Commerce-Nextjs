@@ -1,5 +1,5 @@
-import Link from "next/link";
-import ProductForm from "@/components/admin/ProductForm";
+import ProductsView, { Product } from "@/components/admin/ProductsView";
+import ProductAddModal from "@/components/admin/ProductAddModal";
 
 type Category = {
     _id: string;
@@ -25,34 +25,35 @@ async function getCategories(): Promise<Category[]> {
     return result.data.categories;
 }
 
+async function getProducts(): Promise<Product[]> {
+    const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/products`,
+        {
+            cache: "no-store",
+        }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            result.message || "Failed to fetch products"
+        );
+    }
+
+    return result.data.products;
+}
+
 export default async function AddProductPage() {
-    const categories = await getCategories();
+    const [categories, products] = await Promise.all([
+        getCategories(),
+        getProducts(),
+    ]);
 
     return (
-        <section className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-            <main className="mx-auto w-full max-w-5xl px-4 py-12">
-
-                <div className="mb-6">
-                    <Link
-                        href="/admin/products"
-                        className="text-sm font-medium text-gray-500 transition hover:text-black"
-                    >
-                        ← Back to Products
-                    </Link>
-                </div>
-
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900">
-                        Add Product
-                    </h1>
-
-                    <p className="mt-2 text-gray-600">
-                        Add a new product to your store.
-                    </p>
-                </div>
-
-                <ProductForm categories={categories} />
-            </main>
-        </section>
+        <>
+            <ProductsView products={products} />
+            <ProductAddModal categories={categories} />
+        </>
     );
 }

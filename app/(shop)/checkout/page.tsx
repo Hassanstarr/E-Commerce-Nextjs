@@ -14,9 +14,9 @@ import {
     FiTruck,
     FiUser,
     FiAlertCircle,
-    FiLoader,
 } from "react-icons/fi";
 
+import Spinner from "@/components/ui/Spinner";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/context/AuthContext";
 import { getCart } from "@/services/cart.api";
@@ -50,18 +50,14 @@ function CheckoutContent() {
     const [loading, setLoading] = useState(true);
     const [placingOrder, setPlacingOrder] = useState(false);
 
-    const [formData, setFormData] =
-        useState(initialForm);
+    const [formData, setFormData] = useState(initialForm);
 
-    const [emailEditing, setEmailEditing] =
-        useState(false);
+    const [emailEditing, setEmailEditing] = useState(false);
 
-    const [emailDraft, setEmailDraft] =
-        useState("");
+    const [emailDraft, setEmailDraft] = useState("");
 
     const [error, setError] = useState("");
-    const [stockError, setStockError] =
-        useState("");
+    const [stockError, setStockError] = useState("");
 
     useEffect(() => {
         if (!user) return;
@@ -104,8 +100,7 @@ function CheckoutContent() {
         if (!cart) return;
 
         const unavailableItem = cart.items.find(
-            (item) =>
-                item.quantity > item.product.stock
+            (item) => item.quantity > item.product.stock
         );
 
         if (unavailableItem) {
@@ -223,8 +218,8 @@ function CheckoutContent() {
 
     if (authLoading || loading) {
         return (
-            <section className="flex min-h-[70vh] items-center justify-center">
-                <FiLoader className="animate-spin text-2xl" />
+            <section className="flex min-h-screen items-center justify-center bg-white">
+                <Spinner />
             </section>
         );
     }
@@ -696,7 +691,7 @@ function CheckoutContent() {
                         >
                             {placingOrder ? (
                                 <>
-                                    <FiLoader className="animate-spin" />
+                                    <Spinner />
                                     Placing Order...
                                 </>
                             ) : (

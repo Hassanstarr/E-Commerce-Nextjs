@@ -1,32 +1,77 @@
-import Link from "next/link";
-import CategoryForm from "@/components/admin/CategoryForm";
+import CategoriesView, { Category } from "@/components/admin/CategoriesView";
+import CategoryAddModal from "@/components/admin/CategoryAddModal";
 
-export default function AddCategoryPage() {
+type Product = {
+    _id: string;
+    category?: {
+        _id: string;
+        name: string;
+    };
+};
+
+async function getCategories(): Promise<Category[]> {
+    const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/categories`,
+        {
+            cache: "no-store",
+        }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            result.message || "Failed to fetch categories"
+        );
+    }
+
+    return result.data.categories;
+}
+
+async function getProducts(): Promise<Product[]> {
+    const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/products`,
+        {
+            cache: "no-store",
+        }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            result.message || "Failed to fetch products"
+        );
+    }
+
+    return result.data.products;
+}
+
+export default async function AddCategoryPage() {
+    const [categories, products] = await Promise.all([
+        getCategories(),
+        getProducts(),
+    ]);
+
+    const productCounts = products.reduce<Record<string, number>>(
+        (counts, product) => {
+            if (product.category?._id) {
+                counts[product.category._id] =
+                    (counts[product.category._id] || 0) + 1;
+            }
+
+            return counts;
+        },
+        {}
+    );
+
     return (
-        <section className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-            <main className="mx-auto w-full max-w-5xl px-4 py-12">
-
-                <div className="mb-6">
-                    <Link
-                        href="/admin/categories"
-                        className="text-sm font-medium text-gray-500 transition hover:text-black"
-                    >
-                        ← Back to Categories
-                    </Link>
-                </div>
-                        
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900">
-                        Add Category
-                    </h1>
-
-                    <p className="mt-2 text-gray-600">
-                        Create a new product category.
-                    </p>
-                </div>
-
-                <CategoryForm />
-            </main>
-        </section>
+        <>
+            <CategoriesView
+                categories={categories}
+                productCounts={productCounts}
+            />
+            <CategoryAddModal />
+        </>
     );
 }
