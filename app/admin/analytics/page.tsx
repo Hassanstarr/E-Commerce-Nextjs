@@ -42,6 +42,7 @@ export default function AdminAnalyticsPage() {
     const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [retryCount, setRetryCount] = useState(0);
 
     useEffect(() => {
         let cancelled = false;
@@ -78,25 +79,37 @@ export default function AdminAnalyticsPage() {
         return () => {
             cancelled = true;
         };
-    }, [period]);
+    }, [period, retryCount]);
 
     const exportReport = () => {
         if (!analytics) return;
 
+        const periodLabel = period === "year" 
+            ? "This Year" 
+            : period === "90"
+            ? "Last 3 Months"
+            : period === "180"
+            ? "Last 6 Months"
+            : `Last ${period} Days`;
+
         const rows = [
             ["ShopEase Analytics Report"],
-            ["Period", period === "year" ? "This Year" : `Last ${period} Days`],
+            ["Period", periodLabel],
             ["Start Date", new Date(analytics.dateRange.start).toLocaleDateString()],
             ["End Date", new Date(analytics.dateRange.end).toLocaleDateString()],
             [],
-            ["Metric", "Value"],
-            ["Total Revenue", analytics.summary.totalRevenue],
+            ["Summary Metrics", "Value"],
+            ["Total Revenue (PKR)", analytics.summary.totalRevenue],
             ["Total Orders", analytics.summary.totalOrders],
             ["Products Sold", analytics.summary.productsSold],
-            ["Average Order Value", analytics.summary.averageOrderValue],
+            ["Average Order Value (PKR)", Math.round(analytics.summary.averageOrderValue)],
+            ["Revenue Change (%)", analytics.summary.revenueChange],
+            ["Orders Change (%)", analytics.summary.ordersChange],
+            ["Products Sold Change (%)", analytics.summary.productsSoldChange],
+            ["Average Order Value Change (%)", analytics.summary.averageOrderValueChange],
             [],
             ["Revenue Trend"],
-            ["Date", "Revenue", "Delivered and Paid Orders"],
+            ["Date / Period", "Revenue (PKR)", "Delivered and Paid Orders"],
             ...analytics.revenueTrend.map((item) => [
                 item.label,
                 item.revenue,
@@ -104,7 +117,7 @@ export default function AdminAnalyticsPage() {
             ]),
             [],
             ["Top Products"],
-            ["Product", "Quantity Sold", "Revenue"],
+            ["Product", "Quantity Sold", "Revenue (PKR)"],
             ...analytics.topProducts.map((item) => [
                 item.name,
                 item.quantity,
@@ -112,10 +125,24 @@ export default function AdminAnalyticsPage() {
             ]),
             [],
             ["Sales by Category"],
-            ["Category", "Revenue"],
+            ["Category", "Revenue (PKR)"],
             ...analytics.salesByCategory.map((item) => [
                 item.name,
                 item.sales,
+            ]),
+            [],
+            ["Payment Status Distribution"],
+            ["Payment Status", "Orders Count"],
+            ...analytics.paymentStatusDistribution.map((item) => [
+                item.name,
+                item.count,
+            ]),
+            [],
+            ["Order Status Distribution"],
+            ["Order Status", "Orders Count"],
+            ...analytics.orderStatusDistribution.map((item) => [
+                item.status,
+                item.count,
             ]),
         ];
 
@@ -221,10 +248,10 @@ export default function AdminAnalyticsPage() {
                     <p className="text-sm font-medium text-red-700">{error}</p>
                     <button
                         type="button"
-                        onClick={() => setPeriod((current) => current)}
+                        onClick={() => setRetryCount((current) => current + 1)}
                         className="mt-3 text-sm font-semibold text-red-800 underline"
                     >
-                        Select a date range to retry
+                        Click to retry
                     </button>
                 </div>
             )}
