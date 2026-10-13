@@ -28,22 +28,28 @@ export default function ContactPage() {
         }));
     };
 
+    const validateEmail = (email: string) => {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    };
+
     const handleSubmit = async (
         event: React.FormEvent<HTMLFormElement>
     ) => {
         event.preventDefault();
+        setSuccess("");
+        setError("");
+
+        if (!validateEmail(formData.email)) {
+            setError("Please enter a valid email address.");
+            return;
+        }
 
         try {
             setLoading(true);
-            setSuccess("");
-            setError("");
 
             await submitContactForm(formData);
 
-            setSuccess(
-                "Your message has been sent successfully."
-            );
-
+            setSuccess("Your message has been sent successfully.");
             setFormData({
                 name: "",
                 email: "",
@@ -53,7 +59,7 @@ export default function ContactPage() {
             if (error instanceof Error) {
                 setError(error.message);
             } else {
-                setError("Unable to send your message");
+                setError("Unable to send your message.");
             }
         } finally {
             setLoading(false);
@@ -67,7 +73,6 @@ export default function ContactPage() {
                     <h1 className="text-3xl font-bold text-gray-900">
                         Contact Us
                     </h1>
-
                     <p className="mt-2 text-gray-600">
                         Have a question? Send us a message.
                     </p>
@@ -117,7 +122,7 @@ export default function ContactPage() {
                         >
                             Message
                         </label>
-
+                        
                         <textarea
                             id="message"
                             name="message"
