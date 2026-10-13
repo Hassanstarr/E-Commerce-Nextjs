@@ -125,8 +125,13 @@ function CartContent() {
     };
 
     const subtotal = cart.items.reduce(
-        (total, item) =>
-            total + item.product.price * item.quantity,
+        (total, item) => {
+            if (!item.product) {
+                return total;
+            }
+
+            return total + item.product.price * item.quantity;
+        },
         0
     );
 
@@ -248,7 +253,7 @@ function CartContent() {
                                     className="flex w-full items-center justify-center gap-2 rounded-lg bg-black px-5 py-3 text-sm font-medium text-white transition hover:bg-gray-800"
                                 >
                                     <FiShoppingBag />
-                                    Proceed to Checkout
+                                        Proceed to Checkout
                                     <FiArrowRight />
                                 </Link>
 

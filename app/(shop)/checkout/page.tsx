@@ -100,12 +100,23 @@ function CheckoutContent() {
         if (!cart) return;
 
         const unavailableItem = cart.items.find(
-            (item) => item.quantity > item.product.stock
+            (item) => !item.product
         );
 
         if (unavailableItem) {
             setStockError(
-                `${unavailableItem.product.name} only has ${unavailableItem.product.stock} item(s) available, but you requested ${unavailableItem.quantity}.`
+                "Your cart contains a deleted or unavailable product. Return to your cart and remove it before checkout."
+            );
+            return;
+        }
+
+        const outOfStockItem = cart.items.find(
+            (item) => item.quantity > item.product.stock
+        );
+
+        if (outOfStockItem) {
+            setStockError(
+                `${outOfStockItem.product.name} only has ${outOfStockItem.product.stock} item(s) available, but you requested ${outOfStockItem.quantity}.`
             );
         } else {
             setStockError("");
@@ -251,9 +262,13 @@ function CheckoutContent() {
     }
 
     const subtotal = cart.items.reduce(
-        (total, item) =>
-            total +
-            item.product.price * item.quantity,
+        (total, item) => {
+            if (!item.product) {
+                return total;
+            }
+
+            return total + item.product.price * item.quantity;
+        },
         0
     );
 

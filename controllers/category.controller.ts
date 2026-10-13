@@ -161,7 +161,7 @@ export async function deleteCategoryController( id: string ) {
 
         await createActivityLog({
             user: admin.userId,
-            action: "create_category",
+            action: "delete_category",
             entityType: "category",
             entityId: id,
             description:`Category was deleted`,

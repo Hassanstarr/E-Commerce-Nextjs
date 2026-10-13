@@ -132,4 +132,4 @@ export type SignupInput = z.infer<typeof signupSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CategoryInput = z.infer<typeof categorySchema>;
 export type ProductInput = z.infer<typeof productSchema>;
-export type ChectutInput = z.infer<typeof checkoutSchema>;
+export type CheckoutInput = z.infer<typeof checkoutSchema>;
