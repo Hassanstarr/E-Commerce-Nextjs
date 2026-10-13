@@ -276,6 +276,21 @@ export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentS
     const previousStatus = existingOrder.orderStatus;
     const previousPaymentStatus = existingOrder.paymentStatus;
 
+    const shouldRestoreStock = orderStatus === "cancelled" && previousStatus !== "cancelled";
+
+    if (shouldRestoreStock) {
+        for (const item of existingOrder.items) {
+            await Product.findByIdAndUpdate(
+                item.product,
+                {
+                    $inc: {
+                        stock: item.quantity,
+                    },
+                }
+            );
+        }
+    }
+
     const updatedOrder = await Order.findByIdAndUpdate(
             orderId,
             {
