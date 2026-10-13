@@ -5,6 +5,10 @@ import Category from "@/models/Category";
 import OrderHistory from "@/models/OrderHistory";
 import { createActivityLog } from "./activity.service";
 
+function escapeRegex(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 
 //DASHBOARD
 
@@ -124,29 +128,28 @@ export const getAdminOrders = async ({
     orderStatus = "",
     paymentStatus = "",
 }: GetAdminOrdersParams) => {
+    
     const query: any = {};
-
+        
     if (search.trim()) {
+        const searchTerm = search.trim();
         const searchRegex = {
-            $regex: search.trim(),
+            $regex: escapeRegex(searchTerm),
             $options: "i",
         };
 
         query.$or = [
-            {
-                customerName: searchRegex,
-            },
-            {
-                customerEmail: searchRegex,
-            },
+            { customerName: searchRegex },
+            { customerEmail: searchRegex },
         ];
 
-        if (/^[0-9a-fA-F]{24}$/.test(search.trim())) {
+        if (/^[0-9a-fA-F]{24}$/.test(searchTerm)) {
             query.$or.push({
-                _id: search.trim(),
+                _id: searchTerm,
             });
         }
     }
+
 
     if (orderStatus) {
         query.orderStatus = orderStatus;
@@ -389,7 +392,7 @@ export const getAdminCustomers = async ({
 
     if (search.trim()) {
         const searchRegex = {
-            $regex: search.trim(),
+            $regex: escapeRegex(search.trim()),
             $options: "i",
         };
 
