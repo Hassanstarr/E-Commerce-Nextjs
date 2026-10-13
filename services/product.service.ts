@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Product from "@/models/Product";
 import Category from "@/models/Category";
+import Cart from "@/models/Cart";
 import AppError from "@/lib/AppError";
 import type { ProductInput } from "@/lib/validations";
 
@@ -140,6 +141,17 @@ export async function deleteProduct(id: string) {
     if (!product) {
         throw new AppError("Product not found", 404);
     }
+
+    await Cart.updateMany(
+        {},
+        {
+            $pull: {
+                items: {
+                    product: new mongoose.Types.ObjectId(id),
+                },
+            },
+        }
+    );
 
     await Product.findByIdAndDelete(id);
 
