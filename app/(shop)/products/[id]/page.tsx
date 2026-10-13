@@ -24,7 +24,16 @@ type ProductResponse = {
     };
 };
 
+
+function isValidObjectId(id: string): boolean {
+    return /^[a-fA-F0-9]{24}$/.test(id);
+}
+
 async function getProduct(id: string): Promise<Product | null> {
+    if (!isValidObjectId(id)) {
+        return null;
+    }
+
     const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/products/${id}`,
         {
