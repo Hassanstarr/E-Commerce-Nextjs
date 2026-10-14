@@ -5,6 +5,14 @@ export interface IUser extends Document {
     email: string;
     password: string;
     role: "user" | "admin";
+    verifiedCheckoutEmails: string[];
+    checkoutEmailVerification?: {
+        email: string;
+        otpHash: string;
+        expiresAt: Date;
+        sentAt: Date;
+        attempts: number;
+    };
     createdAt: Date;
     updatedAt: Date;
 }
@@ -37,6 +45,19 @@ const userSchema = new mongoose.Schema<IUser>(
             type: String,
             enum: ["user", "admin"],
             default: "user",
+        },
+
+        verifiedCheckoutEmails: {
+            type: [String],
+            default: [],
+        },
+
+        checkoutEmailVerification: {
+            email: String,
+            otpHash: String,
+            expiresAt: Date,
+            sentAt: Date,
+            attempts: Number,
         },
     },
     {

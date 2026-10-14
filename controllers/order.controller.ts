@@ -5,6 +5,7 @@ import { createOrder } from "@/services/order.service";
 import { successResponse } from "@/lib/apiResponse";
 import { errorResponse } from "@/lib/apiError";
 import AppError from "@/lib/AppError";
+import { isCheckoutEmailVerified } from "@/services/email-verification.service";
 
 export async function createOrderController( req: NextRequest ) {
     try {
@@ -23,12 +24,12 @@ export async function createOrderController( req: NextRequest ) {
             );
         }
 
-        if (
-            validation.data.customerEmail.toLowerCase() !==
-            validation.data.confirmEmail.toLowerCase()
-        ) {
+        if (!await isCheckoutEmailVerified(
+            user.userId,
+            validation.data.customerEmail
+        )) {
             return errorResponse(
-                "Email addresses do not match",
+                "Please verify your email before placing an order",
                 400
             );
         }

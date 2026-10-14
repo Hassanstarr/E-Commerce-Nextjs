@@ -30,6 +30,12 @@ export const rateLimiters = {
         prefix: "shopease:checkout",
     }),
 
+    emailVerification: new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(10, "10 m"),
+        prefix: "shopease:email-verification",
+    }),
+
     adminMutation: new Ratelimit({
         redis,
         limiter: Ratelimit.slidingWindow(30, "1 m"),
