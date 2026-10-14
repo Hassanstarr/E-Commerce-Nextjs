@@ -4,6 +4,8 @@ import User from "@/models/User";
 import Category from "@/models/Category";
 import OrderHistory from "@/models/OrderHistory";
 import { createActivityLog } from "./activity.service";
+import { canChangeOrderStatus, canChangePaymentStatus } from "@/lib/order-status";
+import AppError from "@/lib/AppError";
 
 function escapeRegex(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -237,7 +239,7 @@ export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentS
         throw error;
     }
 
-    if (orderStatus && !validOrderStatuses.includes(orderStatus)) {
+    if (orderStatus !== undefined && !validOrderStatuses.includes(orderStatus)) {
         const error: any = new Error(
             "Invalid order status"
         );
@@ -247,7 +249,7 @@ export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentS
         throw error;
     }
 
-    if (paymentStatus && !validPaymentStatuses.includes(paymentStatus)) {
+    if (paymentStatus !== undefined && !validPaymentStatuses.includes(paymentStatus)) {
         const error: any = new Error(
             "Invalid payment status"
         );
@@ -279,6 +281,42 @@ export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentS
     const previousStatus = existingOrder.orderStatus;
     const previousPaymentStatus = existingOrder.paymentStatus;
 
+    if (orderStatus !== undefined && !canChangeOrderStatus(previousStatus, orderStatus, previousPaymentStatus)) {
+        throw new AppError(
+            `Cannot change order status from ${previousStatus} to ${orderStatus}. Orders must move forward, and paid orders cannot be cancelled.`,
+            400
+        );
+    }
+
+    if (paymentStatus !== undefined && !canChangePaymentStatus(previousPaymentStatus, paymentStatus, orderStatus || previousStatus)) {
+        throw new AppError(
+            "Payment can only change from pending to paid after delivery. Paid payments cannot be reversed.",
+            400
+        );
+    }
+
+    const updatedOrder = await Order.findOneAndUpdate(
+            {
+                _id: orderId,
+                orderStatus: previousStatus,
+                paymentStatus: previousPaymentStatus,
+            },
+            {
+                $set: updateData,
+            },
+            {
+                new: true,
+                runValidators: true,
+            }
+        ).lean();
+
+    if (!updatedOrder) {
+        throw new AppError(
+            "Order changed while you were updating it. Refresh the order and try again.",
+            409
+        );
+    }
+
     const shouldRestoreStock = orderStatus === "cancelled" && previousStatus !== "cancelled";
 
     if (shouldRestoreStock) {
@@ -292,27 +330,6 @@ export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentS
                 }
             );
         }
-    }
-
-    const updatedOrder = await Order.findByIdAndUpdate(
-            orderId,
-            {
-                $set: updateData,
-            },
-            {
-                new: true,
-                runValidators: true,
-            }
-        ).lean();
-
-    if (!updatedOrder) {
-        const error: any = new Error(
-            "Order not found"
-        );
-
-        error.statusCode = 404;
-
-        throw error;
     }
 
     if ( paymentStatus && paymentStatus !== previousPaymentStatus ) {

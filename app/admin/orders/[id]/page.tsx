@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { adminFetch } from "@/lib/admin-api";
+import { canChangeOrderStatus, canChangePaymentStatus } from "@/lib/order-status";
 
 type OrderItem = {
     productId: string;
@@ -196,7 +197,7 @@ export default function AdminOrderDetailsPage() {
     const cancelOrder = async () => {
         if (!order) return;
 
-        if (order.orderStatus === "cancelled") {
+        if (!canChangeOrderStatus(order.orderStatus, "cancelled", order.paymentStatus) || order.orderStatus === "cancelled") {
             return;
         }
 
@@ -574,30 +575,38 @@ export default function AdminOrderDetailsPage() {
                                     <select
                                         id="order-status"
                                         value={selectedStatus}
-                                        onChange={( event ) => setSelectedStatus(event.target.value)}
+                                        onChange={( event ) => {
+                                            setSelectedStatus(event.target.value);
+                                            if (event.target.value !== "delivered") {
+                                                setSelectedPaymentStatus(order.paymentStatus);
+                                            }
+                                        }}
                                         disabled={updating}
                                         className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-black focus:ring-1 focus:ring-black"
                                     >
-                                        <option value="pending">
+                                        <option value="pending" disabled={!canChangeOrderStatus(order.orderStatus, "pending", order.paymentStatus)}>
                                             Pending
                                         </option>
 
-                                        <option value="confirmed">
+                                        <option value="confirmed" disabled={!canChangeOrderStatus(order.orderStatus, "confirmed", order.paymentStatus)}>
                                             Confirmed
                                         </option>
 
-                                        <option value="shipped">
+                                        <option value="shipped" disabled={!canChangeOrderStatus(order.orderStatus, "shipped", order.paymentStatus)}>
                                             Shipped
                                         </option>
 
-                                        <option value="delivered">
+                                        <option value="delivered" disabled={!canChangeOrderStatus(order.orderStatus, "delivered", order.paymentStatus)}>
                                             Delivered
                                         </option>
 
-                                        <option value="cancelled">
+                                        <option value="cancelled" disabled={!canChangeOrderStatus(order.orderStatus, "cancelled", order.paymentStatus)}>
                                             Cancelled
                                         </option>
                                     </select>
+                                    <p className="mt-2 text-xs text-gray-500">
+                                        Status changes move forward. Delivered and cancelled orders are final.
+                                    </p>
                                 </div>
 
                                 <div>
@@ -615,14 +624,17 @@ export default function AdminOrderDetailsPage() {
                                         disabled={updating}
                                         className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-black focus:ring-1 focus:ring-black"
                                     >
-                                        <option value="pending">
+                                        <option value="pending" disabled={!canChangePaymentStatus(order.paymentStatus, "pending", selectedStatus)}>
                                             Pending
                                         </option>
 
-                                        <option value="paid">
+                                        <option value="paid" disabled={!canChangePaymentStatus(order.paymentStatus, "paid", selectedStatus)}>
                                             Paid
                                         </option>
                                     </select>
+                                    <p className="mt-2 text-xs text-gray-500">
+                                        Cash on delivery payments can be marked paid after delivery and cannot be reversed.
+                                    </p>
                                 </div>
 
                                 <div>
@@ -666,6 +678,7 @@ export default function AdminOrderDetailsPage() {
                                     onClick={cancelOrder}
                                     disabled={
                                         updating ||
+                                        !canChangeOrderStatus(order.orderStatus, "cancelled", order.paymentStatus) ||
                                         order.orderStatus === "cancelled"
                                     }
                                     className="w-full rounded-lg border border-red-200 px-4 py-3 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
