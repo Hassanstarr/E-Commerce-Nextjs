@@ -15,7 +15,8 @@ export const signupSchema = z.object({
     password: z
         .string()
         .min(6, "Password must contain at least 6 characters")
-        .max(100, "Password cannot exceed 100 characters"),
+        .max(100, "Password cannot exceed 100 characters")
+        .refine((value) => value.trim().length >= 6, "Password must contain at least 6 non-padding characters"),
 });
 
 export const loginSchema = z.object({
@@ -47,6 +48,7 @@ export const categorySchema = z.object({
         .string()
         .trim()
         .url("Image must be a valid URL")
+        .regex(/^https?:\/\//i, "Image must use an HTTP or HTTPS URL")
         .optional()
         .or(z.literal("")),
 });
@@ -66,12 +68,15 @@ export const productSchema = z.object({
 
     price: z
         .number()
-        .min(1, "Please enter a valid price greater than 0."),
+        .min(1, "Please enter a valid price greater than 0.")
+        .max(9999999.99, "Price cannot exceed Rs. 9,999,999.99")
+        .refine((value) => Math.abs(value * 100 - Math.round(value * 100)) < 0.000001, "Price can have at most 2 decimal places"),
 
     image: z
         .string()
         .trim()
-        .url("Image must be a valid URL"),
+        .url("Image must be a valid URL")
+        .regex(/^https?:\/\//i, "Image must use an HTTP or HTTPS URL"),
 
     category: z
         .string()
@@ -100,13 +105,19 @@ export const checkoutSchema = z.object({
         .string()
         .trim()
         .min(7, "Phone number is required")
-        .max(20, "Phone number cannot exceed 20 characters"),
+        .max(20, "Phone number cannot exceed 20 characters")
+        .regex(/^\+?[\d\s()-]+$/, "Please enter a valid phone number")
+        .refine((value) => {
+            const digits = value.replace(/\D/g, "");
+            return digits.length >= 7 && digits.length <= 15;
+        }, "Phone number must contain 7 to 15 digits"),
 
     address: z
         .string()
         .trim()
         .min(5, "Address must contain at least 5 characters")
-        .max(300, "Address cannot exceed 300 characters"),
+        .max(300, "Address cannot exceed 300 characters")
+        .regex(/[\p{L}\p{N}]/u, "Address must contain letters or numbers"),
 
     city: z
         .string()
@@ -118,7 +129,8 @@ export const checkoutSchema = z.object({
         .string()
         .trim()
         .min(3, "Postal code is required")
-        .max(20, "Postal code cannot exceed 20 characters"),
+        .max(20, "Postal code cannot exceed 20 characters")
+        .regex(/^(?=.*[A-Za-z0-9])[A-Za-z0-9]+(?:[ -][A-Za-z0-9]+)*$/, "Please enter a valid postal code"),
 
     paymentMethod: z.literal("cod"),
 });

@@ -165,7 +165,7 @@ export async function deleteProductController( id: string ) {
             action: "delete_product",
             entityType: "product",
             entityId: id,
-            description: `Product was deleted`,
+            description: `Product "${result.name}" was deleted`,
         });
 
         return successResponse(

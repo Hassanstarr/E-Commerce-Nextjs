@@ -35,6 +35,11 @@ const categorySchema = new mongoose.Schema<ICategory>(
     }
 );
 
+categorySchema.index(
+    { name: 1 },
+    { name: "category_name_case_insensitive", unique: true, collation: { locale: "en", strength: 2 } }
+);
+
 const Category: Model<ICategory> = mongoose.models.Category || mongoose.model<ICategory>("Category", categorySchema);
 
 export default Category;

@@ -64,7 +64,7 @@ export default function LoginPage() {
                 res.data?.redirectTo ||
                 (res.data?.user?.role === "admin" ? "/admin" : "/");
 
-            router.push(targetPath);
+            router.replace(targetPath);
             router.refresh();
         } catch (error) {
             setError(

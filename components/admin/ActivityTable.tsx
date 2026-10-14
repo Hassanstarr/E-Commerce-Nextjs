@@ -1,7 +1,5 @@
 "use client";
 
-import { useMemo, useState } from "react";
-
 export type AdminActivity = {
     _id: string;
     type:
@@ -20,35 +18,14 @@ export type AdminActivity = {
 
 type ActivityTableProps = {
     activities: AdminActivity[];
+    search: string;
+    typeFilter: string;
+    total: number;
+    onSearchChange: (value: string) => void;
+    onTypeChange: (value: string) => void;
 };
 
-export default function ActivityTable({ activities }: ActivityTableProps) {
-    const [search, setSearch] = useState("");
-    const [typeFilter, setTypeFilter] = useState("all");
-
-    const filteredActivities = useMemo(() => {
-        return activities.filter((activity) => {
-            const searchValue = search.toLowerCase();
-
-            const matchesSearch =
-                activity.action.toLowerCase().includes(searchValue) ||
-                activity.description
-                    .toLowerCase()
-                    .includes(searchValue) ||
-                activity.performedBy
-                    .toLowerCase()
-                    .includes(searchValue) ||
-                activity.reference
-                    .toLowerCase()
-                    .includes(searchValue);
-
-            const matchesType =
-                typeFilter === "all" ||
-                activity.type === typeFilter;
-
-            return matchesSearch && matchesType;
-        });
-    }, [activities, search, typeFilter]);
+export default function ActivityTable({ activities, search, typeFilter, total, onSearchChange, onTypeChange }: ActivityTableProps) {
 
     const formatDate = (date: string) => {
         return new Date(date).toLocaleString("en-PK", {
@@ -95,7 +72,7 @@ export default function ActivityTable({ activities }: ActivityTableProps) {
                             id="activity-search"
                             type="text"
                             value={search}
-                            onChange={(event) => setSearch(event.target.value)}
+                            onChange={(event) => onSearchChange(event.target.value)}
                             placeholder="Search activity, user, action or reference..."
                             className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-black focus:ring-1 focus:ring-black"
                         />
@@ -103,7 +80,7 @@ export default function ActivityTable({ activities }: ActivityTableProps) {
 
                     <select
                         value={typeFilter}
-                        onChange={(event) => setTypeFilter(event.target.value)}
+                        onChange={(event) => onTypeChange(event.target.value)}
                         className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-700 outline-none transition focus:border-black focus:ring-1 focus:ring-black"
                     >
                         <option value="all">All Activity</option>
@@ -121,11 +98,11 @@ export default function ActivityTable({ activities }: ActivityTableProps) {
                 <p className="text-sm text-gray-500">
                     Showing{" "}
                     <span className="font-medium text-gray-900">
-                        {filteredActivities.length}
+                        {activities.length}
                     </span>{" "}
                     of{" "}
                     <span className="font-medium text-gray-900">
-                        {activities.length}
+                        {total}
                     </span>{" "}
                     activities
                 </p>
@@ -158,7 +135,7 @@ export default function ActivityTable({ activities }: ActivityTableProps) {
                     </thead>
 
                     <tbody>
-                        {filteredActivities.map((activity) => (
+                        {activities.map((activity) => (
                             <tr
                                 key={activity._id}
                                 className="border-b border-gray-100 last:border-0 hover:bg-gray-50"
@@ -199,7 +176,7 @@ export default function ActivityTable({ activities }: ActivityTableProps) {
                     </tbody>
                 </table>
 
-                {filteredActivities.length === 0 && (
+                {activities.length === 0 && (
                     <div className="px-6 py-16 text-center">
                         <p className="font-medium text-gray-900">
                             No activity found

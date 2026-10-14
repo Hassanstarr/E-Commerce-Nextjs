@@ -2,10 +2,14 @@ import Category from "@/models/Category";
 import Product from "@/models/Product";
 import AppError from "@/lib/AppError";
 import type { CategoryInput } from "@/lib/validations";
+import mongoose from "mongoose";
 
 export async function createCategory(data: CategoryInput) {
     const existingCategory = await Category.findOne({
-        name: data.name,
+        name: {
+            $regex: `^${data.name.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+            $options: "i",
+        },
     });
 
     if (existingCategory) {
@@ -15,13 +19,18 @@ export async function createCategory(data: CategoryInput) {
         );
     }
 
-    const category = await Category.create({
-        name: data.name,
-        description: data.description,
-        image: data.image,
-    });
-
-    return category;
+    try {
+        return await Category.create({
+            name: data.name,
+            description: data.description,
+            image: data.image,
+        });
+    } catch (error) {
+        if (error instanceof mongoose.mongo.MongoServerError && error.code === 11000) {
+            throw new AppError("A category with this name already exists", 409);
+        }
+        throw error;
+    }
 }
 
 export async function getCategories() {
@@ -31,6 +40,10 @@ export async function getCategories() {
 }
 
 export async function getCategoryById(id: string) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        throw new AppError("Invalid category ID", 400);
+    }
+
     const category = await Category.findById(id);
 
     if (!category) {
@@ -44,6 +57,10 @@ export async function updateCategory(
     id: string,
     data: CategoryInput
 ) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        throw new AppError("Invalid category ID", 400);
+    }
+
     const category = await Category.findById(id);
 
     if (!category) {
@@ -51,7 +68,10 @@ export async function updateCategory(
     }
 
     const existingCategory = await Category.findOne({
-        name: data.name,
+        name: {
+            $regex: `^${data.name.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+            $options: "i",
+        },
         _id: { $ne: id },
     });
 
@@ -66,12 +86,23 @@ export async function updateCategory(
     category.description = data.description;
     category.image = data.image;
 
-    await category.save();
+    try {
+        await category.save();
+    } catch (error) {
+        if (error instanceof mongoose.mongo.MongoServerError && error.code === 11000) {
+            throw new AppError("A category with this name already exists", 409);
+        }
+        throw error;
+    }
 
     return category;
 }
 
 export async function deleteCategory(id: string) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        throw new AppError("Invalid category ID", 400);
+    }
+
     const category = await Category.findById(id);
 
     if (!category) {
@@ -93,5 +124,6 @@ export async function deleteCategory(id: string) {
 
     return {
         id,
+        name: category.name,
     };
 }

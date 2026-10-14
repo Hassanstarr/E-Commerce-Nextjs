@@ -377,11 +377,13 @@ export const adminActivityController = async (req: NextRequest) => {
         );
 
         const type = searchParams.get("type") || "";
+        const search = searchParams.get("search") || "";
 
         const data = await getActivityLogs({
             page,
             limit,
             type,
+            search,
         });
 
         return NextResponse.json({

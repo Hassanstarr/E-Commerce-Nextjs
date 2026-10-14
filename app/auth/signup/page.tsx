@@ -53,7 +53,7 @@ export default function SignupPage() {
 
             await refreshUser();
 
-            router.push("/auth/login");
+            router.replace("/");
             router.refresh();
         } catch (error) {
             setError(

@@ -23,6 +23,10 @@ export default function AdminActivityPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [page, setPage] = useState(1);
+    const [search, setSearch] = useState("");
+    const [typeFilter, setTypeFilter] = useState("all");
+    const [initialLoading, setInitialLoading] = useState(true);
+    const [summary, setSummary] = useState({ total: 0, orders: 0, products: 0, customers: 0 });
 
     const formatType = (rawType: string): AdminActivity["type"] => {
         if (!rawType) return "System";
@@ -42,7 +46,7 @@ export default function AdminActivityPage() {
         }
     };
 
-    const loadActivities = async () => {
+    const loadActivities = async (signal: AbortSignal) => {
         try {
             setLoading(true);
             setError("");
@@ -50,19 +54,27 @@ export default function AdminActivityPage() {
             const params = new URLSearchParams();
             params.set("page", page.toString());
             params.set("limit", "20");
+            params.set("search", search);
+            if (typeFilter !== "all") {
+                params.set("type", typeFilter.toLowerCase());
+            }
 
             const response = await adminFetch<{
                 success: boolean;
                 data: {
                     activities: any[];
                     pagination: PaginationInfo;
+                    summary: typeof summary;
                 };
-            }>(`/api/admin/activity?${params.toString()}`);
+            }>(`/api/admin/activity?${params.toString()}`, { signal });
+
+            if (signal.aborted) return;
 
             const rawActivities = response?.data?.activities || [];
             if (response?.data?.pagination) {
                 setPagination(response.data.pagination);
             }
+            setSummary(response.data.summary);
 
             const mappedActivities: AdminActivity[] = rawActivities.map((act) => ({
                 _id: act._id,
@@ -79,29 +91,33 @@ export default function AdminActivityPage() {
 
             setActivities(mappedActivities);
         } catch (err: any) {
+            if (signal.aborted) return;
             setError(err?.message || "Failed to load activity log");
         } finally {
-            setLoading(false);
+            if (!signal.aborted) {
+                setLoading(false);
+                setInitialLoading(false);
+            }
         }
     };
 
     useEffect(() => {
-        loadActivities();
-    }, [page]);
+        const controller = new AbortController();
+        const timer = setTimeout(() => loadActivities(controller.signal), search ? 300 : 0);
 
-    const totalActivities = activities.length;
+        return () => {
+            clearTimeout(timer);
+            controller.abort();
+        };
+    }, [page, search, typeFilter]);
 
-    const orderActivities = activities.filter(
-        (activity) => activity.type === "Order"
-    ).length;
+    const totalActivities = summary.total;
 
-    const productActivities = activities.filter(
-        (activity) => activity.type === "Product"
-    ).length;
+    const orderActivities = summary.orders;
 
-    const customerActivities = activities.filter(
-        (activity) => activity.type === "Customer"
-    ).length;
+    const productActivities = summary.products;
+
+    const customerActivities = summary.customers;
 
     return (
         <div className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
@@ -136,7 +152,7 @@ export default function AdminActivityPage() {
                     </p>
 
                     <p className="mt-1 text-xs text-gray-400">
-                        Recent recorded events
+                        All recorded events
                     </p>
                 </div>
 
@@ -177,13 +193,26 @@ export default function AdminActivityPage() {
                 </div>
             </div>
 
-            {loading ? (
+            {initialLoading ? (
                 <div className="flex h-64 items-center justify-center rounded-xl border border-gray-200 bg-white shadow-sm">
                     <Spinner />
                 </div>
             ) : (
                 <>
-                    <ActivityTable activities={activities} />
+                    <ActivityTable
+                        activities={activities}
+                        search={search}
+                        typeFilter={typeFilter}
+                        total={pagination.total}
+                        onSearchChange={(value) => {
+                            setSearch(value);
+                            setPage(1);
+                        }}
+                        onTypeChange={(value) => {
+                            setTypeFilter(value);
+                            setPage(1);
+                        }}
+                    />
 
                     {/* <div className="mt-6 flex items-center justify-between border-t border-gray-200 pt-4">
                         <p className="text-sm text-gray-500">

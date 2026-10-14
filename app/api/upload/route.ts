@@ -4,10 +4,20 @@ import { successResponse } from "@/lib/apiResponse";
 import { errorResponse } from "@/lib/apiError";
 import AppError from "@/lib/AppError";
 import cloudinary from "@/lib/cloudinary";
+import { enforceRateLimit } from "@/lib/enforce-rate-limit";
+import { rateLimiters } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
+    const blocked = await enforceRateLimit(
+        req,
+        rateLimiters.upload,
+        "Too many uploads. Please wait a minute before uploading another image."
+    );
+
+    if (blocked) return blocked;
+
     try {
         await requireAdmin();
 

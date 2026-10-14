@@ -1,5 +1,3 @@
-"use client";
-
 import Link from "next/link";
 import { FiCheckCircle, FiMail, FiShoppingBag } from "react-icons/fi";
 
@@ -44,8 +42,8 @@ export default async function OrderSuccessPage({ params }: OrderSuccessPageProps
                         <FiMail className="text-gray-500" />
 
                         <p className="text-sm text-gray-600">
-                            Your order confirmation has been sent
-                            to your selected email address.
+                            Please check your selected email address for confirmation.
+                            If it does not arrive, your order is still placed successfully.
                         </p>
                     </div>
                 </div>

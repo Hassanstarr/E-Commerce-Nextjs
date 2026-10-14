@@ -2,8 +2,18 @@ import { NextRequest } from "next/server";
 import nodemailer from "nodemailer";
 import { successResponse } from "@/lib/apiResponse";
 import { errorResponse } from "@/lib/apiError";
+import { enforceRateLimit } from "@/lib/enforce-rate-limit";
+import { rateLimiters } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
+    const blocked = await enforceRateLimit(
+        req,
+        rateLimiters.contact,
+        "Too many messages. Please wait 10 minutes before sending another message."
+    );
+
+    if (blocked) return blocked;
+
     try {
         const body = await req.json();
 
