@@ -36,12 +36,8 @@ export async function createOrderController( req: NextRequest ) {
         const order = await createOrder(
             user.userId,
             {
-                customerName:
-                    validation.data.customerName,
-
-                customerEmail:
-                    validation.data.customerEmail,
-
+                customerName: validation.data.customerName,
+                customerEmail: validation.data.customerEmail,
                 phone: validation.data.phone,
 
                 shippingAddress: {
