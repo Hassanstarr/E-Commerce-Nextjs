@@ -16,11 +16,11 @@ const verificationSchema = z.object({
 
 export async function POST(req: NextRequest) {
     try {
-        const user = await requireAuth();
         const blocked = await enforceRateLimit(req, rateLimiters.emailVerification);
 
         if (blocked) return blocked;
 
+        const user = await requireAuth();
         const validation = verificationSchema.safeParse(await req.json());
 
         if (!validation.success) {

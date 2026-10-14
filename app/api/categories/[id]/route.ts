@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { getCategoryController, updateCategoryController, deleteCategoryController } from "@/controllers/category.controller";
+import { enforceRateLimit } from "@/lib/enforce-rate-limit";
+import { rateLimiters } from "@/lib/rate-limit";
 
 type RouteContext = {
     params: Promise<{
@@ -9,6 +11,14 @@ type RouteContext = {
 };
 
 export async function GET( req: NextRequest, context: RouteContext ) {
+    const blocked = await enforceRateLimit(
+        req,
+        rateLimiters.general,
+        "Too many requests. Please wait a minute and try again."
+    );
+
+    if (blocked) return blocked;
+
     await connectDB();
 
     const { id } = await context.params;
@@ -17,6 +27,14 @@ export async function GET( req: NextRequest, context: RouteContext ) {
 }
 
 export async function PUT( req: NextRequest, context: RouteContext ) {
+    const blocked = await enforceRateLimit(
+        req,
+        rateLimiters.adminMutation,
+        "Too many requests. Please wait a minute and try again."
+    );
+
+    if (blocked) return blocked;
+
     await connectDB();
 
     const { id } = await context.params;
@@ -25,6 +43,14 @@ export async function PUT( req: NextRequest, context: RouteContext ) {
 }
 
 export async function DELETE( req: NextRequest, context: RouteContext ) {
+    const blocked = await enforceRateLimit(
+        req,
+        rateLimiters.adminMutation,
+        "Too many requests. Please wait a minute and try again."
+    );
+
+    if (blocked) return blocked;
+
     await connectDB();
 
     const { id } = await context.params;

@@ -36,6 +36,42 @@ export const rateLimiters = {
         prefix: "shopease:email-verification",
     }),
 
+    contact: new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(3, "10 m"),
+        prefix: "shopease:contact",
+    }),
+
+    upload: new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(10, "1 m"),
+        prefix: "shopease:upload",
+    }),
+
+    cartMutation: new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(60, "1 m"),
+        prefix: "shopease:cart-mutation",
+    }),
+
+    wishlistMutation: new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(60, "1 m"),
+        prefix: "shopease:wishlist-mutation",
+    }),
+
+    adminRead: new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(60, "1 m"),
+        prefix: "shopease:admin-read",
+    }),
+
+    logout: new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(30, "1 m"),
+        prefix: "shopease:logout",
+    }),
+
     adminMutation: new Ratelimit({
         redis,
         limiter: Ratelimit.slidingWindow(30, "1 m"),
