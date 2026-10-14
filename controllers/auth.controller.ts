@@ -142,25 +142,3 @@ export async function meController() {
         return errorResponse("Unable to get current user");
     }
 }
-
-export async function adminTestController() {
-    try {
-        const admin = await requireAdmin();
-
-        return successResponse(
-            {
-                userId: admin.userId,
-                role: admin.role,
-            },
-            "Admin access granted"
-        );
-    } catch (error) {
-        if (error instanceof AppError) {
-            return errorResponse(error.message, error.statusCode);
-        }
-
-        console.error("Admin authorization error:", error);
-
-        return errorResponse("Unable to verify admin access");
-    }
-}
