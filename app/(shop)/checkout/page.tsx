@@ -20,14 +20,13 @@ import Spinner from "@/components/ui/Spinner";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/context/AuthContext";
 import { getCart } from "@/services/cart.api";
-import { createOrder } from "@/services/order.api";
+import { createOrder, verifyCheckoutEmail } from "@/services/order.api";
 import type { Cart } from "@/types/cart";
 import { useRouter } from "next/navigation";
 
 const initialForm = {
     customerName: "",
     customerEmail: "",
-    confirmEmail: "",
     phone: "",
     address: "",
     city: "",
@@ -55,6 +54,11 @@ function CheckoutContent() {
     const [emailEditing, setEmailEditing] = useState(false);
 
     const [emailDraft, setEmailDraft] = useState("");
+    const [verifiedEmail, setVerifiedEmail] = useState("");
+    const [otp, setOtp] = useState("");
+    const [otpSent, setOtpSent] = useState(false);
+    const [verifyingEmail, setVerifyingEmail] = useState(false);
+    const [verificationMessage, setVerificationMessage] = useState("");
 
     const [error, setError] = useState("");
     const [stockError, setStockError] = useState("");
@@ -66,10 +70,13 @@ function CheckoutContent() {
             ...previous,
             customerName: user.name,
             customerEmail: user.email,
-            confirmEmail: user.email,
         }));
 
         setEmailDraft(user.email);
+        setVerifiedEmail("");
+        setOtp("");
+        setOtpSent(false);
+        setVerificationMessage("");
     }, [user]);
 
     useEffect(() => {
@@ -139,7 +146,7 @@ function CheckoutContent() {
     };
 
     const handleSaveEmail = () => {
-        const email = emailDraft.trim();
+        const email = emailDraft.trim().toLowerCase();
 
         if (!email) {
             setError(
@@ -158,8 +165,14 @@ function CheckoutContent() {
         setFormData((previous) => ({
             ...previous,
             customerEmail: email,
-            confirmEmail: email,
         }));
+
+        if (email !== formData.customerEmail.trim().toLowerCase()) {
+            setVerifiedEmail("");
+            setOtp("");
+            setOtpSent(false);
+            setVerificationMessage("");
+        }
 
         setEmailEditing(false);
         setError("");
@@ -169,6 +182,37 @@ function CheckoutContent() {
         setEmailDraft(formData.customerEmail);
         setEmailEditing(false);
         setError("");
+    };
+
+    const handleVerifyEmail = async (submitOtp = false) => {
+        try {
+            setVerifyingEmail(true);
+            setError("");
+            setVerificationMessage("");
+
+            const result = await verifyCheckoutEmail(
+                formData.customerEmail,
+                submitOtp ? otp : undefined
+            );
+
+            if (result.data.verified) {
+                setVerifiedEmail(formData.customerEmail.trim().toLowerCase());
+                setOtpSent(false);
+                setOtp("");
+            } else {
+                setOtpSent(true);
+            }
+
+            setVerificationMessage(result.message);
+        } catch (error) {
+            setError(
+                error instanceof Error
+                    ? error.message
+                    : "Unable to verify email"
+            );
+        } finally {
+            setVerifyingEmail(false);
+        }
     };
 
     const handleSubmit = async ( e: React.FormEvent ) => {
@@ -188,13 +232,11 @@ function CheckoutContent() {
             return;
         }
 
-        if (
-            formData.customerEmail.toLowerCase() !==
-            formData.confirmEmail.toLowerCase()
-        ) {
+        if (emailEditing || verifiedEmail !== formData.customerEmail.trim().toLowerCase()) {
             setError(
-                "Email addresses do not match"
+                "Please save and verify your email before placing an order"
             );
+            window.scrollTo({ top: 0, behavior: "smooth" });
             return;
         }
 
@@ -205,7 +247,6 @@ function CheckoutContent() {
            const result = await createOrder({
                 customerName: formData.customerName,
                 customerEmail: formData.customerEmail,
-                confirmEmail: formData.confirmEmail,
                 phone: formData.phone,
                 address: formData.address,
                 city: formData.city,
@@ -377,9 +418,10 @@ function CheckoutContent() {
                                             Email
                                         </label>
 
-                                        {/* {!emailEditing && ( // disable the feature for now
+                                        {!emailEditing && (
                                             <button
                                                 type="button"
+                                                disabled={verifyingEmail}
                                                 onClick={() => {
                                                     setEmailDraft(
                                                         formData.customerEmail
@@ -393,7 +435,7 @@ function CheckoutContent() {
                                                 <FiEdit2 />
                                                 Edit
                                             </button>
-                                        )} */}
+                                        )}
                                     </div>
 
                                     {!emailEditing ? (
@@ -456,19 +498,53 @@ function CheckoutContent() {
 
                                 <div>
                                     <label className="mb-2 block text-sm font-medium text-gray-700">
-                                        Confirm Email
+                                        Verify Email
                                     </label>
 
-                                    <input
-                                        type="email"
-                                        name="confirmEmail"
-                                        // value={formData.confirmEmail}
-                                        onChange={
-                                            handleChange
-                                        }
-                                        className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-gray-900"
-                                        placeholder="Confirm email address"
-                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => handleVerifyEmail()}
+                                        disabled={emailEditing || verifyingEmail}
+                                        className="inline-flex items-center gap-2 rounded-lg bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        <FiCheckCircle />
+                                        {verifyingEmail ? "Verifying..." : "Verify Email"}
+                                    </button>
+
+                                    {verificationMessage && (
+                                        <p role="status" className="mt-2 text-sm text-green-700">
+                                            {verificationMessage}
+                                        </p>
+                                    )}
+
+                                    {otpSent && !emailEditing && (
+                                        <div className="mt-3 space-y-3">
+                                            <input
+                                                type="text"
+                                                inputMode="numeric"
+                                                autoComplete="one-time-code"
+                                                aria-label="Email verification OTP"
+                                                maxLength={6}
+                                                value={otp}
+                                                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                                                className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-gray-900"
+                                                placeholder="Enter 6-digit OTP"
+                                            />
+
+                                            <button
+                                                type="button"
+                                                onClick={() => handleVerifyEmail(true)}
+                                                disabled={verifyingEmail || otp.length !== 6}
+                                                className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                            >
+                                                Confirm OTP
+                                            </button>
+
+                                            <p className="text-xs text-gray-500">
+                                                Need another code? Click Verify Email after one minute.
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div>

@@ -96,11 +96,6 @@ export const checkoutSchema = z.object({
         .trim()
         .email("Please enter a valid email address"),
 
-    confirmEmail: z
-        .string()
-        .trim()
-        .email("Please enter a valid confirmation email"),
-
     phone: z
         .string()
         .trim()

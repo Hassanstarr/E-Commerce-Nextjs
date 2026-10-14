@@ -1,6 +1,17 @@
 import { apiRequest } from "@/lib/api";
 import type { CheckoutInput, Order } from "@/types/order";
 
+export async function verifyCheckoutEmail(email: string, otp?: string) {
+    return apiRequest<{
+        success: boolean;
+        message: string;
+        data: { verified: boolean };
+    }>("/api/checkout/verify-email", {
+        method: "POST",
+        body: JSON.stringify({ email, otp }),
+    });
+}
+
 export async function createOrder(data: CheckoutInput) {
     return apiRequest<{ 
         success: boolean;

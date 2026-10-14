@@ -15,7 +15,6 @@ export type ShippingAddress = {
 export type CheckoutInput = {
     customerName: string;
     customerEmail: string;
-    confirmEmail: string;
     phone: string;
     address: string;
     city: string;
