@@ -6,6 +6,7 @@ import OrderHistory from "@/models/OrderHistory";
 import { createActivityLog } from "./activity.service";
 import { canChangeOrderStatus, canChangePaymentStatus } from "@/lib/order-status";
 import AppError from "@/lib/AppError";
+import mongoose from "mongoose";
 
 function escapeRegex(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -29,7 +30,7 @@ export const getAdminDashboardData = async () => {
     ] = await Promise.all([
         Order.countDocuments(),
 
-        User.countDocuments(),
+        User.countDocuments({ role: "user" }),
 
         Order.aggregate([
             {
@@ -41,7 +42,7 @@ export const getAdminDashboardData = async () => {
             {
                 $group: {
                     _id: null,
-                    totalRevenue: { $sum: "$total" },
+                    totalRevenue: { $sum: "$subtotal" },
                     productsSold: {
                         $sum: {
                             $reduce: {
@@ -190,6 +191,10 @@ export const getAdminOrders = async ({
 // ORDER DETAILS
 
 export const getAdminOrderById = async ( orderId: string ) => {
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+        throw new AppError("Invalid order ID", 400);
+    }
+
     const order = await Order.findById(orderId).lean();
 
     if (!order) {
@@ -229,7 +234,17 @@ interface UpdateAdminOrderParams {
 }
 
 export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentStatus, changedBy, note="" }: UpdateAdminOrderParams ) => {
-    if (orderStatus === undefined && paymentStatus === undefined) {
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+        throw new AppError("Invalid order ID", 400);
+    }
+
+    if (typeof note !== "string" || note.length > 1000) {
+        throw new AppError("Note must be text with at most 1000 characters", 400);
+    }
+
+    note = note.trim();
+
+    if (orderStatus === undefined && paymentStatus === undefined && !note) {
         const error: any = new Error(
             "No update data provided"
         );
@@ -342,18 +357,21 @@ export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentS
             metadata: {
                 previousStatus: previousPaymentStatus,
                 newStatus: paymentStatus,
+                note,
             },
         });
     }
 
-    if ( orderStatus && orderStatus !== previousStatus ) {
+    if ((orderStatus && orderStatus !== previousStatus) || note) {
         await OrderHistory.create({
             order: orderId,
-            status: orderStatus,
+            status: orderStatus || previousStatus,
             changedBy,
             note,
         });
+    }
 
+    if ( orderStatus && orderStatus !== previousStatus ) {
         await createActivityLog({
             user: changedBy,
             action: "update_order_status",
@@ -368,11 +386,26 @@ export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentS
         });
     }
 
+    if (note && (!orderStatus || orderStatus === previousStatus) && (!paymentStatus || paymentStatus === previousPaymentStatus)) {
+        await createActivityLog({
+            user: changedBy,
+            action: "add_order_note",
+            entityType: "order",
+            entityId: orderId,
+            description: "Note added to order",
+            metadata: { note },
+        });
+    }
+
     return updatedOrder;
 };
 
 
 export const getAdminOrderHistory = async ( orderId: string ) => {
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+        throw new AppError("Invalid order ID", 400);
+    }
+
     const history =await OrderHistory.find({
             order: orderId,
         }).populate(
@@ -559,6 +592,10 @@ export const getAdminCustomers = async ({
 // CUSTOMER DETAILS
 
 export const getAdminCustomerById = async ( customerId: string ) => {
+    if (!mongoose.Types.ObjectId.isValid(customerId)) {
+        throw new AppError("Invalid customer ID", 400);
+    }
+
     const customer = await User.findOne({
         _id: customerId,
         role: "user",
@@ -578,7 +615,11 @@ export const getAdminCustomerById = async ( customerId: string ) => {
         user: customer._id,
     }).sort({ createdAt: -1 }).lean();
 
-    const totalSpent = orders.reduce((sum, order) => sum + order.total, 0);
+    const totalSpent = orders.reduce((sum, order) => {
+        return order.orderStatus === "delivered" && order.paymentStatus === "paid"
+            ? sum + order.total
+            : sum;
+    }, 0);
 
     return {
         customer,
@@ -670,12 +711,12 @@ export const getAdminAnalytics = async ( requestedPeriod: string = "30" ) => {
         Order.find({
             ...revenueMatch,
             ...currentDateMatch,
-        }).select("total items createdAt").sort({ createdAt: 1 }).lean(),
+        }).select("subtotal items createdAt").sort({ createdAt: 1 }).lean(),
 
         Order.find({
             ...revenueMatch,
             ...previousDateMatch,
-        }).select("total items").lean(),
+        }).select("subtotal items").lean(),
 
         Order.countDocuments(currentDateMatch),
         Order.countDocuments(previousDateMatch),
@@ -830,12 +871,12 @@ export const getAdminAnalytics = async ( requestedPeriod: string = "30" ) => {
     ]);
 
     const totalRevenue = currentRevenueOrders.reduce(
-        (sum, order) => sum + order.total,
+        (sum, order) => sum + order.subtotal,
         0
     );
 
     const previousRevenue = previousRevenueOrders.reduce(
-        (sum, order) => sum + order.total,
+        (sum, order) => sum + order.subtotal,
         0
     );
 
@@ -889,7 +930,7 @@ export const getAdminAnalytics = async ( requestedPeriod: string = "30" ) => {
             orders: 0,
         };
 
-        existing.revenue += order.total;
+        existing.revenue += order.subtotal;
         existing.orders += 1;
         bucketMap.set(key, existing);
     });

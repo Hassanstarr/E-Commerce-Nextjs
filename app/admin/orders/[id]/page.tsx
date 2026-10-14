@@ -164,7 +164,7 @@ export default function AdminOrderDetailsPage() {
         const statusChanged = selectedStatus !== order.orderStatus;
         const paymentChanged = selectedPaymentStatus !== order.paymentStatus;
 
-        if (!statusChanged && !paymentChanged) {
+        if (!statusChanged && !paymentChanged && !note.trim()) {
             return;
         }
 
@@ -664,7 +664,8 @@ export default function AdminOrderDetailsPage() {
                                     disabled={
                                         updating ||
                                         (selectedStatus === order.orderStatus &&
-                                            selectedPaymentStatus === order.paymentStatus)
+                                            selectedPaymentStatus === order.paymentStatus &&
+                                            !note.trim())
                                     }
                                     className="w-full rounded-lg bg-black px-4 py-3 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
                                 >

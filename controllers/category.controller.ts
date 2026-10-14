@@ -164,7 +164,7 @@ export async function deleteCategoryController( id: string ) {
             action: "delete_category",
             entityType: "category",
             entityId: id,
-            description:`Category was deleted`,
+            description: `Category "${result.name}" was deleted`,
         });
 
         return successResponse(

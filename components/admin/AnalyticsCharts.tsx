@@ -100,7 +100,7 @@ export default function AnalyticsCharts({ data }: AnalyticsChartsProps) {
                             Revenue Overview
                         </h2>
                         <p className="mt-1 text-sm text-gray-500">
-                            Revenue from delivered and paid orders.
+                            Revenue from delivered and paid orders, excluding delivery fees.
                         </p>
                     </div>
 

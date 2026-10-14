@@ -157,5 +157,6 @@ export async function deleteProduct(id: string) {
 
     return {
         id,
+        name: product.name,
     };
 }
