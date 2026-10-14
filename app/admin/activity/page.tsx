@@ -185,7 +185,7 @@ export default function AdminActivityPage() {
                 <>
                     <ActivityTable activities={activities} />
 
-                    <div className="mt-6 flex items-center justify-between border-t border-gray-200 pt-4">
+                    {/* <div className="mt-6 flex items-center justify-between border-t border-gray-200 pt-4">
                         <p className="text-sm text-gray-500">
                             Page {pagination.page} of {pagination.totalPages || 1}
                         </p>
@@ -205,7 +205,47 @@ export default function AdminActivityPage() {
                                 Next
                             </button>
                         </div>
+                    </div> */}
+                                        
+                    <div className="mt-6 flex flex-col gap-4 border-t border-gray-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <p className="text-sm font-medium text-gray-700">
+                                Showing{" "}
+                                {pagination.total === 0
+                                    ? 0
+                                    : (pagination.page - 1) * pagination.limit + 1}
+                                {"–"}
+                                {Math.min(
+                                    pagination.page * pagination.limit,
+                                    pagination.total
+                                )}{" "}
+                                of {pagination.total} activities
+                            </p>
+
+                            <p className="mt-1 text-xs text-gray-500">
+                                Page {pagination.page} of {pagination.totalPages || 1}
+                            </p>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                                disabled={page === 1 || loading}
+                                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                Previous
+                            </button>
+
+                            <button
+                                onClick={() => setPage((prev) => prev + 1)}
+                                disabled={page >= pagination.totalPages || loading}
+                                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                Next
+                            </button>
+                        </div>
                     </div>
+
                 </>
             )}
         </div>

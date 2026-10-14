@@ -377,7 +377,7 @@ function CheckoutContent() {
                                             Email
                                         </label>
 
-                                        {!emailEditing && (
+                                        {/* {!emailEditing && ( // disable the feature for now
                                             <button
                                                 type="button"
                                                 onClick={() => {
@@ -393,7 +393,7 @@ function CheckoutContent() {
                                                 <FiEdit2 />
                                                 Edit
                                             </button>
-                                        )}
+                                        )} */}
                                     </div>
 
                                     {!emailEditing ? (
@@ -462,9 +462,7 @@ function CheckoutContent() {
                                     <input
                                         type="email"
                                         name="confirmEmail"
-                                        value={
-                                            formData.confirmEmail
-                                        }
+                                        // value={formData.confirmEmail}
                                         onChange={
                                             handleChange
                                         }
