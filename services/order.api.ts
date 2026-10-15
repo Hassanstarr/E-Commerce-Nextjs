@@ -16,13 +16,6 @@ export async function createStripeCheckout(data: CheckoutInput, requestId: strin
     });
 }
 
-export async function createStripeCheckout(data: CheckoutInput, requestId: string) {
-    return apiRequest<{ data: { url: string } }>("/api/stripe/checkout", {
-        method: "POST",
-        body: JSON.stringify({ ...data, requestId }),
-    });
-}
-
 export async function verifyCheckoutEmail(email: string, otp?: string) {
     return apiRequest<{
         success: boolean;
