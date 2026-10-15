@@ -12,6 +12,10 @@ export async function createOrder(
     userId: string,
     data: CreateOrderInput
 ) {
+    if (data.paymentMethod !== "cod") {
+        throw new AppError("Stripe payments must be completed through Stripe checkout", 400);
+    }
+
     if (!mongoose.Types.ObjectId.isValid(userId)) {
         throw new AppError("Invalid user ID", 400);
     }
@@ -175,7 +179,7 @@ export async function createOrder(
     return order;
 }
 
-async function sendOrderConfirmationEmail( order: any ) {
+export async function sendOrderConfirmationEmail( order: any ) {
     if (
         !process.env.EMAIL_USER ||
         !process.env.EMAIL_PASSWORD
@@ -215,7 +219,7 @@ async function sendOrderConfirmationEmail( order: any ) {
         ${order._id}
 
         Payment Method:
-        Cash on Delivery
+        ${order.paymentMethod === "stripe" ? "Stripe (Paid)" : "Cash on Delivery"}
 
         Products:
         ${itemLines}

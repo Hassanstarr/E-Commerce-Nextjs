@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
     FiArrowLeft,
@@ -20,7 +20,7 @@ import Spinner from "@/components/ui/Spinner";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/context/AuthContext";
 import { getCart } from "@/services/cart.api";
-import { createOrder, verifyCheckoutEmail } from "@/services/order.api";
+import { createOrder, createStripeCheckout, verifyCheckoutEmail } from "@/services/order.api";
 import type { Cart } from "@/types/cart";
 import { useRouter } from "next/navigation";
 
@@ -48,6 +48,8 @@ function CheckoutContent() {
     const [cart, setCart] = useState<Cart | null>(null);
     const [loading, setLoading] = useState(true);
     const [placingOrder, setPlacingOrder] = useState(false);
+    const [paymentMethod, setPaymentMethod] = useState<"cod" | "stripe">("cod");
+    const stripeRequestId = useRef<string | null>(null);
 
     const [formData, setFormData] = useState(initialForm);
 
@@ -136,6 +138,7 @@ function CheckoutContent() {
         >
     ) => {
         const { name, value } = e.target;
+        stripeRequestId.current = null;
 
         setFormData((previous) => ({
             ...previous,
@@ -146,6 +149,7 @@ function CheckoutContent() {
     };
 
     const handleSaveEmail = () => {
+        stripeRequestId.current = null;
         const email = emailDraft.trim().toLowerCase();
 
         if (!email) {
@@ -244,15 +248,24 @@ function CheckoutContent() {
             setPlacingOrder(true);
             setError("");
 
-           const result = await createOrder({
+            const checkoutData = {
                 customerName: formData.customerName,
                 customerEmail: formData.customerEmail,
                 phone: formData.phone,
                 address: formData.address,
                 city: formData.city,
                 postalCode: formData.postalCode,
-                paymentMethod: "cod",
-            });
+                paymentMethod,
+            };
+
+            if (paymentMethod === "stripe") {
+                stripeRequestId.current ||= crypto.randomUUID();
+                const result = await createStripeCheckout(checkoutData, stripeRequestId.current);
+                window.location.assign(result.data.url);
+                return;
+            }
+
+            const result = await createOrder(checkoutData);
 
             router.push(
                 `/order-success/${result.data.orderId}`
@@ -666,7 +679,8 @@ function CheckoutContent() {
                                 </div>
                             </div>
 
-                            <div className="flex items-start gap-4 rounded-xl border-2 border-black bg-gray-50 p-4">
+                            <label className="flex cursor-pointer items-start gap-4 rounded-xl border-2 border-gray-300 bg-gray-50 p-4">
+                                <input type="radio" name="paymentMethod" value="cod" checked={paymentMethod === "cod"} onChange={() => setPaymentMethod("cod")} disabled={placingOrder} />
                                 <div className="mt-1">
                                     <FiTruck className="text-black text-xl" />
                                 </div>
@@ -681,8 +695,18 @@ function CheckoutContent() {
                                     </p>
                                 </div>
 
-                                <FiCheckCircle className="ml-auto text-xl" />
-                            </div>
+                                {paymentMethod === "cod" && <FiCheckCircle className="ml-auto text-xl" />}
+                            </label>
+
+                            <label className="mt-3 flex cursor-pointer items-start gap-4 rounded-xl border-2 border-gray-300 bg-gray-50 p-4">
+                                <input type="radio" name="paymentMethod" value="stripe" checked={paymentMethod === "stripe"} onChange={() => setPaymentMethod("stripe")} disabled={placingOrder} />
+                                <FiCreditCard className="text-xl" />
+                                <div>
+                                    <p className="font-semibold text-gray-900">Stripe</p>
+                                    <p className="mt-1 text-sm text-gray-600">Pay securely by card. Your order is placed after payment succeeds.</p>
+                                </div>
+                                {paymentMethod === "stripe" && <FiCheckCircle className="ml-auto text-xl" />}
+                            </label>
                         </div>
                     </div>
 
@@ -781,12 +805,12 @@ function CheckoutContent() {
                             {placingOrder ? (
                                 <>
                                     <Spinner />
-                                    Placing Order...
+                                    {paymentMethod === "stripe" ? "Opening Stripe..." : "Placing Order..."}
                                 </>
                             ) : (
                                 <>
                                     <FiCheckCircle />
-                                    Place Order
+                                    {paymentMethod === "stripe" ? "Pay with Stripe" : "Place Order"}
                                 </>
                             )}
                         </button>
@@ -797,8 +821,7 @@ function CheckoutContent() {
                             <p>
                                 Your order will be delivered to
                                 the address provided above.
-                                Payment will be collected on
-                                delivery.
+                                {paymentMethod === "cod" ? " Payment will be collected on delivery." : " Payment will be completed securely through Stripe."}
                             </p>
                         </div>
                     </aside>

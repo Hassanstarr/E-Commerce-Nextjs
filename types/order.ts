@@ -19,7 +19,7 @@ export type CheckoutInput = {
     address: string;
     city: string;
     postalCode: string;
-    paymentMethod: "cod";
+    paymentMethod: "cod" | "stripe";
 };
 
 export type CreateOrderInput = {
@@ -27,7 +27,7 @@ export type CreateOrderInput = {
     customerEmail: string;
     phone: string;
     shippingAddress: ShippingAddress;
-    paymentMethod: "cod";
+    paymentMethod: "cod" | "stripe";
 };
 
 export type Order = {
@@ -41,7 +41,7 @@ export type Order = {
     subtotal: number;
     deliveryFee: number;
     total: number;
-    paymentMethod: "cod";
+    paymentMethod: "cod" | "stripe";
     paymentStatus: "pending" | "paid";
     orderStatus:
         | "pending"
