@@ -58,10 +58,10 @@ export default async function OrderSuccessPage({ params }: OrderSuccessPageProps
                     </Link>
 
                     <Link
-                        href="/"
+                        href="/orders"
                         className="rounded-lg border border-gray-300 px-6 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
                     >
-                        Back to Home
+                        My Orders
                     </Link>
                 </div>
             </div>

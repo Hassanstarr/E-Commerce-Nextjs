@@ -80,6 +80,13 @@ export default function Navbar() {
                                 Account
                             </Link>
 
+                            <Link
+                                href="/orders"
+                                className="text-sm text-gray-500 transition hover:text-black"
+                            >
+                                My Orders
+                            </Link>
+
                             {user.role === "admin" && (
                                 <Link
                                     href="/admin"
@@ -186,6 +193,14 @@ export default function Navbar() {
                                     className="block py-3 text-sm text-gray-500 hover:text-black"
                                 >
                                     Account
+                                </Link>
+
+                                <Link
+                                    href="/orders"
+                                    onClick={() => setMobileMenuOpen(false)}
+                                    className="block py-3 text-sm text-gray-500 hover:text-black"
+                                >
+                                    My Orders
                                 </Link>
 
                                 {user.role === "admin" && (
