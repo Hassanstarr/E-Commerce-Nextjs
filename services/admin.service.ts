@@ -12,6 +12,39 @@ function escapeRegex(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+async function addOrderDisplayIds<T extends { _id: { toString(): string } }>(orders: T[]) {
+    if (!orders.length) return [];
+
+    const shortIds = orders.map((order) => order._id.toString().slice(-6));
+    const matchingOrders = await Order.aggregate([
+        {
+            $match: {
+                $expr: {
+                    $in: [
+                        { $substrBytes: [{ $toString: "$_id" }, 18, 6] },
+                        shortIds,
+                    ],
+                },
+            },
+        },
+        { $project: { _id: 1 } },
+    ]);
+
+    return orders.map((order) => {
+        const id = order._id.toString();
+        let length = 6;
+
+        while (length < id.length && matchingOrders.some((matchingOrder) => {
+            const otherId = matchingOrder._id.toString();
+            return otherId !== id && otherId.endsWith(id.slice(-length));
+        })) {
+            length += 2;
+        }
+
+        return { ...order, displayId: id.slice(-length) };
+    });
+}
+
 
 //DASHBOARD
 
@@ -108,7 +141,7 @@ export const getAdminDashboardData = async () => {
             cancelled: cancelledOrders,
         },
 
-        recentOrders,
+        recentOrders: await addOrderDisplayIds(recentOrders),
         lowStockProducts,
     };
 };
@@ -146,9 +179,20 @@ export const getAdminOrders = async ({
             { customerEmail: searchRegex },
         ];
 
-        if (/^[0-9a-fA-F]{24}$/.test(searchTerm)) {
+        const idSearch = searchTerm.replace(/^#/, "");
+
+        if (/^[0-9a-fA-F]{24}$/.test(idSearch)) {
+            delete query.$or;
+            query._id = idSearch.toLowerCase();
+        } else if (/^[0-9a-fA-F]{1,23}$/.test(idSearch)) {
             query.$or.push({
-                _id: searchTerm,
+                $expr: {
+                    $regexMatch: {
+                        input: { $toString: "$_id" },
+                        regex: idSearch,
+                        options: "i",
+                    },
+                },
             });
         }
     }
@@ -175,7 +219,7 @@ export const getAdminOrders = async ({
     ]);
 
     return {
-        orders,
+        orders: await addOrderDisplayIds(orders),
         pagination: {
             page,
             limit,

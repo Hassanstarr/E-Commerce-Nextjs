@@ -2,6 +2,7 @@ import Link from "next/link";
 
 interface RecentOrder {
     _id: string;
+    displayId?: string;
     customerName: string;
     items: {
         quantity: number;
@@ -120,8 +121,8 @@ export default function RecentOrders({ orders }: RecentOrdersProps) {
                                         key={order._id}
                                         className="border-b border-gray-50 last:border-b-0"
                                     >
-                                        <td className="px-5 py-4 text-sm font-medium text-gray-900">
-                                            #{order._id.slice(-6)}
+                                        <td className="px-5 py-4 text-sm font-medium text-gray-900" title={`Full order ID: ${order._id}`}>
+                                            #{order.displayId || order._id}
                                         </td>
 
                                         <td className="px-5 py-4">

@@ -700,7 +700,7 @@ function CheckoutContent() {
 
                             <label className="mt-3 flex cursor-pointer items-start gap-4 rounded-xl border-2 border-gray-300 bg-gray-50 p-4">
                                 <input type="radio" name="paymentMethod" value="stripe" checked={paymentMethod === "stripe"} onChange={() => setPaymentMethod("stripe")} disabled={placingOrder} />
-                                <FiCreditCard className="text-xl" />
+                                <FiCreditCard className="text-xl text-black" />
                                 <div>
                                     <p className="font-semibold text-gray-900">Stripe</p>
                                     <p className="mt-1 text-sm text-gray-600">Pay securely by card. Your order is placed after payment succeeds.</p>
@@ -732,8 +732,7 @@ function CheckoutContent() {
                                     <div className="min-w-0 flex-1">
                                         <p className="truncate text-sm font-medium text-gray-900">
                                             {
-                                                item.product
-                                                    .name
+                                                item.product.name
                                             }
                                         </p>
 
@@ -747,9 +746,7 @@ function CheckoutContent() {
                                         <p className="mt-1 text-sm font-medium text-gray-900">
                                             Rs.{" "}
                                             {(
-                                                item.product
-                                                    .price *
-                                                item.quantity
+                                                item.product.price * item.quantity
                                             ).toLocaleString()}
                                         </p>
                                     </div>
