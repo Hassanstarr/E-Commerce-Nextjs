@@ -85,7 +85,6 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
                             src={product.image}
                             alt={product.name}
                             fill
-                            sizes="(min-width: 1280px) 564px, (min-width: 768px) calc((100vw - 152px) / 2), calc(100vw - 80px)"
                             priority
                             className="object-cover"
                         />

@@ -1,9 +1,8 @@
 "use client";
 
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
-import { HiOutlineUser, HiOutlineEnvelope, HiOutlineShieldCheck, HiOutlineShoppingBag, HiOutlineArrowRight } from "react-icons/hi2";
+import { HiOutlineUser, HiOutlineEnvelope, HiOutlineShieldCheck } from "react-icons/hi2";
 
 export default function AccountPage() {
     const { user } = useAuth();
@@ -92,19 +91,6 @@ export default function AccountPage() {
                             </div>
                         </div>
                     </div>
-                    <Link
-                        href="/orders"
-                        className="mt-6 flex items-center gap-4 rounded-2xl border border-gray-200 bg-white px-6 py-5 shadow-sm transition hover:border-gray-400 sm:px-8"
-                    >
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gray-100">
-                            <HiOutlineShoppingBag className="h-5 w-5 text-gray-600" />
-                        </div>
-                        <div className="flex-1">
-                            <h2 className="font-semibold text-gray-900">My Orders</h2>
-                            <p className="mt-1 text-sm text-gray-500">View your past orders and their status.</p>
-                        </div>
-                        <HiOutlineArrowRight className="h-5 w-5 text-gray-500" />
-                    </Link>
                 </main>
             </section>
         </ProtectedRoute>

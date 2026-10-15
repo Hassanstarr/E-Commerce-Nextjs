@@ -1,8 +1,5 @@
 import ProductGrid from "@/components/product/ProductGrid";
 import ProductFilter from "@/components/product/ProductFilter";
-import CatalogPagination from "@/components/ui/CatalogPagination";
-import { getCatalogQuery, paginateCatalog } from "@/lib/catalog";
-import Link from "next/link";
 
 type Product = {
     _id: string;
@@ -31,9 +28,7 @@ type CategoriesResponse = {
 
 type ProductsPageProps = {
     searchParams: Promise<{
-        category?: string | string[];
-        q?: string | string[];
-        page?: string | string[];
+        category?: string;
     }>;
 };
 
@@ -75,9 +70,7 @@ async function getCategories(): Promise<Category[]> {
 }
 
 export default async function ProductsPage({searchParams}: ProductsPageProps) {
-    const params = await searchParams;
-    const category = getCatalogQuery(params.category);
-    const search = getCatalogQuery(params.q);
+    const { category } = await searchParams;
 
     let products: Product[] = [];
     let errorMessage = "";
@@ -106,13 +99,6 @@ export default async function ProductsPage({searchParams}: ProductsPageProps) {
     const selectedCategory = categories.find(
         (item) => item._id === category
     );
-
-    const query = search.toLowerCase();
-    const filteredProducts = products.filter((product) =>
-        !query || product.name.toLowerCase().includes(query) ||
-        product.description.toLowerCase().includes(query)
-    );
-    const pagination = paginateCatalog(filteredProducts, getCatalogQuery(params.page));
 
     return (
         <section className="flex min-h-screen bg-gray-50 items-center justify-center">
@@ -156,10 +142,10 @@ export default async function ProductsPage({searchParams}: ProductsPageProps) {
                     </div>
                 ) : (
                     <>
-                        {pagination.total > 0 && (
+                        {products.length > 0 && (
                             <p className="mb-5 text-sm text-gray-500">
-                                Showing {pagination.from}–{pagination.to} of {pagination.total}{" "}
-                                {pagination.total === 1
+                                Showing {products.length}{" "}
+                                {products.length === 1
                                     ? "product"
                                     : "products"}
                                 {selectedCategory
@@ -169,34 +155,17 @@ export default async function ProductsPage({searchParams}: ProductsPageProps) {
                         )}
 
                         <ProductGrid
-                            products={pagination.items}
+                            products={products}
                             emptyTitle={
-                                search
-                                    ? "No products match your search"
-                                    : selectedCategory
+                                selectedCategory
                                     ? `No products in ${selectedCategory.name}`
                                     : "No products found"
                             }
                             emptyMessage={
-                                search
-                                    ? "Try another search or clear the filters."
-                                    : selectedCategory
+                                selectedCategory
                                     ? "There are currently no products in this category."
                                     : "There are currently no products available."
                             }
-                        />
-                        {(search || category) && pagination.total === 0 && (
-                            <div className="text-center">
-                                <Link href="/products" className="text-sm font-medium text-gray-700 underline hover:text-black">
-                                    Clear Filters
-                                </Link>
-                            </div>
-                        )}
-                        <CatalogPagination
-                            pathname="/products"
-                            page={pagination.page}
-                            totalPages={pagination.totalPages}
-                            filters={{ category, q: search }}
                         />
                     </>
                 )}
