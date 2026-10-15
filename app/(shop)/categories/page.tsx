@@ -1,4 +1,6 @@
 import Link from "next/link";
+import CatalogPagination from "@/components/ui/CatalogPagination";
+import { getCatalogQuery, paginateCatalog } from "@/lib/catalog";
 
 type Category = {
     _id: string;
@@ -31,8 +33,23 @@ async function getCategories(): Promise<Category[]> {
     return result.data.categories;
 }
 
-export default async function CategoriesPage() {
+type CategoriesPageProps = {
+    searchParams: Promise<{
+        q?: string | string[];
+        page?: string | string[];
+    }>;
+};
+
+export default async function CategoriesPage({ searchParams }: CategoriesPageProps) {
+    const params = await searchParams;
+    const search = getCatalogQuery(params.q);
     const categories = await getCategories();
+    const query = search.toLowerCase();
+    const filteredCategories = categories.filter((category) =>
+        !query || category.name.toLowerCase().includes(query) ||
+        category.description?.toLowerCase().includes(query)
+    );
+    const pagination = paginateCatalog(filteredCategories, getCatalogQuery(params.page));
 
     return (
         <section className="flex min-h-screen bg-gray-50 items-center justify-center">
@@ -51,21 +68,52 @@ export default async function CategoriesPage() {
                     </p>
                 </div>
 
-                {categories.length === 0 ? (
+                <form action="/categories" className="mb-8 flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-5 sm:flex-row sm:items-end">
+                    <div className="min-w-0 flex-1">
+                        <label htmlFor="category-search" className="text-sm font-medium text-gray-700">
+                            Search Categories
+                        </label>
+                        <input
+                            id="category-search"
+                            name="q"
+                            type="search"
+                            defaultValue={search}
+                            key={search}
+                            placeholder="Search by name or description"
+                            className="mt-2 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 outline-none transition focus:border-black focus:ring-1 focus:ring-black"
+                        />
+                    </div>
+                    <button type="submit" className="cursor-pointer rounded-lg bg-black px-5 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800">
+                        Search
+                    </button>
+                    {search && (
+                        <Link href="/categories" className="self-start text-sm font-medium text-gray-600 transition hover:text-black sm:self-end">
+                            Clear Search
+                        </Link>
+                    )}
+                </form>
+
+                {pagination.total > 0 && (
+                    <p className="mb-5 text-sm text-gray-500">
+                        Showing {pagination.from}–{pagination.to} of {pagination.total} {pagination.total === 1 ? "category" : "categories"}
+                    </p>
+                )}
+
+                {pagination.total === 0 ? (
                     <div className="flex min-h-75 items-center justify-center rounded-xl border border-gray-200 bg-white">
                         <div className="text-center">
                             <h2 className="text-xl font-semibold text-gray-900">
-                                No categories available
+                                {search ? "No categories match your search" : "No categories available"}
                             </h2>
 
                             <p className="mt-2 text-sm text-gray-500">
-                                Categories will appear here once they are added.
+                                {search ? "Try another search or clear your search above." : "Categories will appear here once they are added."}
                             </p>
                         </div>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                        {categories.map((category) => (
+                        {pagination.items.map((category) => (
                             <Link
                                 key={category._id}
                                 href={`/products?category=${category._id}`}
@@ -103,6 +151,12 @@ export default async function CategoriesPage() {
                         ))}
                     </div>
                 )}
+                <CatalogPagination
+                    pathname="/categories"
+                    page={pagination.page}
+                    totalPages={pagination.totalPages}
+                    filters={{ q: search }}
+                />
             </div>
         </section>
     );
