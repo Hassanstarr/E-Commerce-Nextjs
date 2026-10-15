@@ -241,7 +241,7 @@ export default function AdminPage() {
 
                 <div className="mt-6 grid gap-6 lg:grid-cols-3">
 
-                    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm lg:col-span-2 text-black">
+                    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm lg:col-span-2">
                         <div className="flex items-center justify-between gap-4">
                             <div>
                                 <h2 className="font-semibold text-gray-900">

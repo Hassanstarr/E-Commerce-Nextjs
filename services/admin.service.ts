@@ -844,13 +844,7 @@ export const getAdminAnalytics = async ( requestedPeriod: string = "30" ) => {
                 $project: {
                     _id: 0,
                     name: { $ifNull: ["$name", "$productDoc.name", "Unknown Product"] },
-                    image: {
-                        $ifNull: [
-                            { $cond: [{ $eq: ["$productDoc.image", ""] }, null, "$productDoc.image"] },
-                            "$image",
-                            "",
-                        ],
-                    },
+                    image: { $ifNull: ["$image", "$productDoc.image", ""] },
                     category: { $ifNull: ["$categoryDoc.name", "Uncategorized"] },
                     quantity: 1,
                     revenue: 1,

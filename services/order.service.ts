@@ -8,38 +8,6 @@ import nodemailer from "nodemailer";
 
 const DELIVERY_FEE = 200;
 
-export async function getMyOrders(userId: string, page = 1) {
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-        throw new AppError("Invalid user ID", 400);
-    }
-
-    if (!Number.isSafeInteger(page) || page < 1 || page > 100000) {
-        throw new AppError("Invalid page number", 400);
-    }
-
-    const limit = 10;
-    const filter = { user: userId };
-
-    const [orders, total] = await Promise.all([
-        Order.find(filter)
-            .select("_id items customerName customerEmail phone shippingAddress subtotal deliveryFee total paymentMethod paymentStatus orderStatus createdAt updatedAt")
-            .sort({ createdAt: -1, _id: -1 })
-            .skip((page - 1) * limit)
-            .limit(limit)
-            .lean(),
-        Order.countDocuments(filter),
-    ]);
-
-    return {
-        orders,
-        pagination: {
-            page,
-            total,
-            totalPages: Math.max(1, Math.ceil(total / limit)),
-        },
-    };
-}
-
 export async function createOrder(
     userId: string,
     data: CreateOrderInput

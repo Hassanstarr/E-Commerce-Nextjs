@@ -29,7 +29,6 @@ export default function WishlistItem({
                     src={product.image}
                     alt={product.name}
                     fill
-                    sizes="96px"
                     className="object-cover"
                 />
             </Link>

@@ -52,12 +52,3 @@ export type Order = {
     createdAt: string;
     updatedAt: string;
 };
-
-export type MyOrdersData = {
-    orders: Omit<Order, "user">[];
-    pagination: {
-        page: number;
-        total: number;
-        totalPages: number;
-    };
-};
