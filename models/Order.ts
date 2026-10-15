@@ -24,7 +24,8 @@ export interface IOrder extends Document {
     subtotal: number;
     deliveryFee: number;
     total: number;
-    paymentMethod: "cod";
+    paymentMethod: "cod" | "stripe";
+    stripePaymentIntentId?: string;
     paymentStatus: "pending" | "paid";
     orderStatus:
         | "pending"
@@ -158,7 +159,7 @@ const orderSchema = new Schema<IOrder>(
 
         paymentMethod: {
             type: String,
-            enum: ["cod"],
+            enum: ["cod", "stripe"],
             default: "cod",
             required: true,
         },
@@ -168,6 +169,12 @@ const orderSchema = new Schema<IOrder>(
             enum: ["pending", "paid"],
             default: "pending",
             required: true,
+        },
+
+        stripePaymentIntentId: {
+            type: String,
+            unique: true,
+            sparse: true,
         },
 
         orderStatus: {

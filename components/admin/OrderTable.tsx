@@ -4,6 +4,7 @@ import Link from "next/link";
 
 export type AdminOrder = {
     _id: string;
+    displayId?: string;
     customerName: string;
     customerEmail: string;
     total: number;
@@ -118,7 +119,7 @@ export default function OrderTable({
                             type="text"
                             value={search}
                             onChange={(event) => onSearchChange(event.target.value)}
-                            placeholder="Search by order ID, customer name or email..."
+                            placeholder="Search by full/short order ID, customer name or email..."
                             className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-black focus:ring-1 focus:ring-black"
                         />
                     </div>
@@ -261,8 +262,8 @@ export default function OrderTable({
                                             className="border-b border-gray-100 last:border-0 hover:bg-gray-50"
                                         >
                                             <td className="px-5 py-4">
-                                                <p className="font-medium text-gray-900">
-                                                    #{order._id.slice(-6)}
+                                                <p className="font-medium text-gray-900" title={`Full order ID: ${order._id}`}>
+                                                    #{order.displayId || order._id}
                                                 </p>
 
                                                 <p className="mt-1 text-xs text-gray-400">
