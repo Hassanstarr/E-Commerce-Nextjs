@@ -1,5 +1,20 @@
 import { apiRequest } from "@/lib/api";
-import type { CheckoutInput, Order } from "@/types/order";
+import type { CheckoutInput, MyOrdersData, Order } from "@/types/order";
+
+export async function getMyOrders(page = 1, signal?: AbortSignal) {
+    return apiRequest<{ data: MyOrdersData }>(`/api/orders?page=${page}`, {
+        method: "GET",
+        cache: "no-store",
+        signal,
+    });
+}
+
+export async function createStripeCheckout(data: CheckoutInput, requestId: string) {
+    return apiRequest<{ data: { url: string } }>("/api/stripe/checkout", {
+        method: "POST",
+        body: JSON.stringify({ ...data, requestId }),
+    });
+}
 
 export async function verifyCheckoutEmail(email: string, otp?: string) {
     return apiRequest<{

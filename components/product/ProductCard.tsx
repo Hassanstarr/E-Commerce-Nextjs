@@ -25,6 +25,7 @@ export default function ProductCard({ product }: ProductCardProps) {
                         src={product.image}
                         alt={product.name}
                         fill
+                        sizes="(min-width: 1280px) 294px, (min-width: 1024px) calc((100vw - 80px) / 3), (min-width: 640px) calc((100vw - 56px) / 2), calc(100vw - 32px)"
                         className="object-cover"
                     />
                 </div>
