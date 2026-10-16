@@ -67,7 +67,7 @@ export default function ContactPage() {
     };
 
     return (
-        <section className="flex min-h-screen bg-gray-50 items-center justify-center">
+        <section className="flex flex-1 bg-gray-50 items-center justify-center">
             <main className="mx-auto w-full max-w-5xl px-4 py-12">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold text-gray-900">

@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export default function ProductNotFound() {
     return (
-        <section className="flex min-h-[70vh] items-center justify-center px-4">
+        <section className="flex flex-1 items-center justify-center px-4">
             <div className="text-center">
                 <p className="text-sm font-medium text-gray-500">
                     Product

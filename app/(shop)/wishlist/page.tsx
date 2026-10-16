@@ -5,6 +5,8 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import WishlistItem from "@/components/wishlist/WishlistItem";
 import EmptyState from "@/components/ui/EmptyState";
 import Spinner from "@/components/ui/Spinner";
+import CatalogPagination from "@/components/ui/CatalogPagination";
+import { paginateCatalog } from "@/lib/catalog";
 import { useAuth } from "@/context/AuthContext";
 import { addToCart } from "@/services/cart.api";
 import { getWishlist, removeFromWishlist } from "@/services/wishlist.api";
@@ -31,6 +33,8 @@ function WishlistContent() {
     const [addingProduct, setAddingProduct] = useState< string | null >(null);
     const [error, setError] = useState("");
     const [message, setMessage] = useState("");
+    const [page, setPage] = useState(1);
+    const pagination = paginateCatalog(wishlist.products, String(page), 8);
 
     useEffect(() => {
         const loadWishlist = async () => {
@@ -104,7 +108,7 @@ function WishlistContent() {
 
     if (loading) {
         return (
-            <section className="flex min-h-screen w-full bg-white items-center justify-center px-4 py-6 sm:px-6 lg:px-8">
+            <section className="flex flex-1 w-full bg-white items-center justify-center px-4 py-6 sm:px-6 lg:px-8">
                 <div className="flex flex-col items-center justify-center gap-3">
                     <Spinner />
                     <p className="text-sm text-gray-500">
@@ -116,7 +120,7 @@ function WishlistContent() {
     }
 
     return (
-        <section className="flex min-h-screen bg-gray-50 items-center justify-center">
+        <section className="flex flex-1 bg-gray-50 items-center justify-center">
             <main className="mx-auto max-w-7xl px-4 py-12">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold text-gray-900">
@@ -146,22 +150,26 @@ function WishlistContent() {
                         message="Add products to your wishlist to see them here."
                     />
                 ) : (
-                    <section className="rounded-xl border border-gray-200 bg-white px-5">
-                        {wishlist.products.map((product) => (
-                            <WishlistItem
-                                key={product._id}
-                                product={product}
-                                onRemove={handleRemove}
-                                onAddToCart={handleAddToCart}
-                                removing={
-                                    removingProduct === product._id
-                                }
-                                addingToCart={
-                                    addingProduct === product._id
-                                }
-                            />
-                        ))}
-                    </section>
+                    <>
+                        <p className="mb-4 text-sm text-gray-500">Showing {pagination.from}–{pagination.to} of {pagination.total} saved products</p>
+                        <section className="rounded-xl border border-gray-200 bg-white px-5">
+                            {pagination.items.map((product) => (
+                                <WishlistItem
+                                    key={product._id}
+                                    product={product}
+                                    onRemove={handleRemove}
+                                    onAddToCart={handleAddToCart}
+                                    removing={
+                                        removingProduct === product._id
+                                    }
+                                    addingToCart={
+                                        addingProduct === product._id
+                                    }
+                                />
+                            ))}
+                        </section>
+                        <CatalogPagination pathname="/wishlist" page={pagination.page} totalPages={pagination.totalPages} onPageChange={setPage} />
+                    </>
                 )}
             </main>
         </section>

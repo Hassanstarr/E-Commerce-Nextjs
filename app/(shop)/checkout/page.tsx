@@ -17,6 +17,8 @@ import {
 } from "react-icons/fi";
 
 import Spinner from "@/components/ui/Spinner";
+import CatalogPagination from "@/components/ui/CatalogPagination";
+import { paginateCatalog } from "@/lib/catalog";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/context/AuthContext";
 import { getCart } from "@/services/cart.api";
@@ -49,6 +51,8 @@ function CheckoutContent() {
     const [loading, setLoading] = useState(true);
     const [placingOrder, setPlacingOrder] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState<"cod" | "stripe">("cod");
+    const [summaryPage, setSummaryPage] = useState(1);
+    const summaryPagination = paginateCatalog(cart?.items || [], String(summaryPage), 8);
     const stripeRequestId = useRef<string | null>(null);
 
     const [formData, setFormData] = useState(initialForm);
@@ -283,7 +287,7 @@ function CheckoutContent() {
 
     if (authLoading || loading) {
         return (
-            <section className="flex min-h-screen items-center justify-center bg-white">
+            <section className="flex flex-1 items-center justify-center bg-white">
                 <Spinner />
             </section>
         );
@@ -291,7 +295,7 @@ function CheckoutContent() {
 
     if (!cart || cart.items.length === 0) {
         return (
-            <section className="mx-auto flex min-h-[70vh] max-w-2xl items-center justify-center px-4 py-16">
+            <section className="mx-auto flex flex-1 max-w-2xl items-center justify-center px-4 py-16">
                 <div className="w-full rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
                     <FiShoppingBag className="mx-auto text-4xl text-gray-400" />
 
@@ -330,7 +334,7 @@ function CheckoutContent() {
     const total = subtotal + deliveryFee;
 
     return (
-        <section className="min-h-screen bg-gray-50 px-4 py-10 sm:px-6 lg:px-8">
+        <section className="flex-1 bg-gray-50 px-4 py-10 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-7xl">
                 <Link
                     href="/cart"
@@ -716,7 +720,7 @@ function CheckoutContent() {
                         </h2>
 
                         <div className="mt-6 space-y-5">
-                            {cart.items.map((item) => (
+                            {summaryPagination.items.map((item) => (
                                 <div
                                     key={item.product._id}
                                     className="flex gap-3"
@@ -753,6 +757,8 @@ function CheckoutContent() {
                                 </div>
                             ))}
                         </div>
+
+                        <CatalogPagination pathname="/checkout" page={summaryPagination.page} totalPages={summaryPagination.totalPages} onPageChange={setSummaryPage} />
 
                         <div className="my-6 border-t border-gray-200" />
 

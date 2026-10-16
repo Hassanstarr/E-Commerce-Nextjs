@@ -7,6 +7,8 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import CartItem from "@/components/cart/CartItem";
 import EmptyState from "@/components/ui/EmptyState";
 import Spinner from "@/components/ui/Spinner";
+import CatalogPagination from "@/components/ui/CatalogPagination";
+import { paginateCatalog } from "@/lib/catalog";
 import { useAuth } from "@/context/AuthContext";
 import { getCart, updateCartItem, removeFromCart, clearCart } from "@/services/cart.api";
 import type { Cart } from "@/types/cart";
@@ -35,6 +37,8 @@ function CartContent() {
     );
     const [clearing, setClearing] = useState(false);
     const [error, setError] = useState("");
+    const [page, setPage] = useState(1);
+    const pagination = paginateCatalog(cart.items, String(page), 8);
 
     useEffect(() => {
         const loadCart = async () => {
@@ -137,7 +141,7 @@ function CartContent() {
 
     if (loading) {
         return (
-            <section className="flex min-h-screen w-full bg-white items-center justify-center px-4 py-6 sm:px-6 lg:px-8">
+            <section className="flex flex-1 w-full bg-white items-center justify-center px-4 py-6 sm:px-6 lg:px-8">
                 <div className="flex flex-col items-center justify-center gap-3">
                     <Spinner />
                     <p className="text-sm text-gray-500">
@@ -149,7 +153,7 @@ function CartContent() {
     }
 
     return (
-        <section className="min-h-155 bg-gray-50">   
+        <section className="flex-1 bg-gray-50">
             <main className="mx-auto max-w-7xl px-4 py-12">
                 <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -189,20 +193,24 @@ function CartContent() {
                     />
                 ) : (
                     <div className="grid gap-8 lg:grid-cols-[1fr_350px]">
-                        <section className="rounded-xl border border-gray-200 bg-white px-5">
-                            {cart.items.map((item) => (
-                                <CartItem
-                                    key={item.product._id}
-                                    item={item}
-                                    onUpdate={handleUpdate}
-                                    onRemove={handleRemove}
-                                    updating={
-                                        updatingProduct ===
-                                        item.product._id
-                                    }
-                                />
-                            ))}
-                        </section>
+                        <div className="min-w-0">
+                            <p className="mb-4 text-sm text-gray-500">Showing {pagination.from}–{pagination.to} of {pagination.total} cart items</p>
+                            <section className="rounded-xl border border-gray-200 bg-white px-5">
+                                {pagination.items.map((item) => (
+                                    <CartItem
+                                        key={item.product._id}
+                                        item={item}
+                                        onUpdate={handleUpdate}
+                                        onRemove={handleRemove}
+                                        updating={
+                                            updatingProduct ===
+                                            item.product._id
+                                        }
+                                    />
+                                ))}
+                            </section>
+                            <CatalogPagination pathname="/cart" page={pagination.page} totalPages={pagination.totalPages} onPageChange={setPage} />
+                        </div>
 
                         <aside className="h-fit rounded-xl border border-gray-200 bg-white p-6">
                             <h2 className="text-xl font-semibold text-gray-900">

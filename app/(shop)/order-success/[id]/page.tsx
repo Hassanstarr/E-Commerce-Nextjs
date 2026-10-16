@@ -11,7 +11,7 @@ export default async function OrderSuccessPage({ params }: OrderSuccessPageProps
     const { id } = await params;
 
     return (
-        <section className="flex min-h-[75vh] items-center justify-center bg-gray-50 px-4 py-16">
+        <section className="flex flex-1 items-center justify-center bg-gray-50 px-4 py-16">
             <div className="w-full max-w-2xl rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm sm:p-12">
                 <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-50">
                     <FiCheckCircle className="text-5xl text-green-600" />

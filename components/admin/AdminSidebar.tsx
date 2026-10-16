@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     HiOutlineChartBar,
     HiOutlineClipboardDocumentList,
@@ -16,6 +16,7 @@ import {
     HiOutlineXMark,
 } from "react-icons/hi2";
 import { useAuth } from "@/context/AuthContext";
+import LogoutDialog from "@/components/auth/LogoutDialog";
 
 interface AdminSidebarProps {
     sidebarOpen: boolean;
@@ -64,6 +65,10 @@ export default function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSideb
     const pathname = usePathname();
     const router = useRouter();
     const { logout } = useAuth();
+    const [logoutOpen, setLogoutOpen] = useState(false);
+    const [loggingOut, setLoggingOut] = useState(false);
+    const [logoutError, setLogoutError] = useState("");
+    const dialogRef = useRef<HTMLDialogElement>(null);
 
     const isActive = (href: string) => {
         if (href === "/admin") {
@@ -78,12 +83,20 @@ export default function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSideb
     };
 
     const handleLogout = async () => {
-        await logout();
-
-        setSidebarOpen(false);
-
-        router.push("/");
-        router.refresh();
+        if (loggingOut) return;
+        setLoggingOut(true);
+        setLogoutError("");
+        try {
+            await logout();
+            setLogoutOpen(false);
+            setSidebarOpen(false);
+            router.push("/");
+            router.refresh();
+        } catch {
+            setLogoutError("Unable to log out. Please try again.");
+        } finally {
+            setLoggingOut(false);
+        }
     };
 
     useEffect(() => {
@@ -91,12 +104,19 @@ export default function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSideb
     }, [pathname, setSidebarOpen]);
 
     useEffect(() => {
-        document.body.style.overflow = sidebarOpen ? "hidden" : "";
+        document.body.style.overflow = sidebarOpen || logoutOpen ? "hidden" : "";
 
         return () => {
             document.body.style.overflow = "";
         };
-    }, [sidebarOpen]);
+    }, [sidebarOpen, logoutOpen]);
+
+    useEffect(() => {
+        if (!logoutOpen) return;
+        const dialog = dialogRef.current;
+        dialog?.showModal();
+        return () => dialog?.close();
+    }, [logoutOpen]);
 
     return (
         <>
@@ -182,7 +202,10 @@ export default function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSideb
 
                         <button
                             type="button"
-                            onClick={handleLogout}
+                            onClick={() => {
+                                setLogoutError("");
+                                setLogoutOpen(true);
+                            }}
                             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-gray-600 transition hover:bg-red-50 hover:text-red-600"
                         >
                             <HiOutlineArrowRightOnRectangle className="h-5 w-5 shrink-0" />
@@ -210,6 +233,13 @@ export default function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSideb
                 </div>
 
             </aside>
+            <LogoutDialog
+                dialogRef={dialogRef}
+                loading={loggingOut}
+                error={logoutError}
+                onClose={() => setLogoutOpen(false)}
+                onConfirm={handleLogout}
+            />
         </>
     );
 }

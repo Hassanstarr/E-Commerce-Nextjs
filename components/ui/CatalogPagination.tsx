@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 
 type CatalogPaginationProps = {
@@ -5,9 +7,10 @@ type CatalogPaginationProps = {
     page: number;
     totalPages: number;
     filters?: Record<string, string>;
+    onPageChange?: (page: number) => void;
 };
 
-export default function CatalogPagination({ pathname, page, totalPages, filters = {} }: CatalogPaginationProps) {
+export default function CatalogPagination({ pathname, page, totalPages, filters = {}, onPageChange }: CatalogPaginationProps) {
     if (totalPages <= 1) return null;
 
     const getPageUrl = (nextPage: number) => {
@@ -24,13 +27,17 @@ export default function CatalogPagination({ pathname, page, totalPages, filters 
     return (
         <nav aria-label="Results pagination" className="mt-8 flex items-center justify-between gap-3">
             {page > 1 ? (
-                <Link href={getPageUrl(page - 1)} rel="prev" className={buttonClass}>Previous</Link>
+                onPageChange ? (
+                    <button type="button" onClick={() => onPageChange(page - 1)} className={`${buttonClass} cursor-pointer`}>Previous</button>
+                ) : <Link href={getPageUrl(page - 1)} rel="prev" className={buttonClass}>Previous</Link>
             ) : (
                 <span aria-disabled="true" className={`${buttonClass} opacity-40`}>Previous</span>
             )}
             <span className="text-sm text-gray-500" aria-current="page">Page {page} of {totalPages}</span>
             {page < totalPages ? (
-                <Link href={getPageUrl(page + 1)} rel="next" className={buttonClass}>Next</Link>
+                onPageChange ? (
+                    <button type="button" onClick={() => onPageChange(page + 1)} className={`${buttonClass} cursor-pointer`}>Next</button>
+                ) : <Link href={getPageUrl(page + 1)} rel="next" className={buttonClass}>Next</Link>
             ) : (
                 <span aria-disabled="true" className={`${buttonClass} opacity-40`}>Next</span>
             )}

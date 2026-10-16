@@ -79,7 +79,7 @@ export default function LoginPage() {
     };
 
     return (
-        <section className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12">
+        <section className="flex min-h-dvh items-center justify-center bg-gray-50 px-4 py-12">
             <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-sm md:p-8">
 
                 <div className="relative mb-4 flex min-h-12 items-center justify-center">
