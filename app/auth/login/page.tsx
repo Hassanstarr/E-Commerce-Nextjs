@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { apiRequest } from "@/lib/api";
+import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
 type LoginResponse = {
     success: boolean;
@@ -157,6 +158,8 @@ export default function LoginPage() {
                         {loading ? "Logging in..." : "Login"}
                     </button>
                 </form>
+
+                <GoogleSignInButton disabled={loading} onLoadingChange={setLoading} />
 
                 <p className="mt-6 text-center text-sm text-gray-500">
                     Don't have an account?{" "}
