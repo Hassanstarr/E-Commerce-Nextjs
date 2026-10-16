@@ -42,7 +42,7 @@ export async function loginUser(data: LoginInput) {
         email: data.email.toLowerCase(),
     });
 
-    if (!user) {
+    if (!user || !user.password) {
         throw new AppError("Invalid email or password", 401);
     }
 

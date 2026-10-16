@@ -60,7 +60,7 @@ function StripeReturnContent() {
     }, [id, user, loading, router, retry]);
 
     return (
-        <section className="flex min-h-[75vh] items-center justify-center bg-gray-50 px-4 py-16">
+        <section className="flex flex-1 items-center justify-center bg-gray-50 px-4 py-16">
             <div className="w-full max-w-xl rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
                 <h1 className="text-2xl font-bold text-gray-900">Stripe Payment</h1>
                 {checking && <div className="mt-6 flex justify-center"><Spinner /></div>}

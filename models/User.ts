@@ -3,7 +3,8 @@ import mongoose, { Document, Model } from "mongoose";
 export interface IUser extends Document {
     name: string;
     email: string;
-    password: string;
+    password?: string;
+    googleId?: string;
     role: "user" | "admin";
     verifiedCheckoutEmails: string[];
     checkoutEmailVerification?: {
@@ -37,8 +38,14 @@ const userSchema = new mongoose.Schema<IUser>(
 
         password: {
             type: String,
-            required: [true, "Password is required"],
+            required: [function (this: IUser) { return !this.googleId; }, "Password is required"],
             minlength: [6, "Password must contain at least 6 characters"],
+        },
+
+        googleId: {
+            type: String,
+            unique: true,
+            sparse: true,
         },
 
         role: {

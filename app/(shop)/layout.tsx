@@ -3,7 +3,7 @@ import Footer from "@/components/layout/Footer";
 
 export default function ShopLayout({ children }: { children: React.ReactNode; }) {
     return (
-        <div className="flex min-h-screen flex-col bg-white">
+        <div className="flex min-h-dvh flex-col bg-white">
                 <Navbar />
                 <main className="flex flex-1 flex-col">
                     {children}

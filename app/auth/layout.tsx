@@ -16,7 +16,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
     if (loading || user) {
         return (
-            <div className="min-h-screen flex-1 bg-white" />
+            <div className="min-h-dvh flex-1 bg-white" />
         );
     }
 

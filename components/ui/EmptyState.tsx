@@ -5,7 +5,7 @@ type EmptyStateProps = {
 
 export default function EmptyState({ title, message }: EmptyStateProps) {
     return (
-        <div className="flex min-h-screen flex-col items-center justify-center text-center">
+        <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
             <h2 className="text-xl font-semibold text-gray-900">
                 {title}
             </h2>

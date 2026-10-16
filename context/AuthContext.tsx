@@ -54,14 +54,16 @@ export function AuthProvider({ children }: { children: ReactNode; }) {
     }, []);
 
     const logout = async () => {
-        try {
-            await fetch("/api/auth/logout", {
-                method: "POST",
-                credentials: "include",
-            });
-        } finally {
-            setUser(null);
+        const response = await fetch("/api/auth/logout", {
+            method: "POST",
+            credentials: "include",
+        });
+
+        if (!response.ok) {
+            throw new Error("Unable to log out. Please try again.");
         }
+
+        setUser(null);
     };
 
     return (

@@ -12,7 +12,7 @@ export default function AccountPage() {
 
     return (
         <ProtectedRoute>
-            <section className="min-h-screen bg-gray-50 px-4 py-12">
+            <section className="flex-1 bg-gray-50 px-4 py-12">
                 <main className="mx-auto w-full max-w-3xl">
 
                     <div className="mb-8 text-center">

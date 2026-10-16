@@ -20,7 +20,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
 
     if (loading || !user) {
         return (
-            <div className="min-h-screen flex-1 bg-white" />
+            <div className="flex-1 bg-white" />
         );
     }
 

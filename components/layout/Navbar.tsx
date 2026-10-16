@@ -1,231 +1,184 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { HiOutlineBars3, HiOutlineXMark } from "react-icons/hi2";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { HiOutlineBars3, HiOutlineXMark, HiOutlineChevronDown, HiOutlineArrowRightOnRectangle } from "react-icons/hi2";
 import { useAuth } from "@/context/AuthContext";
+import LogoutDialog from "@/components/auth/LogoutDialog";
+
+const navigation = [
+    { href: "/products", label: "Products" },
+    { href: "/categories", label: "Categories" },
+    { href: "/cart", label: "Cart" },
+    { href: "/wishlist", label: "Wishlist" },
+];
 
 export default function Navbar() {
     const router = useRouter();
+    const pathname = usePathname();
     const { user, loading, logout } = useAuth();
-
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [logoutOpen, setLogoutOpen] = useState(false);
+    const [loggingOut, setLoggingOut] = useState(false);
+    const [logoutError, setLogoutError] = useState("");
+    const profileRef = useRef<HTMLDetailsElement>(null);
+    const dialogRef = useRef<HTMLDialogElement>(null);
 
-    const handleLogout = async () => {
-        await logout();
+    const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+    const links = user ? [...navigation, { href: "/orders", label: "My Orders" }] : navigation;
+
+    const closeMenus = () => {
         setMobileMenuOpen(false);
-        router.push("/");
-        router.refresh();
+        if (profileRef.current) profileRef.current.open = false;
     };
 
-    return (
-        <header className="sticky top-0 z-50 border-b border-gray-200 bg-white">
-            <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
+    useEffect(() => {
+        const handleOutsideClick = (event: PointerEvent) => {
+            if (dialogRef.current?.open) return;
+            if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+                profileRef.current.open = false;
+            }
+        };
+        const handleEscape = (event: KeyboardEvent) => {
+            if (dialogRef.current?.open) return;
+            if (event.key === "Escape" && profileRef.current?.open) {
+                profileRef.current.open = false;
+                profileRef.current.querySelector("summary")?.focus();
+            }
+        };
+        document.addEventListener("pointerdown", handleOutsideClick);
+        document.addEventListener("keydown", handleEscape);
+        return () => {
+            document.removeEventListener("pointerdown", handleOutsideClick);
+            document.removeEventListener("keydown", handleEscape);
+        };
+    }, []);
 
-                <Link
-                    href="/"
-                    className="text-xl font-bold text-gray-900"
-                >
-                    ShopEase
-                </Link>
+    useEffect(() => {
+        if (!logoutOpen) return;
+        const dialog = dialogRef.current;
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        dialog?.showModal();
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            dialog?.close();
+        };
+    }, [logoutOpen]);
+
+    const handleLogout = async () => {
+        if (loggingOut) return;
+        setLoggingOut(true);
+        setLogoutError("");
+        try {
+            await logout();
+            setLogoutOpen(false);
+            closeMenus();
+            router.push("/");
+            router.refresh();
+        } catch {
+            setLogoutError("Unable to log out. Please try again.");
+        } finally {
+            setLoggingOut(false);
+        }
+    };
+
+    const linkClass = (href: string) => `group relative py-2 text-sm font-medium transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gray-900 ${isActive(href) ? "text-gray-900" : "text-gray-500 hover:text-gray-900"}`;
+    const underlineClass = (href: string) => `absolute inset-x-0 bottom-0 h-0.5 origin-left rounded-full bg-gray-900 transition-transform duration-200 motion-reduce:transition-none ${isActive(href) ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100 group-focus-visible:scale-x-100"}`;
+
+    return (
+        <header className="sticky top-0 z-50 shrink-0 border-b border-gray-200 bg-white">
+            <nav aria-label="Main navigation" className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4">
+                <Link href="/" onClick={closeMenus} className="text-xl font-bold text-gray-900">ShopEase</Link>
 
                 <div className="hidden items-center gap-5 md:flex">
-
-                    <Link
-                        href="/products"
-                        className="text-sm text-gray-500 transition hover:text-black"
-                    >
-                        Products
-                    </Link>
-
-                    <Link
-                        href="/categories"
-                        className="text-sm text-gray-500 transition hover:text-black"
-                    >
-                        Categories
-                    </Link>
-
-                    <Link
-                        href="/cart"
-                        className="text-sm text-gray-500 transition hover:text-black"
-                    >
-                        Cart
-                    </Link>
-
-                    <Link
-                        href="/wishlist"
-                        className="text-sm text-gray-500 transition hover:text-black"
-                    >
-                        Wishlist
-                    </Link>
-
-                    {!loading && !user && (
-                        <Link
-                            href="/auth/login"
-                            className="text-sm text-gray-500 transition hover:text-black"
-                        >
-                            Login
+                    {links.map((item) => (
+                        <Link key={item.href} href={item.href} onClick={closeMenus} aria-current={isActive(item.href) ? "page" : undefined} className={linkClass(item.href)}>
+                            {item.label}
+                            <span aria-hidden="true" className={underlineClass(item.href)} />
                         </Link>
+                    ))}
+                </div>
+
+                <div className="flex items-center gap-3">
+                    {!loading && !user && (
+                        <Link href="/auth/login" className="hidden rounded-lg bg-black px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800 md:block">Login</Link>
                     )}
 
                     {!loading && user && (
-                        <>
-
-
-                            <Link
-                                href="/account"
-                                className="text-sm text-gray-500 transition hover:text-black"
+                        <details ref={profileRef} className="group/profile relative">
+                            <summary
+                                aria-label={`Open profile menu for ${user.name}`}
+                                onClick={() => setMobileMenuOpen(false)}
+                                className={`flex cursor-pointer list-none items-center gap-2 rounded-full p-1 transition hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900 [&::-webkit-details-marker]:hidden ${isActive("/account") ? "ring-2 ring-gray-900 ring-offset-2" : ""}`}
                             >
-                                Account
-                            </Link>
-
-                            <Link
-                                href="/orders"
-                                className="text-sm text-gray-500 transition hover:text-black"
-                            >
-                                My Orders
-                            </Link>
-
-                            {user.role === "admin" && (
-                                <Link
-                                    href="/admin"
-                                    className="text-sm font-medium text-gray-500 transition hover:text-black"
-                                >
-                                    Admin
-                                </Link>
-                            )}
-
-                            <button
-                                type="button"
-                                onClick={handleLogout}
-                                className="cursor-pointer text-sm text-gray-500 transition hover:text-black"
-                            >
-                                Logout
-                            </button>
-                        </>
+                                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-900 text-sm font-semibold text-white">
+                                    {user.name.trim().charAt(0).toUpperCase() || "U"}
+                                </span>
+                                <HiOutlineChevronDown aria-hidden="true" className="mr-1 h-4 w-4 text-gray-500 transition-transform group-open/profile:rotate-180" />
+                            </summary>
+                            <div className="absolute right-0 mt-3 w-64 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
+                                <div className="border-b border-gray-100 px-4 py-3">
+                                    <p className="truncate text-sm font-semibold text-gray-900">{user.name}</p>
+                                    <p className="mt-1 truncate text-xs text-gray-500">{user.email}</p>
+                                </div>
+                                <div className="space-y-1 p-2">
+                                    {[
+                                        { href: "/account", label: "My Account" },
+                                        { href: "/orders", label: "My Orders" },
+                                        ...(user.role === "admin" ? [{ href: "/admin", label: "Admin Dashboard" }] : []),
+                                    ].map((item) => (
+                                        <Link key={item.href} href={item.href} onClick={closeMenus} aria-current={isActive(item.href) ? "page" : undefined} className={`block rounded-lg px-3 py-2 text-sm transition ${isActive(item.href) ? "bg-gray-100 font-medium text-gray-900" : "text-gray-600 hover:bg-gray-50 hover:text-black"}`}>
+                                            {item.label}
+                                        </Link>
+                                    ))}
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setMobileMenuOpen(false);
+                                            setLogoutError("");
+                                            setLogoutOpen(true);
+                                        }}
+                                        className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-gray-600 transition hover:bg-gray-50 hover:text-black"
+                                    >
+                                        <HiOutlineArrowRightOnRectangle className="h-4 w-4" />
+                                        Logout
+                                    </button>
+                                </div>
+                            </div>
+                        </details>
                     )}
 
+                    <button type="button" onClick={() => {
+                        if (profileRef.current) profileRef.current.open = false;
+                        setMobileMenuOpen(!mobileMenuOpen);
+                    }} aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"} aria-expanded={mobileMenuOpen} aria-controls="mobile-navigation" className="rounded-lg p-2 text-gray-600 transition hover:bg-gray-100 hover:text-black md:hidden">
+                        {mobileMenuOpen ? <HiOutlineXMark className="h-6 w-6" /> : <HiOutlineBars3 className="h-6 w-6" />}
+                    </button>
                 </div>
-
-                <button
-                    type="button"
-                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                    className="rounded-md p-2 text-gray-600 hover:bg-gray-100 hover:text-black md:hidden"
-                    aria-label="Toggle menu"
-                >
-                    {mobileMenuOpen ? (
-                        <HiOutlineXMark className="h-6 w-6" />
-                    ) : (
-                        <HiOutlineBars3 className="h-6 w-6" />
-                    )}
-                </button>
-
             </nav>
 
             {mobileMenuOpen && (
-                <div className="border-t border-gray-200 bg-white md:hidden">
-                    <div className="absolute w-full bg-white px-4 py-2">
-
-                        <Link
-                            href="/products"
-                            onClick={() => setMobileMenuOpen(false)}
-                            className="block py-3 text-sm text-gray-500 hover:text-black"
-                        >
-                            Products
-                        </Link>
-
-                        <Link
-                            href="/categories"
-                            onClick={() => setMobileMenuOpen(false)}
-                            className="block py-3 text-sm text-gray-500 hover:text-black"
-                        >
-                            Categories
-                        </Link>
-
-                        <Link
-                            href="/cart"
-                            onClick={() => setMobileMenuOpen(false)}
-                            className="block py-3 text-sm text-gray-500 hover:text-black"
-                        >
-                            Cart
-                        </Link>
-
-                        <Link
-                            href="/wishlist"
-                            onClick={() => setMobileMenuOpen(false)}
-                            className="block py-3 text-sm text-gray-500 hover:text-black"
-                        >
-                            Wishlist
-                        </Link>
-
-                        {!loading && !user && (
-                            <Link
-                                href="/auth/login"
-                                onClick={() => setMobileMenuOpen(false)}
-                                className="block py-3 text-sm text-gray-500 hover:text-black"
-                            >
-                                Login
+                <nav id="mobile-navigation" aria-label="Mobile navigation" className="absolute inset-x-0 max-h-[calc(100dvh-4rem)] overflow-y-auto border-b border-gray-200 bg-white px-4 py-3 shadow-sm md:hidden">
+                    {[...links, ...(!loading && !user ? [{ href: "/auth/login", label: "Login" }] : [])].map((item) => (
+                        <div key={item.href} className="py-1">
+                            <Link href={item.href} onClick={closeMenus} aria-current={isActive(item.href) ? "page" : undefined} className={`inline-flex ${linkClass(item.href)}`}>
+                                {item.label}
+                                <span aria-hidden="true" className={underlineClass(item.href)} />
                             </Link>
-                        )}
-
-                        {!loading && user && (
-                            <>
-                                <Link
-                                    href="/cart"
-                                    onClick={() => setMobileMenuOpen(false)}
-                                    className="block py-3 text-sm text-gray-500 hover:text-black"
-                                >
-                                    Cart
-                                </Link>
-
-                                <Link
-                                    href="/wishlist"
-                                    onClick={() => setMobileMenuOpen(false)}
-                                    className="block py-3 text-sm text-gray-500 hover:text-black"
-                                >
-                                    Wishlist
-                                </Link>
-
-                                <Link
-                                    href="/account"
-                                    onClick={() => setMobileMenuOpen(false)}
-                                    className="block py-3 text-sm text-gray-500 hover:text-black"
-                                >
-                                    Account
-                                </Link>
-
-                                <Link
-                                    href="/orders"
-                                    onClick={() => setMobileMenuOpen(false)}
-                                    className="block py-3 text-sm text-gray-500 hover:text-black"
-                                >
-                                    My Orders
-                                </Link>
-
-                                {user.role === "admin" && (
-                                    <Link
-                                        href="/admin"
-                                        onClick={() => setMobileMenuOpen(false)}
-                                        className="block py-3 text-sm font-medium text-gray-500 hover:text-black"
-                                    >
-                                        Admin
-                                    </Link>
-                                )}
-
-                                <button
-                                    type="button"
-                                    onClick={handleLogout}
-                                    className="block w-full cursor-pointer py-3 text-left text-sm text-gray-500 hover:text-black"
-                                >
-                                    Logout
-                                </button>
-                            </>
-                        )}
-
-                    </div>
-                </div>
+                        </div>
+                    ))}
+                </nav>
             )}
+
+            <LogoutDialog
+                dialogRef={dialogRef}
+                loading={loggingOut}
+                error={logoutError}
+                onClose={() => setLogoutOpen(false)}
+                onConfirm={handleLogout}
+            />
         </header>
     );
 }

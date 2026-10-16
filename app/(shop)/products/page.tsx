@@ -115,7 +115,7 @@ export default async function ProductsPage({searchParams}: ProductsPageProps) {
     const pagination = paginateCatalog(filteredProducts, getCatalogQuery(params.page));
 
     return (
-        <section className="flex min-h-screen bg-gray-50 items-center justify-center">
+        <section className="flex flex-1 bg-gray-50 items-center justify-center">
             <div className="mx-auto max-w-7xl px-4 py-12">
                 <div className="mb-10">
                     <p className="text-sm font-medium text-gray-500">
@@ -143,7 +143,7 @@ export default async function ProductsPage({searchParams}: ProductsPageProps) {
                 </div>
 
                 {errorMessage ? (
-                    <div className="flex min-h-75 items-center justify-center rounded-xl border border-gray-200 bg-white">
+                    <div className="flex py-12 items-center justify-center rounded-xl border border-gray-200 bg-white">
                         <div className="px-6 text-center">
                             <h2 className="text-xl font-semibold text-gray-900">
                                 {errorMessage}

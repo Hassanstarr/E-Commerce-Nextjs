@@ -20,7 +20,7 @@ type ProductGridProps = {
 export default function ProductGrid({ products, emptyTitle, emptyMessage }: ProductGridProps) {
     if (products.length === 0) {
         return (
-            <div className="flex min-h-75 flex-col items-center justify-center text-center">
+            <div className="flex flex-col items-center justify-center py-12 text-center">
                 <h2 className="text-xl font-semibold text-gray-900">
                     {emptyTitle}
                 </h2>
