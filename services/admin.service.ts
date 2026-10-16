@@ -536,19 +536,9 @@ export const getAdminCustomers = async ({
                     $sum: {
                         $cond: [
                             {
-                                $and: [
-                                    {
-                                        $eq: [
-                                            "$orderStatus",
-                                            "delivered",
-                                        ],
-                                    },
-                                    {
-                                        $eq: [
-                                            "$paymentStatus",
-                                            "paid",
-                                        ],
-                                    },
+                                $eq: [
+                                    "$paymentStatus",
+                                    "paid",
                                 ],
                             },
                             "$total",
@@ -660,7 +650,7 @@ export const getAdminCustomerById = async ( customerId: string ) => {
     }).sort({ createdAt: -1 }).lean();
 
     const totalSpent = orders.reduce((sum, order) => {
-        return order.orderStatus === "delivered" && order.paymentStatus === "paid"
+        return order.paymentStatus === "paid"
             ? sum + order.total
             : sum;
     }, 0);
