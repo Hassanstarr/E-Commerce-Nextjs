@@ -55,5 +55,6 @@ export async function loginGoogleUser(credential: string, nonce: string) {
         name: user.name,
         email: user.email,
         role: user.role,
+        sessionVersion: user.sessionVersion || 0,
     };
 }

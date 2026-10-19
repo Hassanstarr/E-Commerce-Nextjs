@@ -12,15 +12,18 @@ const secret = new TextEncoder().encode(JWT_SECRET);
 export type AuthPayload = {
     userId: string;
     role: "user" | "admin";
+    sessionVersion: number;
 };
 
 export async function createToken(
     userId: Types.ObjectId | string,
-    role: "user" | "admin"
+    role: "user" | "admin",
+    sessionVersion = 0
 ) {
     return await new SignJWT({
         userId: userId.toString(),
         role,
+        sessionVersion,
     })
         .setProtectedHeader({ alg: "HS256" })
         .setIssuedAt()
@@ -42,6 +45,7 @@ export async function verifyToken(token: string) {
         return {
             userId: payload.userId,
             role: payload.role,
+            sessionVersion: typeof payload.sessionVersion === "number" ? payload.sessionVersion : 0,
         } as AuthPayload;
     } catch {
         return null;

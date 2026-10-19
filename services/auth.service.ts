@@ -34,6 +34,7 @@ export async function signupUser(data: SignupInput) {
         name: user.name,
         email: user.email,
         role: user.role,
+        sessionVersion: user.sessionVersion || 0,
     };
 }
 
@@ -60,6 +61,7 @@ export async function loginUser(data: LoginInput) {
         name: user.name,
         email: user.email,
         role: user.role,
+        sessionVersion: user.sessionVersion || 0,
     };
 }
 

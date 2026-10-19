@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { verifyToken, AuthPayload } from "@/lib/auth";
 import AppError from "@/lib/AppError";
 import User from "@/models/User";
+import { connectDB } from "@/lib/db";
 
 export async function requireAuth(): Promise<AuthPayload> {
     const cookieStore = await cookies();
@@ -16,6 +17,13 @@ export async function requireAuth(): Promise<AuthPayload> {
 
     if (!payload) {
         throw new AppError("Invalid or expired token", 401);
+    }
+
+    await connectDB();
+    const user = await User.findById(payload.userId).select("sessionVersion");
+
+    if (!user || (user.sessionVersion || 0) !== payload.sessionVersion) {
+        throw new AppError("Your session has expired. Please log in again.", 401);
     }
 
     return payload;
