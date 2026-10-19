@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Input from "@/components/ui/Input";
 import { createAdminCategory, updateAdminCategory } from "@/services/admin.api";
@@ -55,8 +55,9 @@ export default function CategoryForm({
 
     const handleImageUpload = async ( event: React.ChangeEvent<HTMLInputElement> ) => {
         const file = event.target.files?.[0];
+        event.target.value = "";
 
-        if (!file) {
+        if (!file || loading || uploading) {
             return;
         }
 
@@ -83,6 +84,8 @@ export default function CategoryForm({
 
     const handleSubmit = async ( event: React.FormEvent<HTMLFormElement> ) => {
         event.preventDefault();
+
+        if (loading || uploading) return;
 
         try {
             setLoading(true);
@@ -167,7 +170,7 @@ export default function CategoryForm({
                     type="file"
                     accept="image/*"
                     onChange={handleImageUpload}
-                    disabled={uploading}
+                    disabled={loading || uploading}
                     className="block w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-gray-100 file:px-4 file:py-2 file:text-sm file:font-medium"
                 />
 

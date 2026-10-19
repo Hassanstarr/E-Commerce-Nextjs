@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Input from "@/components/ui/Input";
 import { createAdminProduct, updateAdminProduct } from "@/services/admin.api";
@@ -71,8 +71,9 @@ export default function ProductForm({
 
     const handleImageUpload = async ( event: React.ChangeEvent<HTMLInputElement> ) => {
         const file = event.target.files?.[0];
+        event.target.value = "";
 
-        if (!file) {
+        if (!file || loading || uploading) {
             return;
         }
 
@@ -99,6 +100,8 @@ export default function ProductForm({
 
     const handleSubmit = async ( event: React.FormEvent<HTMLFormElement> ) => {
         event.preventDefault();
+
+        if (loading || uploading) return;
         
 
         try {
@@ -178,7 +181,9 @@ export default function ProductForm({
                     name="price"
                     className="text-black"
                     type="number"
-                    min="0"
+                    min="1"
+                    max="9999999.99"
+                    step="0.01"
                     value={formData.price}
                     onChange={handleChange}
                     required
@@ -190,6 +195,7 @@ export default function ProductForm({
                     className="text-black"
                     type="number"
                     min="0"
+                    step="1"
                     value={formData.stock}
                     onChange={handleChange}
                     required
@@ -209,7 +215,7 @@ export default function ProductForm({
                     type="file"
                     accept="image/*"
                     onChange={handleImageUpload}
-                    disabled={uploading}
+                    disabled={loading || uploading}
                     className="block w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-gray-100 file:px-4 file:py-2 file:text-sm file:font-medium"
                 />
 

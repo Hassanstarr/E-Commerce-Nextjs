@@ -2,8 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { deleteAdminProduct } from "@/services/admin.api";
+import CatalogPagination from "@/components/ui/CatalogPagination";
+import { paginateCatalog } from "@/lib/catalog";
 
 type Product = {
     _id: string;
@@ -22,9 +25,15 @@ type ProductTableProps = {
 };
 
 export default function ProductTable({ products: initialProducts }: ProductTableProps) {
-    const [products, setProducts] = useState<Product[]>(initialProducts);
+    const router = useRouter();
+    const [deletedIds, setDeletedIds] = useState<string[]>([]);
+    const products = useMemo(() =>
+        initialProducts.filter((product) => !deletedIds.includes(product._id)),
+        [initialProducts, deletedIds]
+    );
 
     const [search, setSearch] = useState("");
+    const [page, setPage] = useState(1);
     const [categoryFilter, setCategoryFilter] = useState("all");
     const [stockFilter, setStockFilter] = useState("all");
 
@@ -53,7 +62,7 @@ export default function ProductTable({ products: initialProducts }: ProductTable
         return products.filter((product) => {
             const matchesSearch = product.name
                 .toLowerCase()
-                .includes(search.toLowerCase());
+                .includes(search.trim().toLowerCase());
 
             const matchesCategory =
                 categoryFilter === "all" ||
@@ -76,20 +85,21 @@ export default function ProductTable({ products: initialProducts }: ProductTable
         });
     }, [products, search, categoryFilter, stockFilter]);
 
+    const pagination = paginateCatalog(filteredProducts, String(page), 20);
+
     const handleDelete = async (productId: string) => {
+        if (deleting) return;
+
         try {
             setDeleting(productId);
             setError("");
 
             await deleteAdminProduct(productId);
 
-            setProducts((previous) =>
-                previous.filter(
-                    (product) => product._id !== productId
-                )
-            );
+            setDeletedIds((previous) => [...previous, productId]);
 
             setConfirmDelete(null);
+            router.refresh();
         } catch (error) {
             if (error instanceof Error) {
                 setError(error.message);
@@ -141,19 +151,22 @@ export default function ProductTable({ products: initialProducts }: ProductTable
                             id="product-search"
                             type="text"
                             value={search}
-                            onChange={(event) =>
-                                setSearch(event.target.value)
-                            }
+                            onChange={(event) => {
+                                setSearch(event.target.value);
+                                setPage(1);
+                            }}
                             placeholder="Search products..."
                             className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-black focus:ring-1 focus:ring-black"
                         />
                     </div>
 
                     <select
+                        aria-label="Filter by category"
                         value={categoryFilter}
-                        onChange={(event) =>
-                            setCategoryFilter(event.target.value)
-                        }
+                        onChange={(event) => {
+                            setCategoryFilter(event.target.value);
+                            setPage(1);
+                        }}
                         className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-700 outline-none transition focus:border-black focus:ring-1 focus:ring-black"
                     >
                         <option value="all">
@@ -173,10 +186,12 @@ export default function ProductTable({ products: initialProducts }: ProductTable
                     </select>
 
                     <select
+                        aria-label="Filter by stock"
                         value={stockFilter}
-                        onChange={(event) =>
-                            setStockFilter(event.target.value)
-                        }
+                        onChange={(event) => {
+                            setStockFilter(event.target.value);
+                            setPage(1);
+                        }}
                         className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-700 outline-none transition focus:border-black focus:ring-1 focus:ring-black"
                     >
                         <option value="all">
@@ -208,11 +223,11 @@ export default function ProductTable({ products: initialProducts }: ProductTable
                 <p className="text-sm text-gray-500">
                     Showing{" "}
                     <span className="font-medium text-gray-900">
-                        {filteredProducts.length}
+                        {pagination.from}–{pagination.to}
                     </span>{" "}
                     of{" "}
                     <span className="font-medium text-gray-900">
-                        {products.length}
+                        {pagination.total}
                     </span>{" "}
                     products
                 </p>
@@ -249,7 +264,7 @@ export default function ProductTable({ products: initialProducts }: ProductTable
                     </thead>
 
                     <tbody>
-                        {filteredProducts.map((product) => {
+                        {pagination.items.map((product) => {
                             const stockStatus =
                                 getStockStatus(product.stock);
 
@@ -387,6 +402,17 @@ export default function ProductTable({ products: initialProducts }: ProductTable
                     </div>
                 )}
             </div>
+
+            <CatalogPagination
+                pathname="/admin/products"
+                page={pagination.page}
+                totalPages={pagination.totalPages}
+                showSinglePage
+                onPageChange={(nextPage) => {
+                    setPage(nextPage);
+                    setConfirmDelete(null);
+                }}
+            />
         </div>
     );
 }

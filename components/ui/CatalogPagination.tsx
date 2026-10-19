@@ -8,10 +8,11 @@ type CatalogPaginationProps = {
     totalPages: number;
     filters?: Record<string, string>;
     onPageChange?: (page: number) => void;
+    showSinglePage?: boolean;
 };
 
-export default function CatalogPagination({ pathname, page, totalPages, filters = {}, onPageChange }: CatalogPaginationProps) {
-    if (totalPages <= 1) return null;
+export default function CatalogPagination({ pathname, page, totalPages, filters = {}, onPageChange, showSinglePage = false }: CatalogPaginationProps) {
+    if (totalPages <= 1 && !showSinglePage) return null;
 
     const getPageUrl = (nextPage: number) => {
         const params = new URLSearchParams();
