@@ -30,6 +30,23 @@ export const loginSchema = z.object({
         .min(1, "Password is required"),
 });
 
+export const forgotPasswordSchema = z.object({
+    email: signupSchema.shape.email.transform((value) => value.toLowerCase()),
+});
+
+export const verifyPasswordResetSchema = forgotPasswordSchema.extend({
+    otp: z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code from your email"),
+});
+
+export const resetPasswordSchema = forgotPasswordSchema.extend({
+    token: z.string().regex(/^[a-f0-9]{64}$/, "Invalid reset session. Request a new code."),
+    password: signupSchema.shape.password,
+    confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+});
+
 
 export const categorySchema = z.object({
     name: z

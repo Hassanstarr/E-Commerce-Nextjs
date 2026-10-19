@@ -52,7 +52,7 @@ export async function googleLoginController(req: NextRequest) {
         }
 
         const user = await loginGoogleUser(validation.data.credential, nonce);
-        const token = await createToken(user.id, user.role);
+        const token = await createToken(user.id, user.role, user.sessionVersion);
         const response = successResponse({
             user,
             redirectTo: user.role === "admin" ? "/admin" : "/",

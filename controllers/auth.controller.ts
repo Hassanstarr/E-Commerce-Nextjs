@@ -25,7 +25,7 @@ export async function signupController(req: NextRequest) {
 
         const user = await signupUser(validation.data);
 
-        const token = await createToken(user.id, user.role);
+        const token = await createToken(user.id, user.role, user.sessionVersion);
 
         const response = successResponse(
             {
@@ -71,7 +71,7 @@ export async function loginController(req: NextRequest) {
 
         const user = await loginUser(validation.data);
 
-        const token = await createToken(user.id, user.role);
+        const token = await createToken(user.id, user.role, user.sessionVersion);
 
         const redirectTo = user.role === "admin" ? "/admin" : "/";
 

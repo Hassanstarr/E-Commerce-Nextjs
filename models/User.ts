@@ -5,6 +5,14 @@ export interface IUser extends Document {
     email: string;
     password?: string;
     googleId?: string;
+    sessionVersion: number;
+    passwordReset?: {
+        otpHash?: string;
+        tokenHash?: string;
+        expiresAt: Date;
+        sentAt: Date;
+        attempts: number;
+    };
     role: "user" | "admin";
     verifiedCheckoutEmails: string[];
     checkoutEmailVerification?: {
@@ -57,6 +65,22 @@ const userSchema = new mongoose.Schema<IUser>(
         verifiedCheckoutEmails: {
             type: [String],
             default: [],
+        },
+
+        sessionVersion: {
+            type: Number,
+            default: 0,
+        },
+
+        passwordReset: {
+            type: new mongoose.Schema({
+                otpHash: String,
+                tokenHash: String,
+                expiresAt: Date,
+                sentAt: Date,
+                attempts: Number,
+            }, { _id: false }),
+            select: false,
         },
 
         checkoutEmailVerification: {
