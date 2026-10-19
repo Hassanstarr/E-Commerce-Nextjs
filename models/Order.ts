@@ -26,6 +26,7 @@ export interface IOrder extends Document {
     total: number;
     paymentMethod: "cod" | "stripe";
     stripePaymentIntentId?: string;
+    statusBeforeCancellation?: "pending" | "confirmed" | "shipped" | "delivered";
     paymentStatus: "pending" | "paid";
     orderStatus:
         | "pending"
@@ -175,6 +176,11 @@ const orderSchema = new Schema<IOrder>(
             type: String,
             unique: true,
             sparse: true,
+        },
+
+        statusBeforeCancellation: {
+            type: String,
+            enum: ["pending", "confirmed", "shipped", "delivered"],
         },
 
         orderStatus: {
