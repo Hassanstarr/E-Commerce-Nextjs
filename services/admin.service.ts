@@ -234,6 +234,18 @@ export const getAdminOrders = async ({
 
 // ORDER DETAILS
 
+async function getStatusBeforeCancellation(orderId: string) {
+    const history = await OrderHistory.findOne({
+        order: orderId,
+        status: { $ne: "cancelled" },
+    }).sort({ createdAt: -1, _id: -1 }).select("status").lean();
+
+    const status = history?.status;
+    return status === "confirmed" || status === "shipped" || status === "delivered"
+        ? status
+        : "pending";
+}
+
 export const getAdminOrderById = async ( orderId: string ) => {
     if (!mongoose.Types.ObjectId.isValid(orderId)) {
         throw new AppError("Invalid order ID", 400);
@@ -249,6 +261,10 @@ export const getAdminOrderById = async ( orderId: string ) => {
         error.statusCode = 404;
 
         throw error;
+    }
+
+    if (order.orderStatus === "cancelled" && !order.statusBeforeCancellation) {
+        order.statusBeforeCancellation = await getStatusBeforeCancellation(orderId);
     }
 
     return order;
@@ -339,10 +355,13 @@ export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentS
 
     const previousStatus = existingOrder.orderStatus;
     const previousPaymentStatus = existingOrder.paymentStatus;
+    const statusBeforeCancellation = previousStatus === "cancelled"
+        ? existingOrder.statusBeforeCancellation || await getStatusBeforeCancellation(orderId)
+        : undefined;
 
-    if (orderStatus !== undefined && !canChangeOrderStatus(previousStatus, orderStatus, previousPaymentStatus)) {
+    if (orderStatus !== undefined && !canChangeOrderStatus(previousStatus, orderStatus, statusBeforeCancellation)) {
         throw new AppError(
-            `Cannot change order status from ${previousStatus} to ${orderStatus}. Orders must move forward, and paid orders cannot be cancelled.`,
+            `Cannot change order status from ${previousStatus} to ${orderStatus}. Move one stage forward or backward, or cancel the order. Cancelled orders can only return to their previous stage.`,
             400
         );
     }
@@ -354,41 +373,68 @@ export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentS
         );
     }
 
-    const updatedOrder = await Order.findOneAndUpdate(
-            {
-                _id: orderId,
-                orderStatus: previousStatus,
-                paymentStatus: previousPaymentStatus,
-            },
-            {
-                $set: updateData,
-            },
-            {
-                new: true,
-                runValidators: true,
-            }
-        ).lean();
-
-    if (!updatedOrder) {
-        throw new AppError(
-            "Order changed while you were updating it. Refresh the order and try again.",
-            409
-        );
-    }
-
     const shouldRestoreStock = orderStatus === "cancelled" && previousStatus !== "cancelled";
+    const shouldReserveStock = previousStatus === "cancelled" && orderStatus !== undefined && orderStatus !== "cancelled";
 
     if (shouldRestoreStock) {
-        for (const item of existingOrder.items) {
-            await Product.findByIdAndUpdate(
-                item.product,
+        updateData.statusBeforeCancellation = previousStatus;
+    }
+
+    const session = await mongoose.startSession();
+    let updatedOrder;
+
+    try {
+        updatedOrder = await session.withTransaction(async () => {
+            const order = await Order.findOneAndUpdate(
                 {
-                    $inc: {
-                        stock: item.quantity,
-                    },
+                    _id: orderId,
+                    orderStatus: previousStatus,
+                    paymentStatus: previousPaymentStatus,
+                    updatedAt: existingOrder.updatedAt,
+                },
+                {
+                    $set: updateData,
+                    ...(shouldReserveStock ? { $unset: { statusBeforeCancellation: "" } } : {}),
+                },
+                {
+                    new: true,
+                    runValidators: true,
+                    session,
                 }
-            );
-        }
+            ).lean();
+
+            if (!order) {
+                throw new AppError(
+                    "Order changed while you were updating it. Refresh the order and try again.",
+                    409
+                );
+            }
+
+            if (shouldRestoreStock || shouldReserveStock) {
+                for (const item of existingOrder.items) {
+                    const product = await Product.findOneAndUpdate(
+                        {
+                            _id: item.product,
+                            ...(shouldReserveStock ? { stock: { $gte: item.quantity } } : {}),
+                        },
+                        {
+                            $inc: {
+                                stock: shouldRestoreStock ? item.quantity : -item.quantity,
+                            },
+                        },
+                        { session }
+                    );
+
+                    if (shouldReserveStock && !product) {
+                        throw new AppError(`Cannot reopen this order: "${item.name}" is unavailable or has insufficient stock.`, 409);
+                    }
+                }
+            }
+
+            return order;
+        });
+    } finally {
+        await session.endSession();
     }
 
     if ( paymentStatus && paymentStatus !== previousPaymentStatus ) {

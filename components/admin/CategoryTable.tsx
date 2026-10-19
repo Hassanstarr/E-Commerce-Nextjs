@@ -2,8 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { deleteAdminCategory } from "@/services/admin.api";
+import CatalogPagination from "@/components/ui/CatalogPagination";
+import { paginateCatalog } from "@/lib/catalog";
 
 type Category = {
     _id: string;
@@ -21,10 +24,15 @@ export default function CategoryTable({
     categories: initialCategories,
     productCounts,
 }: CategoryTableProps) {
-    const [categories, setCategories] =
-        useState<Category[]>(initialCategories);
+    const router = useRouter();
+    const [deletedIds, setDeletedIds] = useState<string[]>([]);
+    const categories = useMemo(() =>
+        initialCategories.filter((category) => !deletedIds.includes(category._id)),
+        [initialCategories, deletedIds]
+    );
 
     const [search, setSearch] = useState("");
+    const [page, setPage] = useState(1);
 
     const [deleting, setDeleting] = useState<string | null>(null);
     const [confirmDelete, setConfirmDelete] = useState<string | null>(
@@ -36,24 +44,25 @@ export default function CategoryTable({
         return categories.filter((category) =>
             category.name
                 .toLowerCase()
-                .includes(search.toLowerCase())
+                .includes(search.trim().toLowerCase())
         );
     }, [categories, search]);
 
+    const pagination = paginateCatalog(filteredCategories, String(page), 20);
+
     const handleDelete = async (categoryId: string) => {
+        if (deleting) return;
+
         try {
             setDeleting(categoryId);
             setError("");
 
             await deleteAdminCategory(categoryId);
 
-            setCategories((previous) =>
-                previous.filter(
-                    (category) => category._id !== categoryId
-                )
-            );
+            setDeletedIds((previous) => [...previous, categoryId]);
 
             setConfirmDelete(null);
+            router.refresh();
         } catch (error) {
             if (error instanceof Error) {
                 setError(error.message);
@@ -79,7 +88,10 @@ export default function CategoryTable({
                     id="category-search"
                     type="text"
                     value={search}
-                    onChange={(event) => setSearch(event.target.value)}
+                    onChange={(event) => {
+                        setSearch(event.target.value);
+                        setPage(1);
+                    }}
                     placeholder="Search categories..."
                     className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-black focus:ring-1 focus:ring-black"
                 />
@@ -95,11 +107,11 @@ export default function CategoryTable({
                 <p className="text-sm text-gray-500">
                     Showing{" "}
                     <span className="font-medium text-gray-900">
-                        {filteredCategories.length}
+                        {pagination.from}–{pagination.to}
                     </span>{" "}
                     of{" "}
                     <span className="font-medium text-gray-900">
-                        {categories.length}
+                        {pagination.total}
                     </span>{" "}
                     categories
                 </p>
@@ -128,7 +140,7 @@ export default function CategoryTable({
                     </thead>
 
                     <tbody>
-                        {filteredCategories.map((category) => (
+                        {pagination.items.map((category) => (
                             <tr
                                 key={category._id}
                                 className="border-b border-gray-100 last:border-0 hover:bg-gray-50"
@@ -267,6 +279,17 @@ export default function CategoryTable({
                     </div>
                 )}
             </div>
+
+            <CatalogPagination
+                pathname="/admin/categories"
+                page={pagination.page}
+                totalPages={pagination.totalPages}
+                showSinglePage
+                onPageChange={(nextPage) => {
+                    setPage(nextPage);
+                    setConfirmDelete(null);
+                }}
+            />
         </div>
     );
 }

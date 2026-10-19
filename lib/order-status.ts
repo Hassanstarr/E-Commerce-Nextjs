@@ -4,19 +4,21 @@ type OrderStatus = Order["orderStatus"];
 
 const orderStatusTransitions: Record<OrderStatus, OrderStatus[]> = {
     pending: ["confirmed", "cancelled"],
-    confirmed: ["shipped", "cancelled"],
-    shipped: ["delivered", "cancelled"],
-    delivered: [],
+    confirmed: ["pending", "shipped", "cancelled"],
+    shipped: ["confirmed", "delivered", "cancelled"],
+    delivered: ["shipped", "cancelled"],
     cancelled: [],
 };
 
 export function canChangeOrderStatus(
     currentStatus: string,
     nextStatus: string,
-    paymentStatus: string
+    statusBeforeCancellation?: string
 ) {
     if (currentStatus === nextStatus) return true;
-    if (nextStatus === "cancelled" && paymentStatus === "paid") return false;
+    if (currentStatus === "cancelled") {
+        return Boolean(statusBeforeCancellation) && nextStatus === statusBeforeCancellation;
+    }
 
     return orderStatusTransitions[currentStatus as OrderStatus]?.includes(nextStatus as OrderStatus) || false;
 }
