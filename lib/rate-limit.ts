@@ -6,6 +6,18 @@ const redis = Redis.fromEnv();
 
 
 export const rateLimiters = {
+    accountUpdate: new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(20, "1 m"),
+        prefix: "shopease:account-update",
+    }),
+
+    passwordChange: new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(5, "10 m"),
+        prefix: "shopease:password-change",
+    }),
+
     passwordResetRequest: new Ratelimit({
         redis,
         limiter: Ratelimit.slidingWindow(5, "10 m"),

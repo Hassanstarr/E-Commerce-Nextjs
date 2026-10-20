@@ -66,7 +66,7 @@ export async function loginUser(data: LoginInput) {
 }
 
 export async function getCurrentUser(userId: string) {
-    const user = await User.findById(userId).select("-password");
+    const user = await User.findById(userId).select("name email role password createdAt updatedAt");
 
     if (!user) {
         throw new AppError("User not found", 404);
@@ -79,5 +79,6 @@ export async function getCurrentUser(userId: string) {
         role: user.role,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
+        hasPassword: Boolean(user.password),
     };
 }

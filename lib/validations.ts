@@ -34,6 +34,19 @@ export const forgotPasswordSchema = z.object({
     email: signupSchema.shape.email.transform((value) => value.toLowerCase()),
 });
 
+export const accountProfileSchema = z.object({
+    name: signupSchema.shape.name,
+});
+
+export const changePasswordSchema = z.object({
+    currentPassword: z.string().min(1, "Enter your current password").max(100, "Password cannot exceed 100 characters"),
+    newPassword: signupSchema.shape.password,
+    confirmPassword: z.string(),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+});
+
 export const verifyPasswordResetSchema = forgotPasswordSchema.extend({
     otp: z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code from your email"),
 });

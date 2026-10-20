@@ -127,6 +127,7 @@ export default function Navbar() {
                                     {[
                                         { href: "/account", label: "My Account" },
                                         { href: "/orders", label: "My Orders" },
+                                        { href: "/chat", label: "Live Chat" },
                                         ...(user.role === "admin" ? [{ href: "/admin", label: "Admin Dashboard" }] : []),
                                     ].map((item) => (
                                         <Link key={item.href} href={item.href} onClick={closeMenus} aria-current={isActive(item.href) ? "page" : undefined} className={`block rounded-lg px-3 py-2 text-sm transition ${isActive(item.href) ? "bg-gray-100 font-medium text-gray-900" : "text-gray-600 hover:bg-gray-50 hover:text-black"}`}>
