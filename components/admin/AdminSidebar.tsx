@@ -9,6 +9,7 @@ import {
     HiOutlineCube,
     HiOutlineTag,
     HiOutlineUsers,
+    HiOutlineChatBubbleLeftRight,
     HiOutlinePresentationChartLine,
     HiOutlineClock,
     HiOutlineBuildingStorefront,
@@ -53,6 +54,11 @@ const navigationItems = [
         label: "Analytics",
         href: "/admin/analytics",
         icon: HiOutlinePresentationChartLine,
+    },
+    {
+        label: "Chats",
+        href: "/admin/chats",
+        icon: HiOutlineChatBubbleLeftRight,
     },
     {
         label: "Activity",
