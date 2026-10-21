@@ -8,8 +8,11 @@ import Cart from "@/models/Cart";
 import Product from "@/models/Product";
 import { sendOrderConfirmationEmail } from "@/services/order.service";
 import type { CheckoutInput } from "@/types/order";
+import { getProductPricing } from "@/lib/product-pricing";
+import { expireProductDiscounts } from "@/services/discount.service";
 
 export async function createStripeCheckout(userId: string, data: CheckoutInput, requestId: string, appUrl: string) {
+    await expireProductDiscounts();
     const stripe = getStripe();
     const requestKey = `${userId}:${requestId}`;
     let checkout = await StripeCheckout.findOne({ requestKey });
@@ -26,7 +29,7 @@ export async function createStripeCheckout(userId: string, data: CheckoutInput, 
             }
             return {
                 product: product._id.toString(), name: product.name, image: product.image,
-                price: product.price, quantity: item.quantity,
+                price: getProductPricing(product).price, quantity: item.quantity,
             };
         });
         const subtotal = items.reduce((sum, item) => sum + Math.round(item.price * 100) * item.quantity, 0) / 100;

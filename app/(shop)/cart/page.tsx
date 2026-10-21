@@ -13,6 +13,8 @@ import { useAuth } from "@/context/AuthContext";
 import { getCart, updateCartItem, removeFromCart, clearCart } from "@/services/cart.api";
 import type { Cart } from "@/types/cart";
 import { FiArrowRight, FiShoppingBag } from "react-icons/fi";
+import { getProductPricing } from "@/lib/product-pricing";
+import useDiscountExpiry from "@/hooks/useDiscountExpiry";
 
 export default function CartPage() {
     return (
@@ -39,6 +41,7 @@ function CartContent() {
     const [error, setError] = useState("");
     const [page, setPage] = useState(1);
     const pagination = paginateCatalog(cart.items, String(page), 8);
+    useDiscountExpiry(cart.items.filter((item) => item.product).map((item) => item.product));
 
     useEffect(() => {
         const loadCart = async () => {
@@ -134,7 +137,7 @@ function CartContent() {
                 return total;
             }
 
-            return total + item.product.price * item.quantity;
+            return Math.round((total + getProductPricing(item.product).price * item.quantity) * 100) / 100;
         },
         0
     );

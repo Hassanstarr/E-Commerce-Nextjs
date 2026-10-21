@@ -113,10 +113,23 @@ export const productSchema = z.object({
         .trim()
         .min(1, "Category is required"),
 
+    discountPercent: z.number().int("Discount must be a whole percentage")
+        .min(0, "Discount must be between 1% and 99%, or 0 to remove it")
+        .max(99, "Discount cannot exceed 99%")
+        .default(0),
+
+    discountEndsAt: z.string().datetime({ offset: true }).nullable().optional().default(null),
+
     stock: z
         .number()
         .int("Stock must be a whole number")
         .min(0, "Stock cannot be negative"),
+}).refine((data) => !data.discountEndsAt || data.discountPercent > 0, {
+    message: "Add a discount before setting an end time",
+    path: ["discountEndsAt"],
+}).refine((data) => !data.discountEndsAt || new Date(data.discountEndsAt).getTime() > Date.now(), {
+    message: "Discount end time must be in the future",
+    path: ["discountEndsAt"],
 });
 
 export const checkoutSchema = z.object({

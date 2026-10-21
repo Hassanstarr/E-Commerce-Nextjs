@@ -7,11 +7,14 @@ import { useMemo, useState } from "react";
 import { deleteAdminProduct } from "@/services/admin.api";
 import CatalogPagination from "@/components/ui/CatalogPagination";
 import { paginateCatalog } from "@/lib/catalog";
+import ProductPrice from "@/components/product/ProductPrice";
 
 type Product = {
     _id: string;
     name: string;
     price: number;
+    discountPercent?: number;
+    discountEndsAt?: string | null;
     image: string;
     stock: number;
     category?: {
@@ -306,8 +309,7 @@ export default function ProductTable({ products: initialProducts }: ProductTable
                                     </td>
 
                                     <td className="px-5 py-4 font-medium text-gray-900">
-                                        Rs.{" "}
-                                        {product.price.toLocaleString()}
+                                        <ProductPrice product={product} />
                                     </td>
 
                                     <td className="px-5 py-4 font-medium text-gray-900">

@@ -3,6 +3,8 @@ export type WishlistProduct = {
     name: string;
     description: string;
     price: number;
+    discountPercent?: number;
+    discountEndsAt?: string | null;
     image: string;
     stock: number;
     category?: {

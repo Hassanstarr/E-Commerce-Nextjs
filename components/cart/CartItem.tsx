@@ -2,6 +2,9 @@
 
 import Image from "next/image";
 import type { CartItem as CartItemType } from "@/types/cart";
+import ProductPrice from "@/components/product/ProductPrice";
+import { getProductPricing } from "@/lib/product-pricing";
+import useDiscountExpiry from "@/hooks/useDiscountExpiry";
 
 type CartItemProps = {
     item: CartItemType;
@@ -13,7 +16,8 @@ type CartItemProps = {
 export default function CartItem({ item, onUpdate, onRemove, updating }: CartItemProps) {
     const { product, quantity } = item;
 
-    const subtotal = product.price * quantity;
+    useDiscountExpiry([product]);
+    const subtotal = Math.round(getProductPricing(product).price * 100) * quantity / 100;
 
     return (
         <div className="flex flex-col gap-5 border-b border-gray-200 py-6 sm:flex-row sm:items-center">
@@ -39,7 +43,7 @@ export default function CartItem({ item, onUpdate, onRemove, updating }: CartIte
                 )}
 
                 <p className="mt-2 text-sm text-gray-600">
-                    Rs. {product.price.toLocaleString()}
+                    <ProductPrice product={product} />
                 </p>
             </div>
 

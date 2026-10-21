@@ -5,6 +5,8 @@ import Product from "@/models/Product";
 import AppError from "@/lib/AppError";
 import type { CreateOrderInput } from "@/types/order";
 import nodemailer from "nodemailer";
+import { getProductPricing } from "@/lib/product-pricing";
+import { expireProductDiscounts } from "@/services/discount.service";
 
 const DELIVERY_FEE = 200;
 
@@ -52,6 +54,7 @@ export async function createOrder(
         throw new AppError("Invalid user ID", 400);
     }
 
+    await expireProductDiscounts();
     const session = await mongoose.startSession();
 
     let order: mongoose.Document<any, any, any> & { _id: any } | undefined;
@@ -108,15 +111,15 @@ export async function createOrder(
                     );
                 }
 
-                const itemTotal =
-                    product.price * cartItem.quantity;
+                const price = getProductPricing(product).price;
+                const itemTotal = Math.round(price * 100) * cartItem.quantity / 100;
 
-                subtotal += itemTotal;
+                subtotal = Math.round((subtotal + itemTotal) * 100) / 100;
 
                 orderItems.push({
                     product: product._id,
                     name: product.name,
-                    price: product.price,
+                    price,
                     quantity: cartItem.quantity,
                     image: product.image,
                 });

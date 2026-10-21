@@ -25,7 +25,7 @@ export async function createProductController(req: NextRequest) {
             );
         }
 
-        const product = await createProduct(validation.data);
+        const product = await createProduct(validation.data, admin.userId);
 
         await createActivityLog({
             user: admin.userId,
@@ -122,7 +122,7 @@ export async function updateProductController( req: NextRequest, id: string ) {
             );
         }
 
-        const product = await updateProduct(id, validation.data);
+        const product = await updateProduct(id, validation.data, admin.userId);
 
         await createActivityLog({
             user: admin.userId,

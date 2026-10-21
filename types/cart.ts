@@ -2,6 +2,8 @@ export type CartProduct = {
     _id: string;
     name: string;
     price: number;
+    discountPercent?: number;
+    discountEndsAt?: string | null;
     image: string;
     stock: number;
     category?: {

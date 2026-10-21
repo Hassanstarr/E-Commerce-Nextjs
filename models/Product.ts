@@ -4,6 +4,8 @@ export interface IProduct extends Document {
     name: string;
     description: string;
     price: number;
+    discountPercent: number;
+    discountEndsAt: Date | null;
     image: string;
     category: Types.ObjectId;
     stock: number;
@@ -34,6 +36,19 @@ const productSchema = new mongoose.Schema<IProduct>(
             min: [0, "Price cannot be negative"],
         },
 
+        discountPercent: {
+            type: Number,
+            default: 0,
+            min: 0,
+            max: 99,
+            validate: Number.isInteger,
+        },
+
+        discountEndsAt: {
+            type: Date,
+            default: null,
+        },
+
         image: {
             type: String,
             required: [true, "Product image is required"],
@@ -59,6 +74,7 @@ const productSchema = new mongoose.Schema<IProduct>(
 );
 
 productSchema.index({ category: 1 });
+productSchema.index({ discountEndsAt: 1 }, { partialFilterExpression: { discountPercent: { $gt: 0 } } });
 
 const Product: Model<IProduct> = mongoose.models.Product || mongoose.model<IProduct>("Product", productSchema);
 

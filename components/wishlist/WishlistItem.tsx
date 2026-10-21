@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { WishlistProduct } from "@/types/wishlist";
+import ProductPrice from "@/components/product/ProductPrice";
 
 type WishlistItemProps = {
     product: WishlistProduct;
@@ -49,7 +50,7 @@ export default function WishlistItem({
                 )}
 
                 <p className="mt-2 text-sm font-medium text-gray-900">
-                    Rs. {product.price.toLocaleString()}
+                    <ProductPrice product={product} />
                 </p>
 
                 <p
