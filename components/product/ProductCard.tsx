@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import ProductPrice from "@/components/product/ProductPrice";
 
 type ProductCardProps = {
     product: {
@@ -7,6 +8,8 @@ type ProductCardProps = {
         name: string;
         description: string;
         price: number;
+        discountPercent?: number;
+        discountEndsAt?: string | null;
         image: string;
         stock: number;
         category: {
@@ -48,7 +51,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
                 <div className="mt-4 flex items-center justify-between">
                     <p className="text-lg font-bold text-gray-900">
-                        Rs. {product.price.toLocaleString()}
+                        <ProductPrice product={product} />
                     </p>
 
                     <span className={`text-sm ${product.stock > 0 ? "text-green-600" : "text-red-500"}`}>

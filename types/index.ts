@@ -7,6 +7,8 @@ export type ProductInput = {
     image: string;
     category: string;
     stock: number;
+    discountPercent?: number;
+    discountEndsAt?: string | null;
 };
 
 export type CategoryInput = {

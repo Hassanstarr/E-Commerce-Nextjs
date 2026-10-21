@@ -2,11 +2,13 @@ import mongoose from "mongoose";
 import Cart from "@/models/Cart";
 import Product from "@/models/Product";
 import AppError from "@/lib/AppError";
+import { expireProductDiscounts } from "@/services/discount.service";
 
 export async function getCart(userId: string) {
+    await expireProductDiscounts();
     const cart = await Cart.findOne({ user: userId }).populate({
         path: "items.product",
-        select: "name price image stock category",
+        select: "name price discountPercent discountEndsAt image stock category",
         populate: {
             path: "category",
             select: "name",

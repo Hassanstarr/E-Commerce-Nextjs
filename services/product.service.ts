@@ -4,8 +4,9 @@ import Category from "@/models/Category";
 import Cart from "@/models/Cart";
 import AppError from "@/lib/AppError";
 import type { ProductInput } from "@/lib/validations";
+import { expireProductDiscounts, saveProductWithDiscount } from "@/services/discount.service";
 
-export async function createProduct(data: ProductInput) {
+export async function createProduct(data: ProductInput, user?: string) {
     if (!mongoose.Types.ObjectId.isValid(data.category)) {
         throw new AppError("Invalid category ID", 400);
     }
@@ -31,19 +32,11 @@ export async function createProduct(data: ProductInput) {
         );
     }
 
-    const product = await Product.create({
-        name: data.name,
-        description: data.description,
-        price: data.price,
-        image: data.image,
-        category: data.category,
-        stock: data.stock,
-    });
-
-    return await product.populate("category");
+    return await saveProductWithDiscount(data, undefined, user);
 }
 
 export async function getProducts(categoryId?: string) {
+    await expireProductDiscounts();
     const filter: { category?: string } = {};
 
     if (categoryId) {
@@ -70,6 +63,7 @@ export async function getProductById(id: string) {
         throw new AppError("Invalid product ID", 400);
     }
 
+    await expireProductDiscounts();
     const product = await Product.findById(id).populate(
         "category",
         "name image"
@@ -82,7 +76,7 @@ export async function getProductById(id: string) {
     return product;
 }
 
-export async function updateProduct( id: string, data: ProductInput ) {
+export async function updateProduct( id: string, data: ProductInput, user?: string ) {
     if (!mongoose.Types.ObjectId.isValid(id)) {
         throw new AppError("Invalid product ID", 400);
     }
@@ -119,16 +113,7 @@ export async function updateProduct( id: string, data: ProductInput ) {
         );
     }
 
-    product.name = data.name;
-    product.description = data.description;
-    product.price = data.price;
-    product.image = data.image;
-    product.category = category._id;
-    product.stock = data.stock;
-
-    await product.save();
-
-    return await product.populate("category");
+    return await saveProductWithDiscount(data, id, user);
 }
 
 export async function deleteProduct(id: string) {

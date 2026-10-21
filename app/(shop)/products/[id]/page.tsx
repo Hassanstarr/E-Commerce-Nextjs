@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import AddToCartButton from "@/components/cart/AddToCartButton";
 import AddToWishlistButton from "@/components/wishlist/AddToWishlistButton";
+import ProductPrice from "@/components/product/ProductPrice";
 
 type Product = {
     _id: string;
@@ -101,7 +102,7 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
                         </h1>
 
                         <p className="mt-5 text-2xl font-bold text-gray-900">
-                            Rs. {product.price.toLocaleString()}
+                            <ProductPrice product={product} />
                         </p>
 
                         <div className="mt-6 border-t border-gray-200 pt-6">

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -12,7 +12,8 @@
     "test:stripe": "node --test tests/stripe.test.mjs",
     "dev:chat": "tsx websocket/dev.ts",
     "dev:all": "node scripts/dev-all.mjs",
-    "test:chat": "tsx --test tests/chat.integration.test.ts"
+    "test:chat": "tsx --test tests/chat.integration.test.ts",
+    "test:discount": "tsx --test tests/discount.integration.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

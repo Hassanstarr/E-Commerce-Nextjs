@@ -25,6 +25,8 @@ import { getCart } from "@/services/cart.api";
 import { createOrder, createStripeCheckout, verifyCheckoutEmail } from "@/services/order.api";
 import type { Cart } from "@/types/cart";
 import { useRouter } from "next/navigation";
+import { getProductPricing } from "@/lib/product-pricing";
+import useDiscountExpiry from "@/hooks/useDiscountExpiry";
 
 const initialForm = {
     customerName: "",
@@ -53,6 +55,7 @@ function CheckoutContent() {
     const [paymentMethod, setPaymentMethod] = useState<"cod" | "stripe">("cod");
     const [summaryPage, setSummaryPage] = useState(1);
     const summaryPagination = paginateCatalog(cart?.items || [], String(summaryPage), 8);
+    useDiscountExpiry((cart?.items || []).filter((item) => item.product).map((item) => item.product));
     const stripeRequestId = useRef<string | null>(null);
 
     const [formData, setFormData] = useState(initialForm);
@@ -325,7 +328,7 @@ function CheckoutContent() {
                 return total;
             }
 
-            return total + item.product.price * item.quantity;
+            return Math.round((total + getProductPricing(item.product).price * item.quantity) * 100) / 100;
         },
         0
     );
@@ -750,7 +753,7 @@ function CheckoutContent() {
                                         <p className="mt-1 text-sm font-medium text-gray-900">
                                             Rs.{" "}
                                             {(
-                                                item.product.price * item.quantity
+                                                Math.round(getProductPricing(item.product).price * 100) * item.quantity / 100
                                             ).toLocaleString()}
                                         </p>
                                     </div>

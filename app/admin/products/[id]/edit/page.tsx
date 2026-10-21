@@ -12,6 +12,8 @@ type ProductDetail = {
     name: string;
     description: string;
     price: number;
+    discountPercent?: number;
+    discountEndsAt?: string | null;
     image: string;
     category:
         | string
@@ -120,6 +122,8 @@ export default async function EditProductPage({ params }: PageProps) {
                     image: product.image,
                     category: categoryId,
                     stock: product.stock,
+                    discountPercent: product.discountPercent || 0,
+                    discountEndsAt: product.discountEndsAt || null,
                 }}
             />
         </>

@@ -6,6 +6,13 @@ import Input from "@/components/ui/Input";
 import { createAdminProduct, updateAdminProduct } from "@/services/admin.api";
 import { uploadImage } from "@/services/upload.api";
 import type { ProductInput } from "@/types";
+import ProductPrice from "@/components/product/ProductPrice";
+
+function localDateTime(value?: string | null) {
+    if (!value) return "";
+    const date = new Date(value);
+    return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
 
 type Category = {
     _id: string;
@@ -35,6 +42,8 @@ export default function ProductForm({
         image: initialData?.image || "",
         category: initialData?.category || "",
         stock: initialData?.stock || 0,
+        discountPercent: initialData?.discountPercent || 0,
+        discountEndsAt: initialData?.discountEndsAt || null,
     }));
 
     if (initialData?._id !== prevId) {
@@ -46,6 +55,8 @@ export default function ProductForm({
             image: initialData?.image || "",
             category: initialData?.category || "",
             stock: initialData?.stock || 0,
+            discountPercent: initialData?.discountPercent || 0,
+            discountEndsAt: initialData?.discountEndsAt || null,
         });
     }
 
@@ -60,12 +71,18 @@ export default function ProductForm({
     ) => {
         const { name, value } = event.target;
 
+        if (name === "discountEndsAt") {
+            setFormData((previous) => ({ ...previous, discountEndsAt: value ? new Date(value).toISOString() : null }));
+            return;
+        }
+
         setFormData((previous) => ({
             ...previous,
             [name]:
-                name === "price" || name === "stock"
+                name === "price" || name === "stock" || name === "discountPercent"
                     ? Number(value)
                     : value,
+            ...(name === "discountPercent" && !Number(value) ? { discountEndsAt: null } : {}),
         }));
     };
 
@@ -102,6 +119,10 @@ export default function ProductForm({
         event.preventDefault();
 
         if (loading || uploading) return;
+        if (formData.discountEndsAt && new Date(formData.discountEndsAt).getTime() <= Date.now()) {
+            setError("Discount end time must be in the future");
+            return;
+        }
         
 
         try {
@@ -177,7 +198,7 @@ export default function ProductForm({
 
             <div className="grid gap-6 sm:grid-cols-2">
                 <Input
-                    label="Price"
+                    label="Price (before discount)"
                     name="price"
                     className="text-black"
                     type="number"
@@ -200,6 +221,19 @@ export default function ProductForm({
                     onChange={handleChange}
                     required
                 />
+            </div>
+
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                    <h3 className="text-sm font-medium text-gray-900">Discount (optional)</h3>
+                    {Boolean(formData.discountPercent) && <button type="button" onClick={() => setFormData((previous) => ({ ...previous, discountPercent: 0, discountEndsAt: null }))} className="text-xs font-medium text-red-600 hover:text-red-700">Remove discount</button>}
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <Input label="Discount (%)" aria-label="Discount percentage" name="discountPercent" type="number" min="1" max="99" step="1" value={formData.discountPercent || ""} onChange={handleChange} placeholder="1 to 99" className="bg-white text-black" />
+                    <Input label="Ends at (optional)" aria-label="Discount end time" name="discountEndsAt" type="datetime-local" value={localDateTime(formData.discountEndsAt)} onChange={handleChange} disabled={!formData.discountPercent} className="bg-white text-black disabled:bg-gray-100" />
+                </div>
+                <p className="mt-2 text-xs leading-5 text-gray-500">Starts when you save. Leave the end time empty to keep it until you remove it. Times use your local timezone.</p>
+                {Boolean(formData.discountPercent) && formData.price > 0 && <p className="mt-3 text-sm font-semibold text-gray-900"><ProductPrice product={formData} /></p>}
             </div>
 
             <div>
