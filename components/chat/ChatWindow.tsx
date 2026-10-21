@@ -11,27 +11,47 @@ type ChatWindowProps = {
     sender: "user" | "admin";
     draft: string;
     onDraftChange: (value: string) => void;
-    onSend: (text: string) => void;
+    onSend: (text: string) => Promise<void>;
+    connected: boolean;
+    status: string;
+    online: boolean;
+    sending: boolean;
+    loading: boolean;
+    error?: string;
+    onReconnect: () => void;
+    hasMore: boolean;
+    loadingOlder: boolean;
+    onLoadOlder: () => Promise<void>;
     onBack?: () => void;
     suggestions?: string[];
 };
 
-export default function ChatWindow({ title, subtitle, messages, sender, draft, onDraftChange, onSend, onBack, suggestions = [] }: ChatWindowProps) {
+export default function ChatWindow({ title, subtitle, messages, sender, draft, onDraftChange, onSend, connected, status, online, sending, loading, error, onReconnect, hasMore, loadingOlder, onLoadOlder, onBack, suggestions = [] }: ChatWindowProps) {
     const messagesRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
+    const scrollRef = useRef({ lastId: "", height: 0 });
 
     useEffect(() => {
         const container = messagesRef.current;
-        if (container) container.scrollTop = container.scrollHeight;
+        if (container) {
+            const lastId = messages.at(-1)?.id || "";
+            if (lastId && scrollRef.current.lastId === lastId) container.scrollTop += container.scrollHeight - scrollRef.current.height;
+            else container.scrollTop = container.scrollHeight;
+            scrollRef.current = { lastId, height: container.scrollHeight };
+        }
     }, [messages]);
 
-    const sendMessage = () => {
+    const sendMessage = async () => {
         const text = draft.trim();
-        if (!text || text.length > 2000) return;
+        if (!text || text.length > 2000 || !connected || sending || loading) return;
 
-        onSend(text);
-        onDraftChange("");
-        inputRef.current?.focus();
+        try {
+            await onSend(text);
+            onDraftChange("");
+            inputRef.current?.focus();
+        } catch {
+            // Keep the draft available when delivery is not confirmed.
+        }
     };
 
     return (
@@ -50,13 +70,16 @@ export default function ChatWindow({ title, subtitle, messages, sender, draft, o
                     <p className="mt-0.5 truncate text-xs text-gray-500">{subtitle}</p>
                 </div>
                 <span className="flex shrink-0 items-center gap-1.5 text-xs text-gray-500">
-                    <span aria-hidden="true" className="h-2 w-2 rounded-full bg-gray-300" />
-                    Not connected
+                    <span aria-hidden="true" className={`h-2 w-2 rounded-full ${online ? "bg-green-500" : "bg-gray-300"}`} />
+                    {status}
                 </span>
             </div>
 
             <div ref={messagesRef} role="log" aria-label="Conversation messages" aria-live="polite" aria-relevant="additions text" className={`min-h-0 flex-1 overflow-y-auto overscroll-contain bg-gray-50 px-4 py-6 sm:px-6 ${messages.length === 0 ? "flex flex-col" : "space-y-4"}`}>
-                {messages.length === 0 ? (
+                {hasMore && <button type="button" onClick={() => { void onLoadOlder(); }} disabled={loadingOlder} className="mx-auto block rounded-full border border-gray-200 bg-white px-4 py-2 text-xs text-gray-600 transition hover:border-gray-400 disabled:opacity-50">{loadingOlder ? "Loading..." : "Load older messages"}</button>}
+                {loading && messages.length === 0 ? (
+                    <p role="status" className="m-auto py-12 text-center text-sm text-gray-500">Loading messages...</p>
+                ) : messages.length === 0 ? (
                     <div className="m-auto flex shrink-0 flex-col items-center justify-center text-center">
                         <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-4 text-gray-500">
                             <HiOutlineChatBubbleLeftRight aria-hidden="true" className="h-8 w-8" />
@@ -93,21 +116,22 @@ export default function ChatWindow({ title, subtitle, messages, sender, draft, o
                 })}
             </div>
 
-            <form onSubmit={(event) => { event.preventDefault(); sendMessage(); }} className="shrink-0 border-t border-gray-200 bg-white p-4 sm:px-6">
+            <form onSubmit={(event) => { event.preventDefault(); void sendMessage(); }} className="shrink-0 border-t border-gray-200 bg-white p-4 sm:px-6">
+                {error && <p role="alert" className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
                 <label htmlFor="chat-message" className="sr-only">Your message</label>
                 <div className="flex items-end gap-3 rounded-xl border border-gray-300 bg-white p-2 focus-within:border-black focus-within:ring-1 focus-within:ring-black">
                     <textarea ref={inputRef} id="chat-message" value={draft} onChange={(event) => onDraftChange(event.target.value)} onKeyDown={(event) => {
                         if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
                             event.preventDefault();
-                            sendMessage();
+                            void sendMessage();
                         }
-                    }} maxLength={2000} rows={2} placeholder="Write your message..." className="max-h-36 min-h-11 min-w-0 flex-1 resize-y bg-transparent px-2 py-2 text-sm text-gray-900 outline-none placeholder:text-gray-400" />
-                    <button type="submit" disabled={!draft.trim() || draft.trim().length > 2000} aria-label="Send preview message" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-black text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400">
+                    }} disabled={sending} maxLength={2000} rows={2} placeholder="Write your message..." className="max-h-36 min-h-11 min-w-0 flex-1 resize-y bg-transparent px-2 py-2 text-sm text-gray-900 outline-none placeholder:text-gray-400" />
+                    <button type="submit" disabled={!draft.trim() || draft.trim().length > 2000 || !connected || sending || loading} aria-label={sending ? "Sending message" : "Send message"} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-black text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400">
                         <HiOutlinePaperAirplane aria-hidden="true" className="h-5 w-5" />
                     </button>
                 </div>
                 <div className="mt-2 flex justify-between gap-3 text-xs text-gray-400">
-                    <p>Preview messages are not delivered.</p>
+                    {connected ? <p>{sending ? "Sending..." : "Enter to send, Shift+Enter for a new line"}</p> : <button type="button" onClick={onReconnect} className="font-medium text-gray-600 hover:text-black">Reconnect to send your message</button>}
                     <span aria-label={`${draft.length} of 2000 characters`}>{draft.length}/2000</span>
                 </div>
             </form>

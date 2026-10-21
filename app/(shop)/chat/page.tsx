@@ -9,7 +9,7 @@ export default function ChatPage() {
                     <div className="mb-5 flex items-center gap-3">
                         <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Live Chat</h1>
                     </div>
-                    <p className="mb-6 text-sm leading-6 text-gray-500">Try the chat interface. Messages are not sent and reset when you leave this page.</p>
+                    <p className="mb-6 text-sm leading-6 text-gray-500">Ask about an order, a product, or a return. Your conversation is saved so you can come back anytime.</p>
                     <UserChat />
                 </div>
             </section>

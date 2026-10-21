@@ -6,6 +6,23 @@ const redis = Redis.fromEnv();
 
 
 export const rateLimiters = {
+    chatConnection: new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(20, "1 m"),
+        prefix: "shopease:chat-connection",
+    }),
+
+    chatRead: new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(300, "1 m"),
+        prefix: "shopease:chat-read",
+    }),
+
+    chatMessage: new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(30, "1 m"),
+        prefix: "shopease:chat-message",
+    }),
     accountUpdate: new Ratelimit({
         redis,
         limiter: Ratelimit.slidingWindow(20, "1 m"),

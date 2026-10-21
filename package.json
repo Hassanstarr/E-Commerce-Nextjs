@@ -9,13 +9,17 @@
     "lint": "eslint",
     "stripe:login": "stripe login",
     "stripe:listen": "node scripts/stripe-listen.mjs",
-    "test:stripe": "node --test tests/stripe.test.mjs"
+    "test:stripe": "node --test tests/stripe.test.mjs",
+    "dev:chat": "tsx websocket/dev.ts",
+    "dev:all": "node scripts/dev-all.mjs",
+    "test:chat": "tsx --test tests/chat.integration.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
     "@react-oauth/google": "^0.13.5",
     "@upstash/ratelimit": "^2.2.0",
     "@upstash/redis": "^1.39.0",
+    "@vercel/functions": "^3.10.2",
     "axios": "^1.20.0",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.11.0",
@@ -30,6 +34,7 @@
     "recharts": "^3.10.1",
     "sonner": "^2.0.8",
     "stripe": "^23.0.0",
+    "ws": "^8.22.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
@@ -38,9 +43,11 @@
     "@types/nodemailer": "^8.0.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/ws": "^8.18.2",
     "eslint": "^9",
     "eslint-config-next": "16.3.6",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }
