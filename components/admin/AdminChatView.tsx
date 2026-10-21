@@ -1,67 +1,79 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { HiOutlineChatBubbleLeftRight, HiOutlineMagnifyingGlass } from "react-icons/hi2";
 import ChatWindow from "@/components/chat/ChatWindow";
 import CatalogPagination from "@/components/ui/CatalogPagination";
-import { getPreviewConversations } from "@/lib/chat-preview";
-import { paginateCatalog } from "@/lib/catalog";
+import useChatConnection from "@/hooks/useChatConnection";
+import useChatHistory from "@/hooks/useChatHistory";
+import { getChatInbox } from "@/services/chat.api";
+import { displayChatMessage } from "@/lib/chat-messages";
+import type { ChatConversation } from "@/types/chat";
 
 export default function AdminChatView() {
-    const [conversations, setConversations] = useState(getPreviewConversations);
-    const [selectedId, setSelectedId] = useState<string | null>(null);
+    const connection = useChatConnection();
+    const [conversations, setConversations] = useState<ChatConversation[]>([]);
+    const [activeConversation, setActiveConversation] = useState<ChatConversation | null>(null);
     const [search, setSearch] = useState("");
     const [filter, setFilter] = useState<"all" | "unread">("all");
     const [page, setPage] = useState(1);
     const [drafts, setDrafts] = useState<Record<string, string>>({});
+    const [pagination, setPagination] = useState({ page: 1, total: 0, totalPages: 1 });
+    const [counts, setCounts] = useState({ all: 0, unread: 0 });
+    const [loadingInbox, setLoadingInbox] = useState(true);
+    const [inboxError, setInboxError] = useState("");
+    const [sendError, setSendError] = useState("");
+    const [refresh, setRefresh] = useState(0);
+    const selectedId = activeConversation?.id || null;
+    const history = useChatHistory(selectedId || "", connection.sync, refresh);
 
-    const unreadCount = conversations.filter((conversation) => conversation.unread > 0).length;
-    const filteredConversations = conversations.filter((conversation) => {
-        const query = search.trim().toLowerCase();
-        const matchesSearch = [conversation.name, conversation.email, conversation.messages.at(-1)?.text || ""]
-            .some((value) => value.toLowerCase().includes(query));
-        return matchesSearch && (filter === "all" || conversation.unread > 0);
-    });
-    const pagination = paginateCatalog(filteredConversations, String(page), 20);
-    const activeConversation = conversations.find((conversation) => conversation.id === selectedId);
+    useEffect(() => {
+        let cancelled = false;
+        const timer = setTimeout(() => {
+            setLoadingInbox(true);
+            void getChatInbox(page, search, filter).then((data) => {
+                if (cancelled) return;
+                if (page > data.pagination.totalPages) { setPage(data.pagination.totalPages); return; }
+                const items = data.conversations.map((conversation) => ({ ...conversation, messages: conversation.messages.map(displayChatMessage) }));
+                setConversations(items);
+                setPagination(data.pagination);
+                setCounts(data.counts);
+                setInboxError("");
+                setActiveConversation((previous) => previous ? items.find((item) => item.id === previous.id) || previous : null);
+            }).catch((error) => {
+                if (!cancelled) setInboxError(error instanceof Error ? error.message : "Unable to load conversations");
+            }).finally(() => { if (!cancelled) setLoadingInbox(false); });
+        }, 250);
+        return () => { cancelled = true; clearTimeout(timer); };
+    }, [page, search, filter, connection.sync.revision, refresh]);
 
-    const handleSelect = (id: string) => {
-        setSelectedId(id);
-        setConversations((previous) => previous.map((conversation) =>
-            conversation.id === id ? { ...conversation, unread: 0 } : conversation
-        ));
+    const handleSelect = (conversation: ChatConversation) => {
+        setActiveConversation(conversation);
+        setSendError("");
     };
 
-    const handleSend = (text: string) => {
-        if (!activeConversation) return;
-
-        const message = {
-            id: crypto.randomUUID(),
-            sender: "admin" as const,
-            text,
-            time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        };
-
-        setConversations((previous) => {
-            const conversation = previous.find((item) => item.id === activeConversation.id);
-            if (!conversation) return previous;
-
-            return [
-                { ...conversation, unread: 0, messages: [...conversation.messages, message] },
-                ...previous.filter((item) => item.id !== conversation.id),
-            ];
-        });
+    const handleSend = async (text: string) => {
+        if (!activeConversation) throw new Error("Select a conversation first");
+        setSendError("");
+        try {
+            const message = await connection.sendMessage(activeConversation.id, text);
+            history.addMessage(message);
+            setRefresh((value) => value + 1);
+        } catch (error) {
+            setSendError(error instanceof Error ? error.message : "Unable to send message");
+            throw error;
+        }
     };
 
     return (
         <div className="grid h-[min(720px,calc(100dvh-14rem))] min-h-100 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm lg:grid-cols-[300px_minmax(0,1fr)]">
             <aside aria-label="Customer conversations" className={`min-h-0 min-w-0 flex-col border-gray-200 lg:border-r ${activeConversation ? "hidden lg:flex" : "flex"}`}>
                 <div className="shrink-0 border-b border-gray-200 p-4">
-                    <h2 className="mb-3 text-sm font-semibold text-gray-900">Sample conversations</h2>
+                    <h2 className="mb-3 text-sm font-semibold text-gray-900">Conversations</h2>
                     <label htmlFor="chat-search" className="sr-only">Search conversations</label>
                     <div className="relative">
                         <HiOutlineMagnifyingGlass aria-hidden="true" className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                        <input id="chat-search" type="search" value={search} onChange={(event) => {
+                        <input id="chat-search" type="search" maxLength={100} value={search} onChange={(event) => {
                             setSearch(event.target.value);
                             setPage(1);
                         }} placeholder="Search name, email, message..." className="w-full rounded-lg border border-gray-300 py-2.5 pl-9 pr-3 text-xs text-gray-900 outline-none transition focus:border-black focus:ring-1 focus:ring-black" />
@@ -72,17 +84,20 @@ export default function AdminChatView() {
                                 setFilter(value);
                                 setPage(1);
                             }} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${filter === value ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
-                                {value === "all" ? `All (${conversations.length})` : `Unread (${unreadCount})`}
+                                {value === "all" ? `All (${counts.all})` : `Unread (${counts.unread})`}
                             </button>
                         ))}
                     </div>
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
-                    {pagination.items.map((conversation) => {
+                    {connection.connectionError && <p role="alert" className="m-2 rounded-lg bg-red-50 p-3 text-sm text-red-600">{connection.connectionError} <button type="button" onClick={connection.reconnect} className="font-medium underline">Reconnect</button></p>}
+                    {loadingInbox && conversations.length === 0 && <p role="status" className="px-4 py-12 text-center text-sm text-gray-500">Loading conversations...</p>}
+                    {inboxError && <p role="alert" className="m-2 rounded-lg bg-red-50 p-3 text-sm text-red-600">{inboxError} <button type="button" onClick={() => setRefresh((value) => value + 1)} className="font-medium underline">Retry</button></p>}
+                    {conversations.map((conversation) => {
                         const lastMessage = conversation.messages.at(-1);
                         return (
-                            <button key={conversation.id} type="button" aria-pressed={selectedId === conversation.id} onClick={() => handleSelect(conversation.id)} className={`mb-1 flex w-full items-start gap-3 rounded-xl p-3 text-left transition ${selectedId === conversation.id ? "bg-gray-100" : "hover:bg-gray-50"}`}>
+                            <button key={conversation.id} type="button" aria-pressed={selectedId === conversation.id} onClick={() => handleSelect(conversation)} className={`mb-1 flex w-full items-start gap-3 rounded-xl p-3 text-left transition ${selectedId === conversation.id ? "bg-gray-100" : "hover:bg-gray-50"}`}>
                                 <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold text-gray-700">{conversation.name.charAt(0)}</span>
                                 <span className="min-w-0 flex-1">
                                     <span className="flex items-center justify-between gap-2">
@@ -97,7 +112,7 @@ export default function AdminChatView() {
                             </button>
                         );
                     })}
-                    {pagination.total === 0 && (
+                    {!loadingInbox && pagination.total === 0 && (
                         <div role="status" className="px-4 py-12 text-center">
                             <p className="text-sm font-medium text-gray-900">No conversations found</p>
                             <p className="mt-2 text-xs leading-5 text-gray-500">Try a different search or select All.</p>
@@ -111,12 +126,14 @@ export default function AdminChatView() {
 
             <div className={`h-full min-h-0 min-w-0 ${activeConversation ? "block" : "hidden lg:block"}`}>
                 {activeConversation ? (
-                    <ChatWindow title={activeConversation.name} subtitle={activeConversation.email} messages={activeConversation.messages} sender="admin" draft={drafts[activeConversation.id] || ""} onDraftChange={(value) => setDrafts((previous) => ({ ...previous, [activeConversation.id]: value }))} onSend={handleSend} onBack={() => setSelectedId(null)} />
+                    <ChatWindow key={activeConversation.id} title={activeConversation.name} subtitle={activeConversation.email} messages={history.history.messages} sender="admin" draft={drafts[activeConversation.id] || ""} onDraftChange={(value) => setDrafts((previous) => ({ ...previous, [activeConversation.id]: value }))} onSend={handleSend} onBack={() => setActiveConversation(null)}
+                        connected={connection.connected} status={connection.connected ? "Live updates" : "Connecting..."} online={connection.connected} sending={connection.sending} loading={history.loading && history.history.messages.length === 0}
+                        error={sendError || history.error || connection.connectionError} onReconnect={() => { connection.reconnect(); setRefresh((value) => value + 1); }} hasMore={history.history.hasMore} loadingOlder={history.loadingOlder} onLoadOlder={history.loadOlder} />
                 ) : (
                     <div className="flex h-full flex-col items-center justify-center bg-gray-50 px-6 text-center">
                         <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-4 text-gray-500"><HiOutlineChatBubbleLeftRight aria-hidden="true" className="h-8 w-8" /></div>
                         <h2 className="text-lg font-semibold text-gray-900">Your conversations, in one place</h2>
-                        <p className="mt-2 max-w-xs text-sm leading-6 text-gray-500">Select a conversation to read messages and preview a reply.</p>
+                        <p className="mt-2 max-w-xs text-sm leading-6 text-gray-500">Select a conversation to read messages and reply to a customer.</p>
                     </div>
                 )}
             </div>
