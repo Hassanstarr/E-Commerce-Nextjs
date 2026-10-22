@@ -4,18 +4,23 @@ import mongoose from "mongoose";
 async function main() {
     loadEnvConfig(process.cwd(), true, { info() {}, error() {} });
     const dryRun = process.argv.includes("--dry-run");
-    if (process.argv.slice(2).some((argument) => argument !== "--dry-run")) {
-        throw new Error("Use --dry-run to check subscriptions without sending email.");
+    const allowRepeat = process.argv.includes("--allow-repeat");
+    if (process.argv.slice(2).some((argument) => !["--dry-run", "--allow-repeat"].includes(argument))) {
+        throw new Error("Supported options: --dry-run and --allow-repeat (local testing only).");
+    }
+    if (allowRepeat && process.env.NODE_ENV === "production") {
+        throw new Error("--allow-repeat is only available for local testing.");
     }
 
     const { connectDB } = await import("../lib/db");
     const { subscriptionAppUrl, buildSubscriptionEmail, sendSubscriptionEmails } = await import("../services/subscription.service");
     const appUrl = subscriptionAppUrl();
     console.log(dryRun ? "Checking subscriptions without sending email..." : "Processing pending subscription emails...");
+    if (allowRepeat) console.log("Local repeat mode: the daily limit is bypassed for new eligible updates only.");
     await connectDB();
 
     if (!dryRun) {
-        const result = await sendSubscriptionEmails();
+        const result = await sendSubscriptionEmails({ allowRepeat });
         console.log(`Checked ${result.checked} subscriptions. Sent: ${result.sent}. Failed: ${result.failed}.`);
         if (result.failed) process.exitCode = 1;
         return;
@@ -23,6 +28,7 @@ async function main() {
 
     const { default: Subscription } = await import("../models/Subscription");
     const { default: SubscriptionDelivery } = await import("../models/SubscriptionDelivery");
+    const { subscriptionDeliveryDay } = await import("../lib/subscription");
     const now = new Date();
     let checked = 0;
     let eligible = 0;
@@ -37,7 +43,8 @@ async function main() {
         const message = await buildSubscriptionEmail(subscription, now, appUrl);
         if (!message.hasUpdates) continue;
         const delivery = await SubscriptionDelivery.findOne({
-            user: subscription.user, version: subscription.version, day: now.toISOString().slice(0, 10),
+            user: subscription.user, version: subscription.version,
+            day: subscriptionDeliveryDay(now, subscription.eventsAfter, allowRepeat),
         }).lean();
         if (delivery?.status === "sent") alreadySent++;
         else if (delivery && (delivery.leaseUntil > now || delivery.attempts >= 5)) retryPending++;
