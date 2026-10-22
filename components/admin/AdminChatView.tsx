@@ -105,7 +105,7 @@ export default function AdminChatView() {
                                         <span className="shrink-0 text-[10px] text-gray-400">{lastMessage?.time}</span>
                                     </span>
                                     <span className="mt-1 flex items-center gap-2">
-                                        <span className="min-w-0 flex-1 truncate text-xs text-gray-500">{lastMessage?.sender === "admin" ? "You: " : ""}{lastMessage?.text || "No messages yet"}</span>
+                                        <span className="min-w-0 flex-1 truncate text-xs text-gray-500">{lastMessage?.sender === "admin" ? "You: " : lastMessage?.sender === "bot" ? "AI: " : ""}{lastMessage?.text || "No messages yet"}</span>
                                         {conversation.unread > 0 && <span aria-label={`${conversation.unread} unread messages`} className="flex h-5 min-w-5 items-center justify-center rounded-full bg-gray-900 px-1 text-[10px] font-semibold text-white">{conversation.unread}</span>}
                                     </span>
                                 </span>
@@ -128,6 +128,7 @@ export default function AdminChatView() {
                 {activeConversation ? (
                     <ChatWindow key={activeConversation.id} title={activeConversation.name} subtitle={activeConversation.email} messages={history.history.messages} sender="admin" draft={drafts[activeConversation.id] || ""} onDraftChange={(value) => setDrafts((previous) => ({ ...previous, [activeConversation.id]: value }))} onSend={handleSend} onBack={() => setActiveConversation(null)}
                         connected={connection.connected} status={connection.connected ? "Live updates" : "Connecting..."} online={connection.connected} sending={connection.sending} loading={history.loading && history.history.messages.length === 0}
+                        assistantThinking={connection.assistantThinking.includes(activeConversation.id)}
                         error={sendError || history.error || connection.connectionError} onReconnect={() => { connection.reconnect(); setRefresh((value) => value + 1); }} hasMore={history.history.hasMore} loadingOlder={history.loadingOlder} onLoadOlder={history.loadOlder} />
                 ) : (
                     <div className="flex h-full flex-col items-center justify-center bg-gray-50 px-6 text-center">

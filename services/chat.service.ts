@@ -62,7 +62,7 @@ export function serializeChatMessage(message: {
     _id: { toString(): string };
     conversation: { toString(): string };
     sequence: number;
-    sender: "user" | "admin";
+    sender: "user" | "admin" | "bot";
     text: string;
     createdAt: Date;
 }): ChatMessageData {
@@ -159,7 +159,7 @@ export async function markChatRead(identity: ChatIdentity, id: string, sequence:
             if (upTo === conversation[readField]) return;
             const unread = await ChatMessage.countDocuments({
                 conversation: id,
-                sender: identity.role === "user" ? "admin" : "user",
+                sender: identity.role === "user" ? { $in: ["admin", "bot"] } : "user",
                 sequence: { $gt: upTo },
             }).session(session);
             await ChatConversation.updateOne({ _id: id }, {
@@ -198,7 +198,7 @@ export async function listChatConversations(page: number, search: string, unread
     const conversations: ChatConversationData[] = result.items.map((item: {
         _id: mongoose.Types.ObjectId; customer: { name: string; email: string };
         unreadAdmin: number; sequence: number; lastMessage: string;
-        lastSender: "user" | "admin"; lastMessageAt: Date;
+        lastSender: "user" | "admin" | "bot"; lastMessageAt: Date;
     }) => ({
         id: item._id.toString(), name: item.customer.name, email: item.customer.email,
         unread: item.unreadAdmin,

@@ -7,7 +7,7 @@ export type ChatMessageData = {
     id: string;
     conversationId: string;
     sequence: number;
-    sender: "user" | "admin";
+    sender: "user" | "admin" | "bot";
     text: string;
     createdAt: string;
 };
@@ -39,8 +39,9 @@ export type ChatInbox = {
 };
 
 export type ChatServerEvent =
-    | { type: "ready"; adminOnline: boolean }
-    | { type: "presence"; adminOnline: boolean }
+    | { type: "ready"; adminOnline: boolean; botAvailable: boolean }
+    | { type: "presence"; adminOnline: boolean; botAvailable: boolean }
+    | { type: "assistant"; conversationId: string; thinking: boolean }
     | { type: "changed"; conversationId: string }
     | { type: "ack"; requestId: string; message: ChatMessageData }
     | { type: "error"; requestId?: string; message: string; status?: number };

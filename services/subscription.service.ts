@@ -9,7 +9,7 @@ import Subscription, { ISubscription } from "@/models/Subscription";
 import SubscriptionEvent from "@/models/SubscriptionEvent";
 import SubscriptionDelivery from "@/models/SubscriptionDelivery";
 import AppError from "@/lib/AppError";
-import { defaultSubscription, SubscriptionPreferences } from "@/lib/subscription";
+import { defaultSubscription, subscriptionDeliveryDay, SubscriptionPreferences } from "@/lib/subscription";
 import { getProductPricing } from "@/lib/product-pricing";
 
 function preferences(subscription: ISubscription | null): SubscriptionPreferences {
@@ -116,12 +116,14 @@ export async function buildSubscriptionEmail(subscription: ISubscription, now: D
     };
 }
 
-export async function sendSubscriptionEmails() {
+export async function sendSubscriptionEmails({ allowRepeat = false }: { allowRepeat?: boolean } = {}) {
+    if (allowRepeat && process.env.NODE_ENV === "production") {
+        throw new AppError("Repeated subscription delivery is only available for local testing.", 400);
+    }
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) throw new AppError("Email delivery is not configured.", 503);
     const appUrl = subscriptionAppUrl();
     await SubscriptionDelivery.init();
     const started = new Date();
-    const day = started.toISOString().slice(0, 10);
     const transporter = nodemailer.createTransport({
         service: "gmail",
         auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASSWORD },
@@ -144,11 +146,12 @@ export async function sendSubscriptionEmails() {
             continue;
         }
 
-        // The unique daily claim prevents overlapping scheduler runs from sending twice.
+        // Local repeats share a claim until pending updates have been processed.
         let delivery;
         try {
             delivery = await SubscriptionDelivery.findOneAndUpdate({
-                user: subscription.user, version: subscription.version, day,
+                user: subscription.user, version: subscription.version,
+                day: subscriptionDeliveryDay(started, subscription.eventsAfter, allowRepeat),
                 status: "sending", leaseUntil: { $lte: now }, attempts: { $lt: 5 },
             }, {
                 $set: { leaseUntil: new Date(now.getTime() + 10 * 60000) },

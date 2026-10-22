@@ -24,9 +24,10 @@ type ChatWindowProps = {
     onLoadOlder: () => Promise<void>;
     onBack?: () => void;
     suggestions?: string[];
+    assistantThinking?: boolean;
 };
 
-export default function ChatWindow({ title, subtitle, messages, sender, draft, onDraftChange, onSend, connected, status, online, sending, loading, error, onReconnect, hasMore, loadingOlder, onLoadOlder, onBack, suggestions = [] }: ChatWindowProps) {
+export default function ChatWindow({ title, subtitle, messages, sender, draft, onDraftChange, onSend, connected, status, online, sending, loading, error, onReconnect, hasMore, loadingOlder, onLoadOlder, onBack, suggestions = [], assistantThinking = false }: ChatWindowProps) {
     const messagesRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const scrollRef = useRef({ lastId: "", height: 0 });
@@ -39,7 +40,7 @@ export default function ChatWindow({ title, subtitle, messages, sender, draft, o
             else container.scrollTop = container.scrollHeight;
             scrollRef.current = { lastId, height: container.scrollHeight };
         }
-    }, [messages]);
+    }, [messages, assistantThinking]);
 
     const sendMessage = async () => {
         const text = draft.trim();
@@ -105,7 +106,7 @@ export default function ChatWindow({ title, subtitle, messages, sender, draft, o
                     return (
                         <div key={message.id} className={`flex ${ownMessage ? "justify-end" : "justify-start"}`}>
                             <div className="max-w-[85%] sm:max-w-[75%]">
-                                <span className="sr-only">{ownMessage ? "You" : title}: </span>
+                                <span className={message.sender === "bot" ? "mb-1.5 block text-xs font-medium text-gray-500" : "sr-only"}>{message.sender === "bot" ? "AI assistant" : ownMessage ? "You" : title}: </span>
                                 <p className={`whitespace-pre-wrap wrap-break-word rounded-2xl px-4 py-3 text-sm leading-6 ${ownMessage ? "rounded-br-sm bg-gray-900 text-white" : "rounded-bl-sm border border-gray-200 bg-white text-gray-700"}`}>
                                     {message.text}
                                 </p>
@@ -114,6 +115,7 @@ export default function ChatWindow({ title, subtitle, messages, sender, draft, o
                         </div>
                     );
                 })}
+                {assistantThinking && <p role="status" className="mt-4 text-xs text-gray-500">AI assistant is replying...</p>}
             </div>
 
             <form onSubmit={(event) => { event.preventDefault(); void sendMessage(); }} className="shrink-0 border-t border-gray-200 bg-white p-4 sm:px-6">

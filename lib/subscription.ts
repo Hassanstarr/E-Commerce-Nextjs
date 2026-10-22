@@ -21,6 +21,11 @@ export const defaultSubscription: SubscriptionPreferences = {
     cartReminder: false,
 };
 
+export function subscriptionDeliveryDay(date: Date, eventsAfter: Date, allowRepeat = false) {
+    const day = date.toISOString().slice(0, 10);
+    return allowRepeat ? `${day}:local:${eventsAfter.getTime()}` : day;
+}
+
 export function subscriptionLoginRedirect(fallback: string) {
     if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("next") === "/subscription") {
         return "/subscription";

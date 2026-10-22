@@ -46,8 +46,9 @@ export default function UserChat() {
 
     return (
         <div className="h-[min(640px,calc(100dvh-15rem))] min-h-96 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-            <ChatWindow title="ShopEase Support" subtitle={connection.connected && !connection.adminOnline ? "Leave a message. Our team can reply when available." : "Chat with our store team"} messages={history.history.messages} sender="user" draft={draft} onDraftChange={setDraft} onSend={handleSend}
-                connected={connection.connected && Boolean(conversationId)} status={connection.connected ? connection.adminOnline ? "Team online" : "Team offline" : "Connecting..."} online={connection.connected && connection.adminOnline} sending={connection.sending}
+            <ChatWindow title="ShopEase Support" subtitle={connection.connected && !connection.adminOnline ? connection.botAvailable ? "Our team is offline. Ask the AI about your orders, cart, wishlist or products." : "Leave a message. Our team can reply when available." : "Chat with our store team"} messages={history.history.messages} sender="user" draft={draft} onDraftChange={setDraft} onSend={handleSend}
+                connected={connection.connected && Boolean(conversationId)} status={connection.connected ? connection.adminOnline ? "Team online" : connection.botAvailable ? "AI available" : "Team offline" : "Connecting..."} online={connection.connected && connection.adminOnline} sending={connection.sending}
+                assistantThinking={connection.assistantThinking.includes(conversationId)}
                 loading={!conversationId && !error || history.loading && history.history.messages.length === 0} error={error || history.error || connection.connectionError}
                 onReconnect={() => { setRefresh((value) => value + 1); connection.reconnect(); }} hasMore={history.history.hasMore} loadingOlder={history.loadingOlder} onLoadOlder={history.loadOlder}
                 suggestions={["Where is my order?", "Product question", "Help with a return"]} />

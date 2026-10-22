@@ -8,7 +8,7 @@ const chatConversationSchema = new Schema({
     unreadUser: { type: Number, default: 0 },
     unreadAdmin: { type: Number, default: 0 },
     lastMessage: { type: String, default: "" },
-    lastSender: { type: String, enum: ["user", "admin"] },
+    lastSender: { type: String, enum: ["user", "admin", "bot"] },
     lastMessageAt: { type: Date },
 }, { timestamps: true });
 
