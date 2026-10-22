@@ -17,7 +17,7 @@ export async function loginGoogleUser(credential: string, nonce: string) {
 
             user = await User.findOneAndUpdate(
                 { _id: existingUser._id, googleId: { $exists: false } },
-                { $set: { googleId: profile.googleId } },
+                { $set: { googleId: profile.googleId, emailVerifiedAt: existingUser.emailVerifiedAt || new Date() } },
                 { new: true, runValidators: true }
             );
 
@@ -33,6 +33,7 @@ export async function loginGoogleUser(credential: string, nonce: string) {
                     email: profile.email,
                     googleId: profile.googleId,
                     role: "user",
+                    emailVerifiedAt: new Date(),
                 });
             } catch (error) {
                 if (error && typeof error === "object" && "code" in error && error.code === 11000) {

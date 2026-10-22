@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { connectDB } from "@/lib/db";
 import { signupController } from "@/controllers/auth.controller";
 import { enforceRateLimit } from "@/lib/enforce-rate-limit";
 import { rateLimiters } from "@/lib/rate-limit";
@@ -15,8 +14,6 @@ export async function POST(req: NextRequest) {
     if (blocked) {
         return blocked;
     }
-
-    await connectDB();
 
     return signupController(req);
 }

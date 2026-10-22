@@ -6,6 +6,7 @@ import { GoogleLogin, GoogleOAuthProvider } from "@react-oauth/google";
 import type { CredentialResponse } from "@react-oauth/google";
 import { useAuth } from "@/context/AuthContext";
 import { apiRequest } from "@/lib/api";
+import { subscriptionLoginRedirect } from "@/lib/subscription";
 
 type GoogleSignInButtonProps = {
     disabled?: boolean;
@@ -62,7 +63,7 @@ export default function GoogleSignInButton({ disabled = false, onLoadingChange }
             });
 
             await refreshUser();
-            router.replace(response.data.redirectTo);
+            router.replace(subscriptionLoginRedirect(response.data.redirectTo));
             router.refresh();
         } catch (error) {
             setError(error instanceof Error ? error.message : "Unable to sign in with Google");

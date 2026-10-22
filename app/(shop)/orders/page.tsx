@@ -149,7 +149,7 @@ function OrdersContent() {
                                                             className="flex justify-between gap-4 py-3 text-sm"
                                                         >
                                                             <div className="min-w-0">
-                                                                <p className="break-words font-medium text-gray-900">{item.name}</p>
+                                                                <p className="wrap-break-word font-medium text-gray-900">{item.name}</p>
                                                                 <p className="mt-1 text-gray-500">{formatPrice(item.price)} × {item.quantity}</p>
                                                             </div>
                                                             <p className="shrink-0 text-gray-700">{formatPrice(item.price * item.quantity)}</p>
@@ -173,7 +173,7 @@ function OrdersContent() {
                                                 <div className="mt-5 border-t border-gray-100 pt-4 text-sm text-gray-600">
                                                     <h3 className="mb-2 font-semibold text-gray-900">Delivery Details</h3>
                                                     <p>{order.customerName}</p>
-                                                    <p className="break-words">{order.shippingAddress.address}, {order.shippingAddress.city}, {order.shippingAddress.postalCode}</p>
+                                                    <p className="wrap-break-word">{order.shippingAddress.address}, {order.shippingAddress.city}, {order.shippingAddress.postalCode}</p>
                                                     <p className="mt-2 break-all">{order.customerEmail}</p>
                                                     <p>{order.phone}</p>
                                                 </div>

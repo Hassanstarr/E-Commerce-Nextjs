@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { apiRequest } from "@/lib/api";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
+import { subscriptionLoginRedirect } from "@/lib/subscription";
 
 type LoginResponse = {
     success: boolean;
@@ -65,7 +66,7 @@ export default function LoginPage() {
                 res.data?.redirectTo ||
                 (res.data?.user?.role === "admin" ? "/admin" : "/");
 
-            router.replace(targetPath);
+            router.replace(subscriptionLoginRedirect(targetPath));
             router.refresh();
         } catch (error) {
             setError(
@@ -171,7 +172,7 @@ export default function LoginPage() {
                 <GoogleSignInButton disabled={loading} onLoadingChange={setLoading} />
 
                 <p className="mt-6 text-center text-sm text-gray-500">
-                    Don't have an account?{" "}
+                    Don&apos;t have an account?{" "}
                     <Link
                         href="/auth/signup"
                         className="font-medium text-black hover:underline"
