@@ -335,3 +335,24 @@ Your ShopEase project includes two major components:
 - Administrative system: Dashboard, product and category CRUD, order management, customer profiles, analytics and exports, and activity monitoring.
 
 Together, these features establish a full-stack e-commerce application with customer purchasing workflows and administrative store management. The remaining step is to verify the end-to-end behavior of each feature, particularly database integration, analytics accuracy, authorization, and email delivery, before describing every module as fully tested.
+
+## Gemini support when admins are offline
+
+The existing Live Chat uses Gemini for customer support when no admin is connected to the chat inbox. Replies are labelled **AI assistant**, saved in the same conversation, and visible to admins when they return. An admin counts as online while their chat inbox has an authenticated WebSocket connection; stale presence expires after 35 seconds. Being logged into another admin page does not mark an admin available for chat.
+
+Create an API key in [Google AI Studio](https://aistudio.google.com/app/apikey). Add these server-side environment settings to `.env.local` and Vercel Production:
+
+```env
+GEMINI_API_KEY=your_real_gemini_api_key
+GEMINI_MODEL=gemini-3.5-flash-lite
+```
+
+`GEMINI_MODEL` is optional; it defaults to the model shown above. Never prefix the key with `NEXT_PUBLIC_`. Restart both `npm run dev` and `npm run dev:chat` locally after adding the key. Redeploy Vercel after setting it there. No extra scheduler, Gemini SDK, model training, or RAG setup is required.
+
+`npm run dev:chat` watches the chat code and restarts when it changes. If an older chat process is already running, stop it and start this command once to enable watching. Refreshing the browser alone does not reload that server's AI instructions.
+
+The bot receives up to the last 20 messages from this conversation. Gemini can request read-only data through `get_store_data`: the customer's name/email, recent orders or a specific full/short order ID, cart, wishlist, and public product searches with current prices, discounts and stock. The server takes the customer ID from the authenticated conversation; Gemini cannot select another customer. Only requested sections are sent to Google, with bounded lists (20 orders, 30 cart/wishlist items, 10 product search results), and incomplete results are marked. Passwords, codes, session data, card details, shipping addresses and private payment identifiers are excluded. There are no write tools: policies, refunds, cancellations, and staff decisions are left for the team. Do not put unsupported store policies into its instructions in `services/gemini.service.ts`.
+
+User messages are acknowledged immediately while Gemini responds separately. Replies allow up to three provider requests within a shared 50-second provider timeout, a 2,000-character limit, and a per-customer limit of 10 AI attempts per minute in addition to the normal chat limit. API failures explicitly report that the AI is temporarily unavailable; the original customer message remains available to staff. Check the chat server logs for provider errors (401/403: key/access, 404: model, 429: quota). Duplicate requests are claimed once. A reply is discarded if an admin comes online or the conversation advances before it is saved, so an old answer does not overwrite newer messages.
+
+To test manually, close every admin chat tab and send a new message from a customer account. Allow up to 35 seconds for a disconnected admin's old presence to expire. Reopen the admin chat inbox to test human replies and see the AI history. With no API key, chat keeps its existing offline-message behaviour. Automated tests use an isolated database and a mocked Gemini response, without sending real customer messages to Google.

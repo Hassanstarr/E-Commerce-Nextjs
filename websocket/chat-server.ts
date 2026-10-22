@@ -6,11 +6,20 @@ import { getChatIdentity, initializeChat, sendChatMessage, isChatAdminOnline } f
 import { rateLimiters } from "@/lib/rate-limit";
 import AppError from "@/lib/AppError";
 import type { ChatIdentity, ChatServerEvent } from "@/types/chat";
+import { replyWhenAdminOffline } from "@/services/chat-bot.service";
+import { isChatBotAvailable } from "@/services/gemini.service";
+import type { ChatMessageData } from "@/types/chat";
 
 type Peer = { socket: WebSocket; token: string; identity: ChatIdentity; connectionId: string };
 
-export function createChatRuntime(options: { messageLimit?: (userId: string) => Promise<{ success: boolean }> } = {}) {
+export function createChatRuntime(options: {
+    messageLimit?: (userId: string) => Promise<{ success: boolean }>;
+    assistantReply?: (message: ChatMessageData) => Promise<ChatMessageData | null>;
+} = {}) {
     const peers = new Set<Peer>();
+    const assistantJobs = new Set<Promise<void>>();
+    const thinking = new Map<string, number>();
+    let stopping = false;
     let watcher: ReturnType<typeof ChatConversation.collection.watch> | null = null;
     let starting: Promise<void> | null = null;
     let connecting = 0;
@@ -19,7 +28,7 @@ export function createChatRuntime(options: { messageLimit?: (userId: string) => 
     const stopWhenIdle = () => {
         if (idleTimer) clearTimeout(idleTimer);
         idleTimer = setTimeout(() => {
-            if (peers.size === 0 && connecting === 0) {
+            if (peers.size === 0 && connecting === 0 && assistantJobs.size === 0) {
                 const stream = watcher;
                 watcher = null;
                 starting = null;
@@ -39,17 +48,40 @@ export function createChatRuntime(options: { messageLimit?: (userId: string) => 
         return identity;
     };
 
-    const notify = async (conversationId: string, userId: string) => {
+    const notify = async (conversationId: string, userId: string, event: ChatServerEvent = { type: "changed", conversationId }) => {
         await Promise.allSettled([...peers].map(async (peer) => {
             try {
                 const identity = await verifyPeer(peer);
                 if (identity.role === "admin" || identity.userId === userId) {
-                    send(peer.socket, { type: "changed", conversationId });
+                    send(peer.socket, event);
                 }
             } catch (error) {
                 peer.socket.close(error instanceof AppError && error.statusCode === 401 ? 4401 : 1012, "Please reconnect");
             }
         }));
+    };
+
+    const startAssistant = (message: ChatMessageData, userId: string) => {
+        if (stopping) return;
+        const id = message.conversationId;
+        thinking.set(id, (thinking.get(id) || 0) + 1);
+        const job = (async () => {
+            if (await isChatAdminOnline()) return;
+            await notify(id, userId, { type: "assistant", conversationId: id, thinking: true });
+            await (options.assistantReply || replyWhenAdminOffline)(message);
+        })().catch((error) => {
+            console.error("AI chat task failed:", error instanceof Error ? error.message : "Unknown error");
+        }).finally(async () => {
+            assistantJobs.delete(job);
+            const remaining = (thinking.get(id) || 1) - 1;
+            if (remaining) thinking.set(id, remaining);
+            else {
+                thinking.delete(id);
+                await notify(id, userId, { type: "assistant", conversationId: id, thinking: false });
+            }
+            if (peers.size === 0) stopWhenIdle();
+        });
+        assistantJobs.add(job);
     };
 
     const start = async () => {
@@ -124,14 +156,14 @@ export function createChatRuntime(options: { messageLimit?: (userId: string) => 
                         }, { upsert: true });
                         if (closed) await ChatPresence.deleteOne({ _id: peer.connectionId });
                     }
-                    send(socket, { type: "presence", adminOnline: await isChatAdminOnline() });
+                    send(socket, { type: "presence", adminOnline: await isChatAdminOnline(), botAvailable: isChatBotAvailable() });
                 } catch (error) {
                     socket.close(error instanceof AppError && error.statusCode === 401 ? 4401 : 1012, "Please reconnect");
                 }
             };
             await updatePresence();
             if (closed) return;
-            send(socket, { type: "ready", adminOnline: await isChatAdminOnline() });
+            send(socket, { type: "ready", adminOnline: await isChatAdminOnline(), botAvailable: isChatBotAvailable() });
             heartbeat = setInterval(() => { void updatePresence(); }, 10000);
 
             socket.on("message", (raw: RawData, isBinary: boolean) => {
@@ -153,6 +185,9 @@ export function createChatRuntime(options: { messageLimit?: (userId: string) => 
                         if (!limit.success) throw new AppError("Too many messages. Please wait a minute.", 429);
                         const message = await sendChatMessage(currentIdentity, body);
                         send(socket, { type: "ack", requestId, message });
+                        if (currentIdentity.role === "user" && isChatBotAvailable()) {
+                            startAssistant(message, currentIdentity.userId);
+                        }
                     } catch (error) {
                         send(socket, { type: "error", requestId,
                             message: error instanceof AppError ? error.message : "Unable to send message. Please try again.",
@@ -174,8 +209,10 @@ export function createChatRuntime(options: { messageLimit?: (userId: string) => 
     return {
         attach,
         async close() {
+            stopping = true;
             if (idleTimer) clearTimeout(idleTimer);
             for (const peer of peers) peer.socket.close(1001, "Server stopping");
+            await Promise.allSettled([...assistantJobs]);
             const stream = watcher;
             watcher = null;
             starting = null;

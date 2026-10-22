@@ -10,7 +10,7 @@
     "stripe:login": "stripe login",
     "stripe:listen": "node scripts/stripe-listen.mjs",
     "test:stripe": "node --test tests/stripe.test.mjs",
-    "dev:chat": "tsx websocket/dev.ts",
+    "dev:chat": "tsx watch websocket/dev.ts",
     "subscriptions:check": "tsx scripts/subscriptions.ts --dry-run",
     "subscriptions:send": "tsx scripts/subscriptions.ts"
   },

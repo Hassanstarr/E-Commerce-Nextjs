@@ -16,6 +16,8 @@ export default function useChatConnection(enabled = true) {
     const role = user?.role;
     const [connected, setConnected] = useState(false);
     const [adminOnline, setAdminOnline] = useState(false);
+    const [botAvailable, setBotAvailable] = useState(false);
+    const [assistantThinking, setAssistantThinking] = useState<string[]>([]);
     const [connectionError, setConnectionError] = useState("");
     const [sending, setSending] = useState(false);
     const [sync, setSync] = useState({ conversationId: null as string | null, revision: 0 });
@@ -48,9 +50,16 @@ export default function useChatConnection(enabled = true) {
                     setConnected(true);
                     setConnectionError("");
                     setAdminOnline(message.adminOnline);
+                    setBotAvailable(message.botAvailable);
                     setSync((previous) => ({ conversationId: null, revision: previous.revision + 1 }));
                 } else if (message.type === "presence") {
                     setAdminOnline(message.adminOnline);
+                    setBotAvailable(message.botAvailable);
+                    if (message.adminOnline) setAssistantThinking([]);
+                } else if (message.type === "assistant") {
+                    setAssistantThinking((previous) => message.thinking
+                        ? [...new Set([...previous, message.conversationId])]
+                        : previous.filter((id) => id !== message.conversationId));
                 } else if (message.type === "changed") {
                     setSync((previous) => ({ conversationId: message.conversationId, revision: previous.revision + 1 }));
                 } else if (message.type === "ack" || message.type === "error") {
@@ -67,6 +76,8 @@ export default function useChatConnection(enabled = true) {
                 if (cancelled || socket !== socketRef.current) return;
                 setConnected(false);
                 setAdminOnline(false);
+                setBotAvailable(false);
+                setAssistantThinking([]);
                 for (const pending of pendingRef.current.values()) {
                     clearTimeout(pending.timer);
                     pending.reject(new Error("Connection interrupted. Your message may already be saved. Retry to confirm it without duplicating it."));
@@ -143,5 +154,5 @@ export default function useChatConnection(enabled = true) {
         }
     };
 
-    return { connected, adminOnline, connectionError, sending, sync, sendMessage, reconnect: () => setRetry((value) => value + 1) };
+    return { connected, adminOnline, botAvailable, assistantThinking, connectionError, sending, sync, sendMessage, reconnect: () => setRetry((value) => value + 1) };
 }
