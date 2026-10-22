@@ -19,6 +19,10 @@ export const signupSchema = z.object({
         .refine((value) => value.trim().length >= 6, "Password must contain at least 6 non-padding characters"),
 });
 
+export const verifySignupSchema = z.object({
+    otp: z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code from your email"),
+});
+
 export const loginSchema = z.object({
     email: z
         .string()

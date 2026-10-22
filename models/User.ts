@@ -5,6 +5,7 @@ export interface IUser extends Document {
     email: string;
     password?: string;
     googleId?: string;
+    emailVerifiedAt?: Date | null;
     sessionVersion: number;
     passwordReset?: {
         otpHash?: string;
@@ -54,6 +55,11 @@ const userSchema = new mongoose.Schema<IUser>(
             type: String,
             unique: true,
             sparse: true,
+        },
+
+        emailVerifiedAt: {
+            type: Date,
+            default: null,
         },
 
         role: {

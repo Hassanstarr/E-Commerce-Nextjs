@@ -38,14 +38,12 @@ export const adminDashboardController = async (req: NextRequest) => {
         return NextResponse.json(
             {
                 success: false,
-                message:
-                    error?.message ||
-                    "Failed to load admin dashboard",
+                message: error?.message ||
+                        "Failed to load admin dashboard",
             },
             {
-                status:
-                    error?.statusCode ||
-                    500,
+                status: error?.statusCode ||
+                        500,
             }
         );
     }
@@ -58,8 +56,7 @@ export const adminOrdersController = async (req: NextRequest) => {
     try {
         await requireAdmin();
 
-        const { searchParams } =
-            new URL(req.url);
+        const { searchParams } = new URL(req.url);
 
         const page = Math.max(
             1,
@@ -82,20 +79,11 @@ export const adminOrdersController = async (req: NextRequest) => {
             )
         );
 
-        const search = searchParams.get(
-                "search"
-            ) || "";
+        const search = searchParams.get("search") || "";
+        const orderStatus = searchParams.get("orderStatus") || "";
+        const paymentStatus = searchParams.get("paymentStatus") || "";
 
-        const orderStatus = searchParams.get(
-                "orderStatus"
-            ) || "";
-
-        const paymentStatus = searchParams.get(
-                "paymentStatus"
-            ) || "";
-
-        const data =
-            await getAdminOrders({
+        const data = await getAdminOrders({
                 page,
                 limit,
                 search,
@@ -136,9 +124,7 @@ export const adminOrderDetailsController = async ( req: NextRequest, orderId: st
     try {
         await requireAdmin();
 
-        const order = await getAdminOrderById(
-                orderId
-            );
+        const order = await getAdminOrderById(orderId);
 
         return NextResponse.json({
             success: true,
@@ -194,22 +180,17 @@ export const updateAdminOrderController = async ( req: NextRequest, orderId: str
             data: updatedOrder,
         });
     } catch (error: any) {
-        console.error(
-            "Update admin order controller error:",
-            error
-        );
+        console.error("Update admin order controller error:", error);
 
         return NextResponse.json(
             {
                 success: false,
-                message:
-                    error?.message ||
-                    "Failed to update order",
+                message: error?.message ||
+                        "Failed to update order",
             },
             {
-                status:
-                    error?.statusCode ||
-                    500,
+                status: error?.statusCode ||
+                        500,
             }
         );
     }
@@ -226,22 +207,17 @@ export const adminOrderHistoryController = async ( req: NextRequest, orderId: st
             data: history,
         });
     } catch (error: any) {
-        console.error(
-            "Admin order history controller error:",
-            error
-        );
+        console.error("Admin order history controller error:", error);
 
         return NextResponse.json(
             {
                 success: false,
-                message:
-                    error?.message ||
-                    "Failed to load order history",
+                message: error?.message ||
+                        "Failed to load order history",
             },
             {
-                status:
-                    error?.statusCode ||
-                    500,
+                status: error?.statusCode ||
+                        500,
             }
         );
     }
@@ -275,22 +251,17 @@ export const adminCustomersController = async (req: NextRequest) => {
             data,
         });
     } catch (error: any) {
-        console.error(
-            "Admin customers controller error:",
-            error
-        );
+        console.error("Admin customers controller error:", error);
 
         return NextResponse.json(
             {
                 success: false,
-                message:
-                    error?.message ||
-                    "Failed to load customers",
+                message: error?.message ||
+                        "Failed to load customers",
             },
             {
-                status:
-                    error?.statusCode ||
-                    500,
+                status: error?.statusCode ||
+                        500,
             }
         );
     }
@@ -310,22 +281,17 @@ export const adminCustomerDetailsController = async ( req: NextRequest, customer
             data,
         });
     } catch (error: any) {
-        console.error(
-            "Admin customer details controller error:",
-            error
-        );
+        console.error("Admin customer details controller error:", error);
 
         return NextResponse.json(
             {
                 success: false,
-                message:
-                    error?.message ||
-                    "Failed to load customer",
+                message: error?.message ||
+                        "Failed to load customer",
             },
             {
-                status:
-                    error?.statusCode ||
-                    500,
+                status: error?.statusCode ||
+                        500,
             }
         );
     }
@@ -392,22 +358,17 @@ export const adminActivityController = async (req: NextRequest) => {
         });
         
     } catch (error: any) {
-        console.error(
-            "Admin activity controller error:",
-            error
-        );
+        console.error("Admin activity controller error:", error);
 
         return NextResponse.json(
             {
                 success: false,
-                message:
-                    error?.message ||
-                    "Failed to load activity",
+                message: error?.message ||
+                        "Failed to load activity",
             },
             {
-                status:
-                    error?.statusCode ||
-                    500,
+                status: error?.statusCode ||
+                        500,
             }
         );
     }

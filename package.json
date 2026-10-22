@@ -3,17 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "stripe:login": "stripe login",
     "stripe:listen": "node scripts/stripe-listen.mjs",
     "test:stripe": "node --test tests/stripe.test.mjs",
-    "dev:chat": "tsx websocket/dev.ts",
-    "dev:all": "node scripts/dev-all.mjs",
-    "test:chat": "tsx --test tests/chat.integration.test.ts",
-    "test:discount": "tsx --test tests/discount.integration.test.ts"
+    "dev:chat": "tsx websocket/dev.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
