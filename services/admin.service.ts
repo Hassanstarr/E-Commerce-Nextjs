@@ -7,6 +7,7 @@ import { createActivityLog } from "./activity.service";
 import { canChangeOrderStatus, canChangePaymentStatus } from "@/lib/order-status";
 import AppError from "@/lib/AppError";
 import mongoose from "mongoose";
+import { recordSubscriptionEvents } from "@/services/subscription-event.service";
 
 function escapeRegex(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -427,6 +428,11 @@ export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentS
 
                     if (shouldReserveStock && !product) {
                         throw new AppError(`Cannot reopen this order: "${item.name}" is unavailable or has insufficient stock.`, 409);
+                    }
+                    if (shouldRestoreStock && product) {
+                        await recordSubscriptionEvents({
+                            _id: product._id, stock: product.stock + item.quantity, discountPercent: product.discountPercent,
+                        }, product.stock, false, session);
                     }
                 }
             }

@@ -4,6 +4,7 @@ import ActivityLog from "@/models/ActivityLog";
 import AppError from "@/lib/AppError";
 import { getProductPricing } from "@/lib/product-pricing";
 import type { ProductInput } from "@/lib/validations";
+import { recordSubscriptionEvents } from "@/services/subscription-event.service";
 
 async function logDiscount(product: { _id: mongoose.Types.ObjectId; name: string; price: number; discountPercent: number; discountEndsAt: Date | null }, action: "discount_started" | "discount_ended", session: mongoose.ClientSession, user?: string, expired = false) {
     const pricing = getProductPricing({ price: product.price, discountPercent: product.discountPercent });
@@ -49,6 +50,7 @@ export async function saveProductWithDiscount(data: ProductInput, id?: string, u
             _id: product._id, name: product.name, price: product.price,
             discountPercent: product.discountPercent || 0, discountEndsAt: product.discountEndsAt,
         };
+        const previousStock = id ? product.stock : undefined;
         const expired = Boolean(previous.discountEndsAt && previous.discountEndsAt.getTime() <= Date.now());
         const changed = previous.discountPercent !== data.discountPercent || expired;
 
@@ -69,6 +71,7 @@ export async function saveProductWithDiscount(data: ProductInput, id?: string, u
         if (product.discountPercent > 0 && changed) {
             await logDiscount(product, "discount_started", session, user);
         }
+        await recordSubscriptionEvents(product, previousStock, product.discountPercent > 0 && changed, session);
         return product;
     });
 

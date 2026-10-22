@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { subscriptionLoginRedirect } from "@/lib/subscription";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
@@ -10,7 +11,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
     useEffect(() => {
         if (!loading && user) {
-            router.replace(user.role === "admin" ? "/admin" : "/");
+            router.replace(subscriptionLoginRedirect(user.role === "admin" ? "/admin" : "/"));
         }
     }, [loading, user, router]);
 

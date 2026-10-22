@@ -126,6 +126,7 @@ export default function Navbar() {
                                 <div className="space-y-1 p-2">
                                     {[
                                         { href: "/account", label: "My Account" },
+                                        { href: "/subscription", label: "Subscription" },
                                         { href: "/orders", label: "My Orders" },
                                         { href: "/chat", label: "Live Chat" },
                                         ...(user.role === "admin" ? [{ href: "/admin", label: "Admin Dashboard" }] : []),
