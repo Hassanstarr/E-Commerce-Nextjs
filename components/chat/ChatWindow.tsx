@@ -56,7 +56,7 @@ export default function ChatWindow({ title, subtitle, messages, sender, draft, o
     };
 
     return (
-        <section aria-label={`Conversation with ${title}`} className="flex h-full min-h-0 min-w-0 flex-col bg-white">
+        <section aria-label={`Conversation with ${title}`} className="relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-white">
             <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 px-4 py-4 sm:px-6">
                 {onBack && (
                     <button type="button" onClick={onBack} aria-label="Back to conversations" className="shrink-0 rounded-lg p-2 text-gray-600 transition hover:bg-gray-100 lg:hidden">
@@ -76,7 +76,7 @@ export default function ChatWindow({ title, subtitle, messages, sender, draft, o
                 </span>
             </div>
 
-            <div ref={messagesRef} role="log" aria-label="Conversation messages" aria-live="polite" aria-relevant="additions text" className={`min-h-0 flex-1 overflow-y-auto overscroll-contain bg-gray-50 px-4 py-6 sm:px-6 ${messages.length === 0 ? "flex flex-col" : "space-y-4"}`}>
+            <div ref={messagesRef} role="log" aria-label="Conversation messages" aria-live="polite" aria-relevant="additions text" className={`relative min-h-0 flex-1 overflow-y-auto overscroll-contain bg-gray-50 px-4 py-6 sm:px-6 ${messages.length === 0 ? "flex flex-col" : "space-y-4"}`}>
                 {hasMore && <button type="button" onClick={() => { void onLoadOlder(); }} disabled={loadingOlder} className="mx-auto block rounded-full border border-gray-200 bg-white px-4 py-2 text-xs text-gray-600 transition hover:border-gray-400 disabled:opacity-50">{loadingOlder ? "Loading..." : "Load older messages"}</button>}
                 {loading && messages.length === 0 ? (
                     <p role="status" className="m-auto py-12 text-center text-sm text-gray-500">Loading messages...</p>
