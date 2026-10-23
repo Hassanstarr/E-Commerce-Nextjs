@@ -8,7 +8,7 @@ import { errorResponse } from "@/lib/apiError";
 import AppError from "@/lib/AppError";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 export async function GET(req: NextRequest) {
     if (req.headers.get("origin") !== req.nextUrl.origin) return errorResponse("Invalid chat origin", 403);

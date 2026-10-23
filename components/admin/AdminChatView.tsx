@@ -4,14 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import { HiOutlineChatBubbleLeftRight, HiOutlineMagnifyingGlass } from "react-icons/hi2";
 import ChatWindow from "@/components/chat/ChatWindow";
 import CatalogPagination from "@/components/ui/CatalogPagination";
-import useChatConnection from "@/hooks/useChatConnection";
+import { useAdminChatConnection } from "@/components/admin/AdminChatProvider";
 import useChatHistory from "@/hooks/useChatHistory";
 import { getChatInbox } from "@/services/chat.api";
 import { displayChatMessage, mergeChatMessages } from "@/lib/chat-messages";
 import type { ChatConversation } from "@/types/chat";
 
 export default function AdminChatView() {
-    const connection = useChatConnection();
+    const connection = useAdminChatConnection();
     const [conversations, setConversations] = useState<ChatConversation[]>([]);
     const [activeConversation, setActiveConversation] = useState<ChatConversation | null>(null);
     const [search, setSearch] = useState("");

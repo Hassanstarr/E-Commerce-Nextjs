@@ -2,7 +2,8 @@ import { randomUUID } from "crypto";
 import WebSocket, { type RawData } from "ws";
 import ChatConversation from "@/models/ChatConversation";
 import ChatPresence from "@/models/ChatPresence";
-import { getChatIdentity, initializeChat, sendChatMessage, isChatAdminOnline } from "@/services/chat.service";
+import ChatMessage from "@/models/ChatMessage";
+import { getChatIdentity, initializeChat, sendChatMessage, isChatAdminOnline, serializeChatMessage } from "@/services/chat.service";
 import { rateLimiters } from "@/lib/rate-limit";
 import AppError from "@/lib/AppError";
 import type { ChatIdentity, ChatServerEvent } from "@/types/chat";
@@ -11,6 +12,8 @@ import { isChatBotAvailable } from "@/services/gemini.service";
 import type { ChatMessageData } from "@/types/chat";
 
 type Peer = { socket: WebSocket; token: string; identity: ChatIdentity; connectionId: string };
+
+const adminOfflineDelay = 60000;
 
 export function createChatRuntime(options: {
     messageLimit?: (userId: string) => Promise<{ success: boolean }>;
@@ -62,7 +65,7 @@ export function createChatRuntime(options: {
     };
 
     const startAssistant = (message: ChatMessageData, userId: string) => {
-        if (stopping) return;
+        if (stopping || thinking.has(message.conversationId)) return;
         const id = message.conversationId;
         thinking.set(id, (thinking.get(id) || 0) + 1);
         const job = (async () => {
@@ -127,12 +130,16 @@ export function createChatRuntime(options: {
         let closed = false;
         let queued = 0;
         let chain = Promise.resolve();
+        const markOffline = () => peer && ChatPresence.updateOne({ _id: peer.connectionId }, {
+            $set: { expiresAt: new Date(Date.now() + adminOfflineDelay) },
+        });
         const cleanup = () => {
+            if (closed) return;
             closed = true;
             if (heartbeat) clearInterval(heartbeat);
             if (peer) {
                 peers.delete(peer);
-                void ChatPresence.deleteOne({ _id: peer.connectionId }).catch(() => {});
+                if (peer.identity.role === "admin") void markOffline()?.catch(() => {});
             }
             stopWhenIdle();
         };
@@ -152,11 +159,19 @@ export function createChatRuntime(options: {
                     await verifyPeer(peer);
                     if (identity.role === "admin") {
                         await ChatPresence.updateOne({ _id: peer.connectionId }, {
-                            $set: { user: identity.userId, expiresAt: new Date(Date.now() + 35000) },
+                            $set: { user: identity.userId, expiresAt: new Date(Date.now() + adminOfflineDelay) },
                         }, { upsert: true });
-                        if (closed) await ChatPresence.deleteOne({ _id: peer.connectionId });
+                        if (closed) await markOffline();
                     }
                     send(socket, { type: "presence", adminOnline: await isChatAdminOnline(), botAvailable: isChatBotAvailable() });
+                    if (identity.role === "user" && isChatBotAvailable() && !await isChatAdminOnline()) {
+                        const conversation = await ChatConversation.findOne({ user: identity.userId, lastSender: "user" });
+                        if (conversation && !thinking.has(conversation.id)) {
+                            const message = await ChatMessage.findOne({ conversation: conversation._id, sequence: conversation.sequence,
+                                sender: "user", botHandledAt: { $exists: false } });
+                            if (message) startAssistant(serializeChatMessage(message), identity.userId);
+                        }
+                    }
                 } catch (error) {
                     socket.close(error instanceof AppError && error.statusCode === 401 ? 4401 : 1012, "Please reconnect");
                 }
