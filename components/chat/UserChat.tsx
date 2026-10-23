@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ChatWindow from "@/components/chat/ChatWindow";
 import { useAuth } from "@/context/AuthContext";
 import useChatConnection from "@/hooks/useChatConnection";
 import useChatHistory from "@/hooks/useChatHistory";
 import { getMyChat } from "@/services/chat.api";
+import { mergeChatMessages } from "@/lib/chat-messages";
 
 export default function UserChat() {
     const { user } = useAuth();
@@ -16,6 +17,10 @@ export default function UserChat() {
     const [error, setError] = useState("");
     const [refresh, setRefresh] = useState(0);
     const history = useChatHistory(conversationId, connection.sync, refresh);
+    const { reconcileMessages, messages: outgoingMessages } = connection;
+    const messages = useMemo(() => mergeChatMessages(history.history.messages, outgoingMessages.filter((message) => message.conversationId === conversationId)), [history.history.messages, outgoingMessages, conversationId]);
+
+    useEffect(() => { reconcileMessages(history.history.messages); }, [history.history.messages, reconcileMessages]);
 
     useEffect(() => {
         if (user?.role !== "user") return;
@@ -31,9 +36,7 @@ export default function UserChat() {
     const handleSend = async (text: string) => {
         setError("");
         try {
-            const message = await connection.sendMessage(conversationId, text);
-            history.addMessage(message);
-            setRefresh((value) => value + 1);
+            await connection.sendMessage(conversationId, text);
         } catch (sendError) {
             setError(sendError instanceof Error ? sendError.message : "Unable to send your message");
             throw sendError;
@@ -46,10 +49,11 @@ export default function UserChat() {
 
     return (
         <div className="h-[min(640px,calc(100dvh-15rem))] min-h-96 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-            <ChatWindow title="ShopEase Support" subtitle={connection.connected && !connection.adminOnline ? connection.botAvailable ? "Our team is offline. Ask the AI about your orders, cart, wishlist or products." : "Leave a message. Our team can reply when available." : "Chat with our store team"} messages={history.history.messages} sender="user" draft={draft} onDraftChange={setDraft} onSend={handleSend}
-                connected={connection.connected && Boolean(conversationId)} status={connection.connected ? connection.adminOnline ? "Team online" : connection.botAvailable ? "AI available" : "Team offline" : "Connecting..."} online={connection.connected && connection.adminOnline} sending={connection.sending}
+            <ChatWindow title="ShopEase Support" subtitle={connection.connected && !connection.adminOnline ? connection.botAvailable ? "Our team is offline. Ask the AI about your orders, cart, wishlist or products." : "Leave a message. Our team can reply when available." : "Chat with our store team"} messages={messages} sender="user" draft={draft} onDraftChange={setDraft} onSend={handleSend}
+                connected={connection.connected && Boolean(conversationId)} canSend={Boolean(conversationId) && !connection.requiresLogin} requiresLogin={connection.requiresLogin} status={connection.connected ? connection.adminOnline ? "Team online" : connection.botAvailable ? "AI available" : "Team offline" : "Live chat"} online={connection.connected && connection.adminOnline} sending={connection.sending}
+                onRetryMessage={connection.retryMessage}
                 assistantThinking={connection.assistantThinking.includes(conversationId)}
-                loading={!conversationId && !error || history.loading && history.history.messages.length === 0} error={error || history.error || connection.connectionError}
+                loading={!conversationId && !error || history.loading && messages.length === 0} error={error || (connection.connected ? history.error : "") || connection.connectionError}
                 onReconnect={() => { setRefresh((value) => value + 1); connection.reconnect(); }} hasMore={history.history.hasMore} loadingOlder={history.loadingOlder} onLoadOlder={history.loadOlder}
                 suggestions={["Where is my order?", "Product question", "Help with a return"]} />
         </div>

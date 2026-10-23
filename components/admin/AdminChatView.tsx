@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { HiOutlineChatBubbleLeftRight, HiOutlineMagnifyingGlass } from "react-icons/hi2";
 import ChatWindow from "@/components/chat/ChatWindow";
 import CatalogPagination from "@/components/ui/CatalogPagination";
 import useChatConnection from "@/hooks/useChatConnection";
 import useChatHistory from "@/hooks/useChatHistory";
 import { getChatInbox } from "@/services/chat.api";
-import { displayChatMessage } from "@/lib/chat-messages";
+import { displayChatMessage, mergeChatMessages } from "@/lib/chat-messages";
 import type { ChatConversation } from "@/types/chat";
 
 export default function AdminChatView() {
@@ -26,6 +26,10 @@ export default function AdminChatView() {
     const [refresh, setRefresh] = useState(0);
     const selectedId = activeConversation?.id || null;
     const history = useChatHistory(selectedId || "", connection.sync, refresh);
+    const { reconcileMessages, messages: outgoingMessages } = connection;
+    const messages = useMemo(() => mergeChatMessages(history.history.messages, outgoingMessages.filter((message) => message.conversationId === selectedId)), [history.history.messages, outgoingMessages, selectedId]);
+
+    useEffect(() => { reconcileMessages(history.history.messages); }, [history.history.messages, reconcileMessages]);
 
     useEffect(() => {
         let cancelled = false;
@@ -56,9 +60,7 @@ export default function AdminChatView() {
         if (!activeConversation) throw new Error("Select a conversation first");
         setSendError("");
         try {
-            const message = await connection.sendMessage(activeConversation.id, text);
-            history.addMessage(message);
-            setRefresh((value) => value + 1);
+            await connection.sendMessage(activeConversation.id, text);
         } catch (error) {
             setSendError(error instanceof Error ? error.message : "Unable to send message");
             throw error;
@@ -91,9 +93,9 @@ export default function AdminChatView() {
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
-                    {connection.connectionError && <p role="alert" className="m-2 rounded-lg bg-red-50 p-3 text-sm text-red-600">{connection.connectionError} <button type="button" onClick={connection.reconnect} className="font-medium underline">Reconnect</button></p>}
+                    {connection.connectionError && <p role="status" className="m-2 rounded-lg bg-gray-50 p-3 text-sm text-gray-600">{connection.connectionError}</p>}
                     {loadingInbox && conversations.length === 0 && <p role="status" className="px-4 py-12 text-center text-sm text-gray-500">Loading conversations...</p>}
-                    {inboxError && <p role="alert" className="m-2 rounded-lg bg-red-50 p-3 text-sm text-red-600">{inboxError} <button type="button" onClick={() => setRefresh((value) => value + 1)} className="font-medium underline">Retry</button></p>}
+                    {inboxError && connection.connected && <p role="status" className="m-2 rounded-lg bg-gray-50 p-3 text-sm text-gray-600">{inboxError} <button type="button" onClick={() => setRefresh((value) => value + 1)} className="font-medium underline">Retry</button></p>}
                     {conversations.map((conversation) => {
                         const lastMessage = conversation.messages.at(-1);
                         return (
@@ -126,10 +128,11 @@ export default function AdminChatView() {
 
             <div className={`h-full min-h-0 min-w-0 ${activeConversation ? "block" : "hidden lg:block"}`}>
                 {activeConversation ? (
-                    <ChatWindow key={activeConversation.id} title={activeConversation.name} subtitle={activeConversation.email} messages={history.history.messages} sender="admin" draft={drafts[activeConversation.id] || ""} onDraftChange={(value) => setDrafts((previous) => ({ ...previous, [activeConversation.id]: value }))} onSend={handleSend} onBack={() => setActiveConversation(null)}
-                        connected={connection.connected} status={connection.connected ? "Live updates" : "Connecting..."} online={connection.connected} sending={connection.sending} loading={history.loading && history.history.messages.length === 0}
+                    <ChatWindow key={activeConversation.id} title={activeConversation.name} subtitle={activeConversation.email} messages={messages} sender="admin" draft={drafts[activeConversation.id] || ""} onDraftChange={(value) => setDrafts((previous) => ({ ...previous, [activeConversation.id]: value }))} onSend={handleSend} onBack={() => setActiveConversation(null)}
+                        connected={connection.connected} canSend={!connection.requiresLogin} requiresLogin={connection.requiresLogin} status={connection.connected ? "Live updates" : "Live chat"} online={connection.connected} sending={connection.sending} loading={history.loading && messages.length === 0}
+                        onRetryMessage={connection.retryMessage}
                         assistantThinking={connection.assistantThinking.includes(activeConversation.id)}
-                        error={sendError || history.error || connection.connectionError} onReconnect={() => { connection.reconnect(); setRefresh((value) => value + 1); }} hasMore={history.history.hasMore} loadingOlder={history.loadingOlder} onLoadOlder={history.loadOlder} />
+                        error={sendError || (connection.connected ? history.error : "") || connection.connectionError} onReconnect={() => { connection.reconnect(); setRefresh((value) => value + 1); }} hasMore={history.history.hasMore} loadingOlder={history.loadingOlder} onLoadOlder={history.loadOlder} />
                 ) : (
                     <div className="flex h-full flex-col items-center justify-center bg-gray-50 px-6 text-center">
                         <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-4 text-gray-500"><HiOutlineChatBubbleLeftRight aria-hidden="true" className="h-8 w-8" /></div>
