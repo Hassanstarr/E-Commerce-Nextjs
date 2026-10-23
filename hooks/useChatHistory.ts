@@ -55,7 +55,7 @@ export default function useChatHistory(id: string, sync: { revision: number; con
                     if (document.visibilityState === "visible" && lastSequence > (readRef.current.get(id) || 0)) {
                         readRef.current.set(id, lastSequence);
                         try { await readChat(id, lastSequence); }
-                        catch (readError) { readRef.current.delete(id); throw readError; }
+                        catch { readRef.current.delete(id); }
                     }
                 } catch (loadError) {
                     if (!cancelled) setError(loadError instanceof Error ? loadError.message : "Unable to load messages");

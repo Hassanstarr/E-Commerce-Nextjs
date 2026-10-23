@@ -10,6 +10,9 @@ export type ChatMessageData = {
     sender: "user" | "admin" | "bot";
     text: string;
     createdAt: string;
+    clientMessageId?: string;
+    delivery?: "queued" | "sending" | "failed";
+    deliveryError?: string;
 };
 
 export type ChatMessage = ChatMessageData & {

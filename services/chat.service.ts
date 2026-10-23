@@ -65,6 +65,7 @@ export function serializeChatMessage(message: {
     sender: "user" | "admin" | "bot";
     text: string;
     createdAt: Date;
+    clientMessageId?: string;
 }): ChatMessageData {
     return {
         id: message._id.toString(),
@@ -73,6 +74,7 @@ export function serializeChatMessage(message: {
         sender: message.sender,
         text: message.text,
         createdAt: message.createdAt.toISOString(),
+        clientMessageId: message.clientMessageId,
     };
 }
 

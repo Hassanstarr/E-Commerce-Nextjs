@@ -1,14 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { ChatOutbox } from "@/lib/chat-outbox";
 import type { ChatMessageData, ChatServerEvent } from "@/types/chat";
 
-type PendingMessage = {
-    resolve: (message: ChatMessageData) => void;
-    reject: (error: Error) => void;
-    timer: ReturnType<typeof setTimeout>;
-};
+const emptyMessages: ChatMessageData[] = [];
+const emptySnapshot = () => emptyMessages;
+const emptySubscribe = () => () => {};
 
 export default function useChatConnection(enabled = true) {
     const { user } = useAuth();
@@ -19,39 +18,73 @@ export default function useChatConnection(enabled = true) {
     const [botAvailable, setBotAvailable] = useState(false);
     const [assistantThinking, setAssistantThinking] = useState<string[]>([]);
     const [connectionError, setConnectionError] = useState("");
-    const [sending, setSending] = useState(false);
+    const [requiresLogin, setRequiresLogin] = useState(false);
     const [sync, setSync] = useState({ conversationId: null as string | null, revision: 0 });
     const [retry, setRetry] = useState(0);
     const socketRef = useRef<WebSocket | null>(null);
-    const pendingRef = useRef(new Map<string, PendingMessage>());
-    const retryRef = useRef(new Map<string, { text: string; id: string }>());
-    const sendingRef = useRef(false);
+    const expiredRef = useRef(false);
+
+    const outbox = useMemo(() => userId && role ? new ChatOutbox({
+        sender: role,
+        storageKey: `shopease:chat-outbox:${userId}:${role}`,
+        storage: {
+            getItem: (key) => window.sessionStorage.getItem(key),
+            setItem: (key, value) => window.sessionStorage.setItem(key, value),
+        },
+        onTimeout: () => socketRef.current?.close(),
+        onConfirmed: () => setSync((previous) => ({ conversationId: null, revision: previous.revision + 1 })),
+        onSessionExpired: () => {
+            expiredRef.current = true;
+            setRequiresLogin(true);
+            setConnectionError("Sign in again to send your waiting messages.");
+            socketRef.current?.close();
+        },
+    }) : null, [userId, role]);
+    const messages = useSyncExternalStore(outbox?.subscribe || emptySubscribe, outbox?.getSnapshot || emptySnapshot, emptySnapshot);
+    const reconcileMessages = useCallback((history: ChatMessageData[]) => outbox?.reconcile(history), [outbox]);
 
     useEffect(() => {
-        if (!enabled || !userId) return;
+        if (!enabled || !userId || !outbox) return;
         let cancelled = false;
         let attempts = 0;
+        let lastSeen = Date.now();
         let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+        let watchdog: ReturnType<typeof setTimeout> | undefined;
+        expiredRef.current = false;
+        outbox.restore();
 
         const connect = () => {
-            if (cancelled) return;
+            if (cancelled || expiredRef.current || !navigator.onLine) return;
             const url = new URL("/api/chat/socket", window.location.origin);
             url.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
             if (process.env.NODE_ENV === "development") url.port = "3001";
             const socket = new WebSocket(url);
             socketRef.current = socket;
+            const watch = (delay: number) => {
+                if (watchdog) clearTimeout(watchdog);
+                watchdog = setTimeout(() => socket.close(), delay);
+            };
+            watch(20000);
 
             socket.onmessage = (event) => {
                 if (cancelled || socket !== socketRef.current) return;
                 let message: ChatServerEvent;
                 try { message = JSON.parse(event.data); } catch { return; }
+                lastSeen = Date.now();
+                watch(45000);
                 if (message.type === "ready") {
                     attempts = 0;
+                    expiredRef.current = false;
+                    setRequiresLogin(false);
                     setConnected(true);
                     setConnectionError("");
                     setAdminOnline(message.adminOnline);
                     setBotAvailable(message.botAvailable);
                     setSync((previous) => ({ conversationId: null, revision: previous.revision + 1 }));
+                    outbox.connect((command) => {
+                        if (socket.readyState !== WebSocket.OPEN) throw new Error("Waiting for connection");
+                        socket.send(JSON.stringify(command));
+                    });
                 } else if (message.type === "presence") {
                     setAdminOnline(message.adminOnline);
                     setBotAvailable(message.botAvailable);
@@ -62,97 +95,67 @@ export default function useChatConnection(enabled = true) {
                         : previous.filter((id) => id !== message.conversationId));
                 } else if (message.type === "changed") {
                     setSync((previous) => ({ conversationId: message.conversationId, revision: previous.revision + 1 }));
-                } else if (message.type === "ack" || message.type === "error") {
-                    const pending = message.requestId ? pendingRef.current.get(message.requestId) : undefined;
-                    if (pending && message.requestId) {
-                        clearTimeout(pending.timer);
-                        pendingRef.current.delete(message.requestId);
-                        if (message.type === "ack") pending.resolve(message.message);
-                        else pending.reject(new Error(message.message));
-                    } else if (message.type === "error") setConnectionError(message.message);
+                } else if (message.type === "ack") {
+                    outbox.acknowledge(message.requestId, message.message);
+                } else if (message.type === "error") {
+                    if (message.requestId) outbox.reject(message.requestId, message.status || 500, message.message);
+                    if (message.status === 401) {
+                        expiredRef.current = true;
+                        setRequiresLogin(true);
+                        setConnectionError("Sign in again to send your waiting messages.");
+                        outbox.disconnect();
+                        socket.close();
+                    }
                 }
             };
             socket.onclose = (event) => {
                 if (cancelled || socket !== socketRef.current) return;
+                if (watchdog) clearTimeout(watchdog);
+                outbox.disconnect();
                 setConnected(false);
                 setAdminOnline(false);
                 setBotAvailable(false);
                 setAssistantThinking([]);
-                for (const pending of pendingRef.current.values()) {
-                    clearTimeout(pending.timer);
-                    pending.reject(new Error("Connection interrupted. Your message may already be saved. Retry to confirm it without duplicating it."));
-                }
-                pendingRef.current.clear();
-                if (event.code === 4401) {
-                    setConnectionError("Your session has expired. Please reload and log in again.");
+                if (event.code === 4401 || expiredRef.current) {
+                    expiredRef.current = true;
+                    setRequiresLogin(true);
+                    setConnectionError("Sign in again to send your waiting messages.");
                     return;
                 }
                 attempts++;
-                if (attempts > 6) {
-                    setConnectionError("Unable to connect to live chat. Please try reconnecting.");
-                    return;
-                }
-                setConnectionError("Connection interrupted. Reconnecting...");
-                reconnectTimer = setTimeout(connect, Math.min(1000 * 2 ** (attempts - 1), 30000));
+                reconnectTimer = setTimeout(connect, Math.min(1000 * 2 ** Math.min(attempts - 1, 5), 30000));
             };
-            socket.onerror = () => { /* onclose handles reconnecting and pending messages. */ };
+            socket.onerror = () => { /* onclose reconnects without discarding queued messages. */ };
         };
 
         const handleOnline = () => {
-            if (socketRef.current?.readyState === WebSocket.CLOSED) {
+            if (expiredRef.current) return;
+            if (!socketRef.current || socketRef.current.readyState === WebSocket.CLOSED) {
                 if (reconnectTimer) clearTimeout(reconnectTimer);
                 attempts = 0;
                 connect();
-            }
+            } else if (Date.now() - lastSeen > 45000) socketRef.current.close();
         };
+        const handleVisible = () => { if (document.visibilityState === "visible") handleOnline(); };
         connect();
         window.addEventListener("online", handleOnline);
-        const pending = pendingRef.current;
+        document.addEventListener("visibilitychange", handleVisible);
         return () => {
             cancelled = true;
             window.removeEventListener("online", handleOnline);
+            document.removeEventListener("visibilitychange", handleVisible);
             if (reconnectTimer) clearTimeout(reconnectTimer);
+            if (watchdog) clearTimeout(watchdog);
             socketRef.current?.close();
-            for (const message of pending.values()) {
-                clearTimeout(message.timer);
-                message.reject(new Error("Chat closed before the message was confirmed."));
-            }
-            pending.clear();
+            outbox.dispose();
         };
-    }, [enabled, userId, role, retry]);
+    }, [enabled, userId, outbox, retry]);
 
     const sendMessage = async (conversationId: string, text: string) => {
-        const socket = socketRef.current;
-        if (!connected || !socket || socket.readyState !== WebSocket.OPEN) throw new Error("Reconnect before sending your message.");
-        if (sendingRef.current) throw new Error("Wait for your previous message to finish sending.");
-        sendingRef.current = true;
-        setSending(true);
-        const previous = retryRef.current.get(conversationId);
-        const clientMessageId = previous?.text === text ? previous.id : crypto.randomUUID();
-        retryRef.current.set(conversationId, { text, id: clientMessageId });
-        const requestId = crypto.randomUUID();
-
-        try {
-            const message = await new Promise<ChatMessageData>((resolve, reject) => {
-                const timer = setTimeout(() => {
-                    pendingRef.current.delete(requestId);
-                    reject(new Error("Message confirmation timed out. Retry to confirm it without duplicating it."));
-                }, 15000);
-                pendingRef.current.set(requestId, { resolve, reject, timer });
-                try { socket.send(JSON.stringify({ type: "send", requestId, conversationId, clientMessageId, text })); }
-                catch (error) {
-                    clearTimeout(timer);
-                    pendingRef.current.delete(requestId);
-                    reject(error);
-                }
-            });
-            retryRef.current.delete(conversationId);
-            return message;
-        } finally {
-            sendingRef.current = false;
-            setSending(false);
-        }
+        if (!outbox || !enabled || expiredRef.current) throw new Error("Sign in to send a message.");
+        return outbox.enqueue(conversationId, text);
     };
 
-    return { connected, adminOnline, botAvailable, assistantThinking, connectionError, sending, sync, sendMessage, reconnect: () => setRetry((value) => value + 1) };
+    return { connected, adminOnline, botAvailable, assistantThinking, connectionError, requiresLogin, sending: false,
+        messages, sync, sendMessage, reconcileMessages, retryMessage: (id: string) => outbox?.retry(id), reconnect: () => setRetry((value) => value + 1) };
 }
