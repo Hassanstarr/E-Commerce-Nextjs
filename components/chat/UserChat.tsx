@@ -11,7 +11,7 @@ import { mergeChatMessages } from "@/lib/chat-messages";
 
 export default function UserChat() {
     const { user } = useAuth();
-    const connection = useChatConnection(user?.role === "user");
+    const connection = useChatConnection(Boolean(user) && user?.role !== "admin");
     const [conversationId, setConversationId] = useState("");
     const [draft, setDraft] = useState("");
     const [error, setError] = useState("");
@@ -23,7 +23,7 @@ export default function UserChat() {
     useEffect(() => { reconcileMessages(history.history.messages); }, [history.history.messages, reconcileMessages]);
 
     useEffect(() => {
-        if (user?.role !== "user") return;
+        if (!user || user.role === "admin") return;
         let cancelled = false;
         void getMyChat().then((data) => {
             if (!cancelled) { setConversationId(data.conversationId); setError(""); }
@@ -31,7 +31,7 @@ export default function UserChat() {
             if (!cancelled) setError(loadError instanceof Error ? loadError.message : "Unable to start chat");
         });
         return () => { cancelled = true; };
-    }, [user?.id, user?.role, refresh]);
+    }, [user, refresh]);
 
     const handleSend = async (text: string) => {
         setError("");

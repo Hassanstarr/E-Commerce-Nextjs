@@ -27,8 +27,9 @@ export function subscriptionDeliveryDay(date: Date, eventsAfter: Date, allowRepe
 }
 
 export function subscriptionLoginRedirect(fallback: string) {
-    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("next") === "/subscription") {
-        return "/subscription";
+    const next = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("next") : null;
+    if (next === "/subscription" || next === "/membership") {
+        return next;
     }
     return fallback;
 }

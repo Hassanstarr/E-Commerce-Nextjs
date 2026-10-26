@@ -1,13 +1,13 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
 type User = {
     id: string;
     name: string;
     email: string;
-    role: "user" | "admin";
+    role: "user" | "member" | "admin";
     hasPassword?: boolean;
 };
 
@@ -24,7 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode; }) {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
 
-    const refreshUser = async () => {
+    const refreshUser = useCallback(async () => {
         try {
             const response = await fetch("/api/auth/me", {
                 method: "GET",
@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode; }) {
         } catch {
             setUser(null);
         }
-    };
+    }, []);
 
     useEffect(() => {
         const loadUser = async () => {
@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode; }) {
         };
 
         loadUser();
-    }, []);
+    }, [refreshUser]);
 
     const logout = async () => {
         const response = await fetch("/api/auth/logout", {

@@ -5,6 +5,7 @@ import { connectDB } from "@/lib/db";
 import { successResponse } from "@/lib/apiResponse";
 import { errorResponse } from "@/lib/apiError";
 import { applyStripePayment } from "@/services/stripe.service";
+import { handleMembershipEvent } from "@/services/membership.service";
 
 export const runtime = "nodejs";
 
@@ -22,16 +23,16 @@ export async function POST(req: NextRequest) {
         return errorResponse("Invalid Stripe signature", 400);
     }
 
-    if (!["payment_intent.succeeded", "payment_intent.canceled", "payment_intent.payment_failed"].includes(event.type)) {
-        return successResponse({ received: true });
-    }
-
     try {
+        await connectDB();
+        if (await handleMembershipEvent(event)) return successResponse({ received: true });
+        if (!["payment_intent.succeeded", "payment_intent.canceled", "payment_intent.payment_failed"].includes(event.type)) {
+            return successResponse({ received: true });
+        }
         const eventIntent = event.data.object as Stripe.PaymentIntent;
         if (!eventIntent.metadata.checkoutId) return successResponse({ received: true });
         // Fetch current state so delayed failure events cannot override a successful payment.
         const intent = await getStripe().paymentIntents.retrieve(eventIntent.id);
-        await connectDB();
         await applyStripePayment(intent);
         return successResponse({ received: true });
     } catch (error) {

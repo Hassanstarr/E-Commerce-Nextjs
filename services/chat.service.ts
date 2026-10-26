@@ -21,7 +21,7 @@ export async function getChatIdentity(token: string): Promise<ChatIdentity> {
         throw new AppError("Your session has expired. Please log in again.", 401);
     }
 
-    return { userId: user._id.toString(), role: user.role };
+    return { userId: user._id.toString(), role: user.role === "admin" ? "admin" : "user" };
 }
 
 export async function initializeChat() {

@@ -1,5 +1,6 @@
 import User from "@/models/User";
 import AppError from "@/lib/AppError";
+import { getUserRole } from "@/lib/membership";
 import { verifyGoogleCredential } from "@/lib/google-auth";
 import { createActivityLog } from "./activity.service";
 
@@ -55,7 +56,7 @@ export async function loginGoogleUser(credential: string, nonce: string) {
         id: user._id.toString(),
         name: user.name,
         email: user.email,
-        role: user.role,
+        role: getUserRole(user),
         sessionVersion: user.sessionVersion || 0,
     };
 }

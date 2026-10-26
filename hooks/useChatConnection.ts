@@ -12,7 +12,7 @@ const emptySubscribe = () => () => {};
 export default function useChatConnection(enabled = true) {
     const { user } = useAuth();
     const userId = user?.id;
-    const role = user?.role;
+    const role = user ? user.role === "admin" ? "admin" : "user" : undefined;
     const [connected, setConnected] = useState(false);
     const [adminOnline, setAdminOnline] = useState(false);
     const [botAvailable, setBotAvailable] = useState(false);
