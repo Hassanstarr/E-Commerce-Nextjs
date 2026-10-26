@@ -2,6 +2,8 @@ import mongoose from "mongoose";
 import Order from "@/models/Order";
 import Cart from "@/models/Cart";
 import Product from "@/models/Product";
+import User from "@/models/User";
+import { getUserRole } from "@/lib/membership";
 import AppError from "@/lib/AppError";
 import type { CreateOrderInput } from "@/types/order";
 import nodemailer from "nodemailer";
@@ -61,6 +63,9 @@ export async function createOrder(
 
     try {
         await session.withTransaction(async () => {
+            const user = await User.findById(userId).select("role memberUntil").session(session);
+            if (!user) throw new AppError("User not found", 404);
+            const role = getUserRole(user);
             const cart = await Cart.findOne({
                 user: userId,
             }).session(session);
@@ -111,7 +116,7 @@ export async function createOrder(
                     );
                 }
 
-                const price = getProductPricing(product).price;
+                const price = getProductPricing(product, Date.now(), role).price;
                 const itemTotal = Math.round(price * 100) * cartItem.quantity / 100;
 
                 subtotal = Math.round((subtotal + itemTotal) * 100) / 100;

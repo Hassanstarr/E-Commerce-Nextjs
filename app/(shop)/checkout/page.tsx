@@ -328,7 +328,7 @@ function CheckoutContent() {
                 return total;
             }
 
-            return Math.round((total + getProductPricing(item.product).price * item.quantity) * 100) / 100;
+            return Math.round((total + getProductPricing(item.product, undefined, user?.role).price * item.quantity) * 100) / 100;
         },
         0
     );
@@ -753,7 +753,7 @@ function CheckoutContent() {
                                         <p className="mt-1 text-sm font-medium text-gray-900">
                                             Rs.{" "}
                                             {(
-                                                Math.round(getProductPricing(item.product).price * 100) * item.quantity / 100
+                                                Math.round(getProductPricing(item.product, undefined, user?.role).price * 100) * item.quantity / 100
                                             ).toLocaleString()}
                                         </p>
                                     </div>

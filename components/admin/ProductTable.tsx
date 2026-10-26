@@ -14,6 +14,9 @@ type Product = {
     name: string;
     price: number;
     discountPercent?: number;
+    discountAudience?: "all" | "members";
+    memberDiscountPercent?: number;
+    memberDiscountEndsAt?: string | null;
     discountEndsAt?: string | null;
     image: string;
     stock: number;
@@ -309,7 +312,7 @@ export default function ProductTable({ products: initialProducts }: ProductTable
                                     </td>
 
                                     <td className="px-5 py-4 font-medium text-gray-900">
-                                        <ProductPrice product={product} />
+                                        <ProductPrice product={product} preview />
                                     </td>
 
                                     <td className="px-5 py-4 font-medium text-gray-900">

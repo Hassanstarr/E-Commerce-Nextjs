@@ -18,18 +18,18 @@ export default function Navbar() {
     const router = useRouter();
     const pathname = usePathname();
     const { user, loading, logout } = useAuth();
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [logoutOpen, setLogoutOpen] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
     const [logoutError, setLogoutError] = useState("");
     const profileRef = useRef<HTMLDetailsElement>(null);
+    const mobileMenuRef = useRef<HTMLDetailsElement>(null);
     const dialogRef = useRef<HTMLDialogElement>(null);
 
     const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
     const links = user ? [...navigation, { href: "/orders", label: "My Orders" }] : navigation;
 
     const closeMenus = () => {
-        setMobileMenuOpen(false);
+        if (mobileMenuRef.current) mobileMenuRef.current.open = false;
         if (profileRef.current) profileRef.current.open = false;
     };
 
@@ -39,12 +39,19 @@ export default function Navbar() {
             if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
                 profileRef.current.open = false;
             }
+            if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
+                mobileMenuRef.current.open = false;
+            }
         };
         const handleEscape = (event: KeyboardEvent) => {
             if (dialogRef.current?.open) return;
             if (event.key === "Escape" && profileRef.current?.open) {
                 profileRef.current.open = false;
                 profileRef.current.querySelector("summary")?.focus();
+            }
+            if (event.key === "Escape" && mobileMenuRef.current?.open) {
+                mobileMenuRef.current.open = false;
+                mobileMenuRef.current.querySelector("summary")?.focus();
             }
         };
         document.addEventListener("pointerdown", handleOutsideClick);
@@ -110,7 +117,7 @@ export default function Navbar() {
                         <details ref={profileRef} className="group/profile relative">
                             <summary
                                 aria-label={`Open profile menu for ${user.name}`}
-                                onClick={() => setMobileMenuOpen(false)}
+                                onClick={() => { if (mobileMenuRef.current) mobileMenuRef.current.open = false; }}
                                 className={`flex cursor-pointer list-none items-center gap-2 rounded-full p-1 transition hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900 [&::-webkit-details-marker]:hidden ${isActive("/account") ? "ring-2 ring-gray-900 ring-offset-2" : ""}`}
                             >
                                 <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-900 text-sm font-semibold text-white">
@@ -126,7 +133,8 @@ export default function Navbar() {
                                 <div className="space-y-1 p-2">
                                     {[
                                         { href: "/account", label: "My Account" },
-                                        { href: "/subscription", label: "Subscription" },
+                                        ...(user.role !== "admin" ? [{ href: "/membership", label: user.role === "member" ? "My Membership" : "Membership" }] : []),
+                                        { href: "/subscription", label: "Email Subscriptions" },
                                         { href: "/orders", label: "My Orders" },
                                         { href: "/chat", label: "Live Chat" },
                                         ...(user.role === "admin" ? [{ href: "/admin", label: "Admin Dashboard" }] : []),
@@ -138,7 +146,7 @@ export default function Navbar() {
                                     <button
                                         type="button"
                                         onClick={() => {
-                                            setMobileMenuOpen(false);
+                                            if (mobileMenuRef.current) mobileMenuRef.current.open = false;
                                             setLogoutError("");
                                             setLogoutOpen(true);
                                         }}
@@ -152,27 +160,24 @@ export default function Navbar() {
                         </details>
                     )}
 
-                    <button type="button" onClick={() => {
-                        if (profileRef.current) profileRef.current.open = false;
-                        setMobileMenuOpen(!mobileMenuOpen);
-                    }} aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"} aria-expanded={mobileMenuOpen} aria-controls="mobile-navigation" className="rounded-lg p-2 text-gray-600 transition hover:bg-gray-100 hover:text-black md:hidden">
-                        {mobileMenuOpen ? <HiOutlineXMark className="h-6 w-6" /> : <HiOutlineBars3 className="h-6 w-6" />}
-                    </button>
+                    <details ref={mobileMenuRef} className="group/mobile md:hidden">
+                        <summary aria-label="Navigation menu" aria-controls="mobile-navigation" className="flex h-11 w-11 touch-manipulation cursor-pointer list-none items-center justify-center rounded-lg text-gray-600 transition hover:bg-gray-100 hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900 [&::-webkit-details-marker]:hidden">
+                            <HiOutlineBars3 aria-hidden="true" className="pointer-events-none h-6 w-6 group-open/mobile:hidden" />
+                            <HiOutlineXMark aria-hidden="true" className="pointer-events-none hidden h-6 w-6 group-open/mobile:block" />
+                        </summary>
+                        <nav id="mobile-navigation" aria-label="Mobile navigation" className="absolute inset-x-0 top-full max-h-[calc(100dvh-4rem)] overflow-y-auto border-b border-gray-200 bg-white px-4 py-3 shadow-sm">
+                            {[...links, ...(!loading && !user ? [{ href: "/auth/login", label: "Login" }] : [])].map((item) => (
+                                <div key={item.href} className="py-1">
+                                    <Link href={item.href} onClick={closeMenus} aria-current={isActive(item.href) ? "page" : undefined} className={`inline-flex ${linkClass(item.href)}`}>
+                                        {item.label}
+                                        <span aria-hidden="true" className={underlineClass(item.href)} />
+                                    </Link>
+                                </div>
+                            ))}
+                        </nav>
+                    </details>
                 </div>
             </nav>
-
-            {mobileMenuOpen && (
-                <nav id="mobile-navigation" aria-label="Mobile navigation" className="absolute inset-x-0 max-h-[calc(100dvh-4rem)] overflow-y-auto border-b border-gray-200 bg-white px-4 py-3 shadow-sm md:hidden">
-                    {[...links, ...(!loading && !user ? [{ href: "/auth/login", label: "Login" }] : [])].map((item) => (
-                        <div key={item.href} className="py-1">
-                            <Link href={item.href} onClick={closeMenus} aria-current={isActive(item.href) ? "page" : undefined} className={`inline-flex ${linkClass(item.href)}`}>
-                                {item.label}
-                                <span aria-hidden="true" className={underlineClass(item.href)} />
-                            </Link>
-                        </div>
-                    ))}
-                </nav>
-            )}
 
             <LogoutDialog
                 dialogRef={dialogRef}

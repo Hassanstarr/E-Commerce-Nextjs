@@ -11,13 +11,13 @@ const secret = new TextEncoder().encode(JWT_SECRET);
 
 export type AuthPayload = {
     userId: string;
-    role: "user" | "admin";
+    role: "user" | "member" | "admin";
     sessionVersion: number;
 };
 
 export async function createToken(
     userId: Types.ObjectId | string,
-    role: "user" | "admin",
+    role: "user" | "member" | "admin",
     sessionVersion = 0
 ) {
     return await new SignJWT({
@@ -37,7 +37,7 @@ export async function verifyToken(token: string) {
 
         if (
             typeof payload.userId !== "string" ||
-            (payload.role !== "user" && payload.role !== "admin")
+            (payload.role !== "user" && payload.role !== "member" && payload.role !== "admin")
         ) {
             return null;
         }

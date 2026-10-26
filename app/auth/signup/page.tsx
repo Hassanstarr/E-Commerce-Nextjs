@@ -15,7 +15,7 @@ type SignupResponse = {
             id: string;
             name: string;
             email: string;
-            role: "user" | "admin";
+            role: "user" | "member" | "admin";
         };
     };
 };

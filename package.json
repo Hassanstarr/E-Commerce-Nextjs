@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "stripe": "node scripts/stripe-listen.mjs",
     "stripe:login": "stripe login",
     "stripe:listen": "node scripts/stripe-listen.mjs",
     "test:stripe": "node --test tests/stripe.test.mjs",

@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { ProductDiscount } from "@/lib/product-pricing";
+import { getProductDiscounts, type ProductDiscount } from "@/lib/product-pricing";
 
 export default function useDiscountExpiry(products: ProductDiscount[]) {
     const [revision, setRevision] = useState(0);
-    const deadlines = products.filter((product) => product.discountPercent && product.discountEndsAt)
+    const deadlines = products.flatMap(getProductDiscounts).filter((product) => product.discountPercent && product.discountEndsAt)
         .map((product) => new Date(product.discountEndsAt!).getTime()).join(",");
 
     useEffect(() => {

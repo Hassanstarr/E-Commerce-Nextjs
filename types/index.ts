@@ -1,4 +1,4 @@
-export type UserRole = "user" | "admin";
+export type UserRole = "user" | "member" | "admin";
 
 export type ProductInput = {
     name: string;
@@ -8,6 +8,9 @@ export type ProductInput = {
     category: string;
     stock: number;
     discountPercent?: number;
+    discountAudience?: "all" | "members";
+    memberDiscountPercent?: number;
+    memberDiscountEndsAt?: string | null;
     discountEndsAt?: string | null;
 };
 

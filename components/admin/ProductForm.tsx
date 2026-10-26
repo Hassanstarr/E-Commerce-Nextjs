@@ -7,6 +7,7 @@ import { createAdminProduct, updateAdminProduct } from "@/services/admin.api";
 import { uploadImage } from "@/services/upload.api";
 import type { ProductInput } from "@/types";
 import ProductPrice from "@/components/product/ProductPrice";
+import { getProductDiscounts } from "@/lib/product-pricing";
 
 function localDateTime(value?: string | null) {
     if (!value) return "";
@@ -33,6 +34,7 @@ export default function ProductForm({
     isModal = false,
 }: ProductFormProps) {
     const router = useRouter();
+    const [publicOffer, memberOffer] = getProductDiscounts(initialData || {});
 
     const [prevId, setPrevId] = useState(initialData?._id);
     const [formData, setFormData] = useState<ProductInput>(() => ({
@@ -42,8 +44,11 @@ export default function ProductForm({
         image: initialData?.image || "",
         category: initialData?.category || "",
         stock: initialData?.stock || 0,
-        discountPercent: initialData?.discountPercent || 0,
-        discountEndsAt: initialData?.discountEndsAt || null,
+        discountPercent: publicOffer.discountPercent,
+        discountAudience: "all",
+        memberDiscountPercent: memberOffer.discountPercent,
+        memberDiscountEndsAt: memberOffer.discountEndsAt as string | null,
+        discountEndsAt: publicOffer.discountEndsAt as string | null,
     }));
 
     if (initialData?._id !== prevId) {
@@ -55,8 +60,11 @@ export default function ProductForm({
             image: initialData?.image || "",
             category: initialData?.category || "",
             stock: initialData?.stock || 0,
-            discountPercent: initialData?.discountPercent || 0,
-            discountEndsAt: initialData?.discountEndsAt || null,
+            discountPercent: publicOffer.discountPercent,
+            discountAudience: "all",
+            memberDiscountPercent: memberOffer.discountPercent,
+            memberDiscountEndsAt: memberOffer.discountEndsAt as string | null,
+            discountEndsAt: publicOffer.discountEndsAt as string | null,
         });
     }
 
@@ -71,18 +79,19 @@ export default function ProductForm({
     ) => {
         const { name, value } = event.target;
 
-        if (name === "discountEndsAt") {
-            setFormData((previous) => ({ ...previous, discountEndsAt: value ? new Date(value).toISOString() : null }));
+        if (name === "discountEndsAt" || name === "memberDiscountEndsAt") {
+            setFormData((previous) => ({ ...previous, [name]: value ? new Date(value).toISOString() : null }));
             return;
         }
 
         setFormData((previous) => ({
             ...previous,
             [name]:
-                name === "price" || name === "stock" || name === "discountPercent"
+                name === "price" || name === "stock" || name === "discountPercent" || name === "memberDiscountPercent"
                     ? Number(value)
                     : value,
             ...(name === "discountPercent" && !Number(value) ? { discountEndsAt: null } : {}),
+            ...(name === "memberDiscountPercent" && !Number(value) ? { memberDiscountEndsAt: null } : {}),
         }));
     };
 
@@ -119,7 +128,7 @@ export default function ProductForm({
         event.preventDefault();
 
         if (loading || uploading) return;
-        if (formData.discountEndsAt && new Date(formData.discountEndsAt).getTime() <= Date.now()) {
+        if ([formData.discountEndsAt, formData.memberDiscountEndsAt].some((value) => value && new Date(value).getTime() <= Date.now())) {
             setError("Discount end time must be in the future");
             return;
         }
@@ -225,7 +234,7 @@ export default function ProductForm({
 
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                 <div className="mb-4 flex items-center justify-between gap-3">
-                    <h3 className="text-sm font-medium text-gray-900">Discount (optional)</h3>
+                    <h3 className="text-sm font-medium text-gray-900">Everyone discount (optional)</h3>
                     {Boolean(formData.discountPercent) && <button type="button" onClick={() => setFormData((previous) => ({ ...previous, discountPercent: 0, discountEndsAt: null }))} className="text-xs font-medium text-red-600 hover:text-red-700">Remove discount</button>}
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -233,7 +242,18 @@ export default function ProductForm({
                     <Input label="Ends at (optional)" aria-label="Discount end time" name="discountEndsAt" type="datetime-local" value={localDateTime(formData.discountEndsAt)} onChange={handleChange} disabled={!formData.discountPercent} className="bg-white text-black disabled:bg-gray-100" />
                 </div>
                 <p className="mt-2 text-xs leading-5 text-gray-500">Starts when you save. Leave the end time empty to keep it until you remove it. Times use your local timezone.</p>
-                {Boolean(formData.discountPercent) && formData.price > 0 && <p className="mt-3 text-sm font-semibold text-gray-900"><ProductPrice product={formData} /></p>}
+                <div className="mt-5 border-t border-gray-200 pt-4">
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                        <h3 className="text-sm font-medium text-gray-900">Members-only discount (optional)</h3>
+                        {Boolean(formData.memberDiscountPercent) && <button type="button" onClick={() => setFormData((previous) => ({ ...previous, memberDiscountPercent: 0, memberDiscountEndsAt: null }))} className="text-xs font-medium text-red-600 hover:text-red-700">Remove member discount</button>}
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <Input label="Member discount (%)" aria-label="Member discount percentage" name="memberDiscountPercent" type="number" min="1" max="99" step="1" value={formData.memberDiscountPercent || ""} onChange={handleChange} placeholder="1 to 99" className="bg-white text-black" />
+                        <Input label="Ends at (optional)" aria-label="Member discount end time" name="memberDiscountEndsAt" type="datetime-local" value={localDateTime(formData.memberDiscountEndsAt)} onChange={handleChange} disabled={!formData.memberDiscountPercent} className="bg-white text-black disabled:bg-gray-100" />
+                    </div>
+                </div>
+                <p className="mt-3 text-xs text-gray-500">Both offers can run together. Users see the everyone offer; members see both and get the better discount. Percentages do not stack.</p>
+                {Boolean(formData.discountPercent || formData.memberDiscountPercent) && formData.price > 0 && <p className="mt-3 text-sm font-semibold text-gray-900"><ProductPrice product={formData} preview /></p>}
             </div>
 
             <div>

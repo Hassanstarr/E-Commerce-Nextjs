@@ -14,7 +14,8 @@ export interface IUser extends Document {
         sentAt: Date;
         attempts: number;
     };
-    role: "user" | "admin";
+    role: "user" | "member" | "admin";
+    memberUntil?: Date | null;
     verifiedCheckoutEmails: string[];
     checkoutEmailVerification?: {
         email: string;
@@ -64,7 +65,7 @@ const userSchema = new mongoose.Schema<IUser>(
 
         role: {
             type: String,
-            enum: ["user", "admin"],
+            enum: ["user", "member", "admin"],
             default: "user",
         },
 
@@ -72,6 +73,8 @@ const userSchema = new mongoose.Schema<IUser>(
             type: [String],
             default: [],
         },
+
+        memberUntil: { type: Date, default: null },
 
         sessionVersion: {
             type: Number,

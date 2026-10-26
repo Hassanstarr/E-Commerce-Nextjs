@@ -64,7 +64,7 @@ export const getAdminDashboardData = async () => {
     ] = await Promise.all([
         Order.countDocuments(),
 
-        User.countDocuments({ role: "user" }),
+        User.countDocuments({ role: { $in: ["user", "member"] } }),
 
         Order.aggregate([
             {
@@ -533,7 +533,7 @@ export const getAdminCustomers = async ({
     const pageSize = Math.min(100, Math.max(1, Math.floor(limit) || 10));
 
     const query: any = {
-        role: "user",
+        role: { $in: ["user", "member"] },
     };
 
     if (search.trim()) {
@@ -684,7 +684,7 @@ export const getAdminCustomerById = async ( customerId: string ) => {
 
     const customer = await User.findOne({
         _id: customerId,
-        role: "user",
+        role: { $in: ["user", "member"] },
     }).select("-password").lean();
 
     if (!customer) {
@@ -1158,7 +1158,7 @@ export const getAdminActivity = async () => {
             createdAt: -1
         }).limit(10).select("customerName total orderStatus createdAt").lean(),
 
-        User.find({ role: "user" }).sort({
+        User.find({ role: { $in: ["user", "member"] } }).sort({
                 createdAt: -1,
             }).limit(10).select("name email createdAt").lean(),
 

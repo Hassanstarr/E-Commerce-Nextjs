@@ -5,6 +5,8 @@ import Product from "@/models/Product";
 import Cart from "@/models/Cart";
 import Wishlist from "@/models/Wishlist";
 import { getProductPricing } from "@/lib/product-pricing";
+import { getUserRole } from "@/lib/membership";
+import type { UserRole } from "@/types";
 
 export const chatDataTool = {
     name: "get_store_data",
@@ -19,15 +21,18 @@ export const chatDataTool = {
     },
 };
 
-const productFields = "name price discountPercent discountEndsAt stock";
+const productFields = "name price discountPercent discountEndsAt discountAudience memberDiscountPercent memberDiscountEndsAt stock";
 
-function productData(product: { _id: mongoose.Types.ObjectId; name: string; price: number; stock: number; discountPercent?: number; discountEndsAt?: Date | null }) {
-    return { id: product._id.toString(), name: product.name, ...getProductPricing(product), stock: product.stock };
+function productData(product: { _id: mongoose.Types.ObjectId; name: string; price: number; stock: number; discountPercent?: number; discountEndsAt?: Date | null; discountAudience?: "all" | "members"; memberDiscountPercent?: number; memberDiscountEndsAt?: Date | null }, role: UserRole) {
+    return { id: product._id.toString(), name: product.name, ...getProductPricing(product, Date.now(), role), stock: product.stock };
 }
 
 // The customer ID comes from the authenticated conversation, never from Gemini arguments.
 export async function getChatStoreData(userId: string, args: Record<string, unknown>) {
     if (!mongoose.isObjectIdOrHexString(userId)) return { error: "Customer not found" };
+    const customer = await User.findById(userId).select("role memberUntil").lean();
+    if (!customer) return { error: "Customer not found" };
+    const role = getUserRole(customer);
     const query = typeof args.query === "string" ? args.query.trim().slice(0, 100) : "";
     if (args.section === "profile") {
         const user = await User.findById(userId).select("name email -_id").lean();
@@ -49,7 +54,7 @@ export async function getChatStoreData(userId: string, args: Record<string, unkn
         return {
             items: items.slice(0, 30).map((item) => {
                 const product = products.find((entry) => entry._id.equals(item.product));
-                return { product: product ? productData(product) : { unavailable: true }, quantity: item.quantity };
+                return { product: product ? productData(product, role) : { unavailable: true }, quantity: item.quantity };
             }),
             hasMore: items.length > 30, currency: "PKR",
         };
@@ -58,13 +63,13 @@ export async function getChatStoreData(userId: string, args: Record<string, unkn
         const wishlist = await Wishlist.findOne({ user: userId }).select("products").lean();
         const ids = wishlist?.products || [];
         const products = await Product.find({ _id: { $in: ids.slice(0, 30) } }).select(productFields).lean();
-        return { products: products.map(productData), hasMore: ids.length > 30, currency: "PKR" };
+        return { products: products.map((product) => productData(product, role)), hasMore: ids.length > 30, currency: "PKR" };
     }
     if (args.section === "products") {
         const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         const products = await Product.find(query ? { name: { $regex: escaped, $options: "i" } } : {})
             .sort({ createdAt: -1 }).limit(11).select(productFields).lean();
-        return { products: products.slice(0, 10).map(productData), hasMore: products.length > 10, currency: "PKR" };
+        return { products: products.slice(0, 10).map((product) => productData(product, role)), hasMore: products.length > 10, currency: "PKR" };
     }
     return { error: "Unknown section. Available: profile, orders, cart, wishlist, products." };
 }

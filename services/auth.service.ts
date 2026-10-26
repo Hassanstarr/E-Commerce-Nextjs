@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import User from "@/models/User";
 import AppError from "@/lib/AppError";
+import { getUserRole } from "@/lib/membership";
 import type { LoginInput } from "@/lib/validations";
 
 export async function signupUser(token: string, otp: string) {
@@ -30,13 +31,13 @@ export async function loginUser(data: LoginInput) {
         id: user._id.toString(),
         name: user.name,
         email: user.email,
-        role: user.role,
+        role: getUserRole(user),
         sessionVersion: user.sessionVersion || 0,
     };
 }
 
 export async function getCurrentUser(userId: string) {
-    const user = await User.findById(userId).select("name email role password createdAt updatedAt");
+    const user = await User.findById(userId).select("name email role memberUntil password createdAt updatedAt");
 
     if (!user) {
         throw new AppError("User not found", 404);
@@ -46,7 +47,7 @@ export async function getCurrentUser(userId: string) {
         id: user._id.toString(),
         name: user.name,
         email: user.email,
-        role: user.role,
+        role: getUserRole(user),
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
         hasPassword: Boolean(user.password),

@@ -23,6 +23,7 @@
 /scripts
 /docs
 /data
+/project-notes/
 
 # misc
 .DS_Store

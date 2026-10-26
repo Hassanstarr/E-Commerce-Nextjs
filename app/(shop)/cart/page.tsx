@@ -137,7 +137,7 @@ function CartContent() {
                 return total;
             }
 
-            return Math.round((total + getProductPricing(item.product).price * item.quantity) * 100) / 100;
+            return Math.round((total + getProductPricing(item.product, undefined, user?.role).price * item.quantity) * 100) / 100;
         },
         0
     );
