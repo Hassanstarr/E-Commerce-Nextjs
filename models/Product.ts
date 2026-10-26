@@ -5,6 +5,9 @@ export interface IProduct extends Document {
     description: string;
     price: number;
     discountPercent: number;
+    discountAudience: "all" | "members";
+    memberDiscountPercent: number;
+    memberDiscountEndsAt: Date | null;
     discountEndsAt: Date | null;
     image: string;
     category: Types.ObjectId;
@@ -44,6 +47,22 @@ const productSchema = new mongoose.Schema<IProduct>(
             validate: Number.isInteger,
         },
 
+        discountAudience: {
+            type: String,
+            enum: ["all", "members"],
+            default: "all",
+        },
+
+        memberDiscountPercent: {
+            type: Number,
+            default: 0,
+            min: 0,
+            max: 99,
+            validate: Number.isInteger,
+        },
+
+        memberDiscountEndsAt: { type: Date, default: null },
+
         discountEndsAt: {
             type: Date,
             default: null,
@@ -74,6 +93,7 @@ const productSchema = new mongoose.Schema<IProduct>(
 );
 
 productSchema.index({ category: 1 });
+productSchema.index({ memberDiscountEndsAt: 1 }, { partialFilterExpression: { memberDiscountPercent: { $gt: 0 } } });
 productSchema.index({ discountEndsAt: 1 }, { partialFilterExpression: { discountPercent: { $gt: 0 } } });
 
 const Product: Model<IProduct> = mongoose.models.Product || mongoose.model<IProduct>("Product", productSchema);

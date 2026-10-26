@@ -11,6 +11,7 @@ import SubscriptionDelivery from "@/models/SubscriptionDelivery";
 import AppError from "@/lib/AppError";
 import { defaultSubscription, subscriptionDeliveryDay, SubscriptionPreferences } from "@/lib/subscription";
 import { getProductPricing } from "@/lib/product-pricing";
+import { getUserRole } from "@/lib/membership";
 
 function preferences(subscription: ISubscription | null): SubscriptionPreferences {
     if (!subscription) return { ...defaultSubscription, categories: [] };
@@ -62,6 +63,8 @@ export function subscriptionAppUrl() {
 }
 
 export async function buildSubscriptionEmail(subscription: ISubscription, now: Date, appUrl: string) {
+    const user = await User.findById(subscription.user).select("role memberUntil").lean();
+    const role = user ? getUserRole(user) : "user";
     const wishlist = subscription.wishlistRestock
         ? await Wishlist.findOne({ user: subscription.user }).select("products").lean()
         : null;
@@ -69,30 +72,29 @@ export async function buildSubscriptionEmail(subscription: ISubscription, now: D
     if (subscription.wishlistRestock && wishlist?.products.length) {
         types.push({ type: "restock", product: { $in: wishlist.products } });
     }
-    if (subscription.discounts) types.push({ type: "discount" });
+    if (subscription.discounts) types.push({ type: "discount", ...(role !== "member" ? { discountAudience: { $ne: "members" } } : {}) });
     const events = types.length ? await SubscriptionEvent.aggregate([
         { $match: { createdAt: { $gt: subscription.eventsAfter, $lte: now }, $or: types } },
         { $sort: { createdAt: -1, _id: -1 } },
-        { $group: { _id: { product: "$product", type: "$type" }, event: { $first: "$$ROOT" } } },
+        { $group: { _id: { product: "$product", type: "$type", audience: { $ifNull: ["$discountAudience", "all"] } }, event: { $first: "$$ROOT" } } },
         { $replaceRoot: { newRoot: "$event" } },
         { $lookup: { from: Product.collection.name, localField: "product", foreignField: "_id", as: "item" } },
         { $unwind: "$item" },
         { $match: { "item.stock": { $gt: 0 }, $or: [
             { type: "restock" },
-            { type: "discount", "item.discountPercent": { $gt: 0 }, $expr: { $eq: ["$discountPercent", "$item.discountPercent"] },
-                ...(subscription.discountScope === "categories" ? { "item.category": { $in: subscription.categories } } : {}),
-                $or: [{ "item.discountEndsAt": null }, { "item.discountEndsAt": { $gt: now } }],
-            },
+            { type: "discount", ...(subscription.discountScope === "categories" ? { "item.category": { $in: subscription.categories } } : {}) },
         ] } },
         { $sort: { createdAt: -1, _id: -1 } },
         { $limit: 20 },
-        { $project: { type: 1, item: { _id: 1, name: 1, price: 1, discountPercent: 1, discountEndsAt: 1 } } },
+        { $project: { type: 1, discountPercent: 1, discountAudience: 1, item: { _id: 1, name: 1, price: 1, discountPercent: 1, discountEndsAt: 1, discountAudience: 1, memberDiscountPercent: 1, memberDiscountEndsAt: 1 } } },
     ]) : [];
 
     const lines: string[] = [];
     for (const event of events) {
         const item = event.item;
-        const label = event.type === "restock" ? "Back in stock on your wishlist" : `${getProductPricing(item, now.getTime()).discountPercent}% off`;
+        const offer = getProductPricing(item, now.getTime(), role).offers.find((offer) => offer.discountAudience === (event.discountAudience || "all") && offer.discountPercent === event.discountPercent);
+        if (event.type === "discount" && !offer) continue;
+        const label = event.type === "restock" ? "Back in stock on your wishlist" : `${offer!.discountPercent}% off${offer!.discountAudience === "members" ? " (members only)" : ""}`;
         lines.push(`${label}: ${item.name}\n${appUrl}/products/${item._id}`);
     }
 

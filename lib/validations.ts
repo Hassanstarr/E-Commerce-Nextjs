@@ -123,6 +123,9 @@ export const productSchema = z.object({
         .default(0),
 
     discountEndsAt: z.string().datetime({ offset: true }).nullable().optional().default(null),
+    discountAudience: z.enum(["all", "members"]).default("all"),
+    memberDiscountPercent: z.number().int("Discount must be a whole percentage").min(0).max(99).default(0),
+    memberDiscountEndsAt: z.string().datetime({ offset: true }).nullable().optional().default(null),
 
     stock: z
         .number()
@@ -131,6 +134,12 @@ export const productSchema = z.object({
 }).refine((data) => !data.discountEndsAt || data.discountPercent > 0, {
     message: "Add a discount before setting an end time",
     path: ["discountEndsAt"],
+}).refine((data) => !data.memberDiscountEndsAt || data.memberDiscountPercent > 0, {
+    message: "Add a member discount before setting its end time",
+    path: ["memberDiscountEndsAt"],
+}).refine((data) => !data.memberDiscountEndsAt || new Date(data.memberDiscountEndsAt).getTime() > Date.now(), {
+    message: "Member discount end time must be in the future",
+    path: ["memberDiscountEndsAt"],
 }).refine((data) => !data.discountEndsAt || new Date(data.discountEndsAt).getTime() > Date.now(), {
     message: "Discount end time must be in the future",
     path: ["discountEndsAt"],

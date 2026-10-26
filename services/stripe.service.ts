@@ -6,6 +6,8 @@ import StripeCheckout from "@/models/StripeCheckout";
 import Order from "@/models/Order";
 import Cart from "@/models/Cart";
 import Product from "@/models/Product";
+import User from "@/models/User";
+import { getUserRole } from "@/lib/membership";
 import { sendOrderConfirmationEmail } from "@/services/order.service";
 import type { CheckoutInput } from "@/types/order";
 import { getProductPricing } from "@/lib/product-pricing";
@@ -18,6 +20,9 @@ export async function createStripeCheckout(userId: string, data: CheckoutInput, 
     let checkout = await StripeCheckout.findOne({ requestKey });
 
     if (!checkout) {
+        const user = await User.findById(userId).select("role memberUntil");
+        if (!user) throw new AppError("User not found", 404);
+        const role = getUserRole(user);
         const cart = await Cart.findOne({ user: userId });
         if (!cart || !cart.items.length) throw new AppError("Your cart is empty", 400);
 
@@ -29,7 +34,7 @@ export async function createStripeCheckout(userId: string, data: CheckoutInput, 
             }
             return {
                 product: product._id.toString(), name: product.name, image: product.image,
-                price: getProductPricing(product).price, quantity: item.quantity,
+                price: getProductPricing(product, Date.now(), role).price, quantity: item.quantity,
             };
         });
         const subtotal = items.reduce((sum, item) => sum + Math.round(item.price * 100) * item.quantity, 0) / 100;

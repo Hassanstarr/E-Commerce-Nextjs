@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getMembership, startMembership, cancelMembership } from "@/services/membership.api";
 import type { MembershipData } from "@/types/membership";
+import { membershipPlan } from "@/lib/membership";
 
 export default function MembershipSettings() {
     const { user, refreshUser } = useAuth();
@@ -85,8 +86,8 @@ export default function MembershipSettings() {
 
     const subscription = data?.subscription;
     const existing = subscription && !["none", "canceled", "incomplete_expired"].includes(subscription.status);
-    const amount = existing ? subscription.unitAmount : data?.plan.unitAmount;
-    const currency = existing ? subscription.currency : data?.plan.currency;
+    const amount = existing ? subscription.unitAmount : data?.plan.unitAmount ?? membershipPlan.monthlyPrice * 100;
+    const currency = existing ? subscription.currency : data?.plan.currency ?? membershipPlan.currency;
     const price = amount != null && currency ? new Intl.NumberFormat("en-PK", { style: "currency", currency: currency.toUpperCase(), maximumFractionDigits: 2 }).format(amount / 100) : "";
     const date = (value: string | null) => value ? new Date(value).toLocaleDateString("en-PK", { day: "numeric", month: "long", year: "numeric" }) : "—";
 
@@ -127,17 +128,18 @@ export default function MembershipSettings() {
                         {subscription?.active && <span className="rounded-full bg-gray-900 px-3 py-1 text-xs font-medium text-white">{subscription.cancelAtPeriodEnd ? "Ending soon" : "Current plan"}</span>}
                     </div>
                     <p className="mt-5 text-3xl font-bold text-gray-900">{price || (loading ? "Loading…" : "Unavailable")}<span className="ml-1 text-sm font-normal text-gray-500">/ month</span></p>
-                    <p className="mt-3 min-h-12 text-sm leading-6 text-gray-500">{existing ? "Your monthly membership. Cancel renewal whenever you choose." : price ? `Pay ${price} today for your first month. Renews monthly unless you cancel.` : "Pay by card for your first month. Renews monthly unless you cancel."}</p>
+                    <p className="mt-3 min-h-12 text-sm leading-6 text-gray-500">{!data ? "Monthly card billing. Final pricing is confirmed at checkout." : existing ? "Your monthly membership. Cancel renewal whenever you choose." : `Pay ${price} today for your first month. Renews monthly unless you cancel.`}</p>
                     <p className="mt-6 text-xs font-medium uppercase tracking-wide text-gray-400">Included</p>
                     <ul className="mb-8 mt-3 space-y-3 text-sm text-gray-700"><li className="flex items-center gap-2"><span aria-hidden="true" className="font-semibold text-gray-900">✓</span>Member</li></ul>
                     {existing && !subscription?.active && subscription?.invoiceUrl ? <a href={subscription.invoiceUrl} target="_blank" rel="noopener noreferrer" className="mt-auto block w-full rounded-lg bg-gray-900 px-4 py-3 text-center text-sm font-medium text-white transition hover:bg-black">Complete payment</a> :
-                        <button type="button" onClick={existing ? handleRefresh : handleSubscribe} disabled={!data || busy || subscription?.active}
+                        <button type="button" onClick={existing ? handleRefresh : handleSubscribe} disabled={loading || busy || subscription?.active}
                             className="mt-auto w-full rounded-lg bg-gray-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-black disabled:cursor-default disabled:opacity-50">
                             {busy ? "Please wait…" : subscription?.active ? "Current plan" : existing ? "Check payment status" : "Subscribe with card"}
                         </button>}
                 </section>
             </div>
             {loading && <p className="mt-5 text-center text-sm text-gray-500" role="status">Loading membership…</p>}
+            {!loading && !data && <p className="mt-5 text-center text-sm text-gray-500">Plans are available to view. The final price will be confirmed at checkout.</p>}
             {data && existing && <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
                 <h2 className="text-sm font-semibold text-gray-900">Your membership</h2>
                 {subscription?.active ? <p className="mt-2 text-sm leading-6 text-gray-600">{subscription.cancelAtPeriodEnd ? `You stay a Member until ${date(subscription.paidUntil)}. After that, your account returns to Free and won’t renew.` : `Next renewal: ${date(subscription.currentPeriodEnd)}. Your saved card will be charged ${price}.`}</p> : <p className="mt-2 text-sm leading-6 text-gray-600">Your payment needs attention. Complete payment through Stripe to activate membership.</p>}

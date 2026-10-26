@@ -18,7 +18,8 @@ export async function membershipController(req: NextRequest, update = false) {
             if (validation.data.action === "checkout") {
                 const appUrl = new URL(process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin);
                 if (!["http:", "https:"].includes(appUrl.protocol) || (process.env.NODE_ENV === "production" && appUrl.protocol !== "https:")) {
-                    throw new AppError("Configure a valid application URL for membership checkout.", 503);
+                    console.error("Membership checkout: configure a valid HTTPS application URL in production.");
+                    throw new AppError("Membership checkout is temporarily unavailable. Please try again later.", 503);
                 }
                 result = await createMembershipCheckout(user.userId, appUrl.origin);
             } else {

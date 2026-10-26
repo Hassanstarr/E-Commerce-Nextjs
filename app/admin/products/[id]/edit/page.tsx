@@ -13,6 +13,9 @@ type ProductDetail = {
     description: string;
     price: number;
     discountPercent?: number;
+    discountAudience?: "all" | "members";
+    memberDiscountPercent?: number;
+    memberDiscountEndsAt?: string | null;
     discountEndsAt?: string | null;
     image: string;
     category:
@@ -123,6 +126,9 @@ export default async function EditProductPage({ params }: PageProps) {
                     category: categoryId,
                     stock: product.stock,
                     discountPercent: product.discountPercent || 0,
+                    discountAudience: product.discountAudience || "all",
+                    memberDiscountPercent: product.memberDiscountPercent || 0,
+                    memberDiscountEndsAt: product.memberDiscountEndsAt ? new Date(product.memberDiscountEndsAt).toISOString() : null,
                     discountEndsAt: product.discountEndsAt || null,
                 }}
             />

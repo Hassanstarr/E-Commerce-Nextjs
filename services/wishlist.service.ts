@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Wishlist from "@/models/Wishlist";
 import Product from "@/models/Product";
+import Category from "@/models/Category";
 import AppError from "@/lib/AppError";
 import { expireProductDiscounts } from "@/services/discount.service";
 
@@ -8,9 +9,10 @@ export async function getWishlist(userId: string) {
     await expireProductDiscounts();
     const wishlist = await Wishlist.findOne({ user: userId }).populate({
         path: "products",
-        select: "name description price discountPercent discountEndsAt image stock category",
+        select: "name description price discountPercent discountEndsAt discountAudience memberDiscountPercent memberDiscountEndsAt image stock category",
         populate: {
             path: "category",
+            model: Category,
             select: "name",
         },
     });

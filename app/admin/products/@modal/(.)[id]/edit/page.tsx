@@ -80,6 +80,9 @@ export default async function InterceptedEditProductPage({ params }: PageProps) 
                 category: categoryId,
                 stock: product.stock,
                 discountPercent: product.discountPercent || 0,
+                discountAudience: product.discountAudience || "all",
+                memberDiscountPercent: product.memberDiscountPercent || 0,
+                memberDiscountEndsAt: product.memberDiscountEndsAt ? new Date(product.memberDiscountEndsAt).toISOString() : null,
                 discountEndsAt: product.discountEndsAt ? new Date(product.discountEndsAt).toISOString() : null,
             }}
         />

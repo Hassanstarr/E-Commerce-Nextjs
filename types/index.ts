@@ -8,6 +8,9 @@ export type ProductInput = {
     category: string;
     stock: number;
     discountPercent?: number;
+    discountAudience?: "all" | "members";
+    memberDiscountPercent?: number;
+    memberDiscountEndsAt?: string | null;
     discountEndsAt?: string | null;
 };
 
