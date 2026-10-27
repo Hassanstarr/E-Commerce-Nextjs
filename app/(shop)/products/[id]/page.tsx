@@ -4,8 +4,10 @@ import { notFound } from "next/navigation";
 import AddToCartButton from "@/components/cart/AddToCartButton";
 import AddToWishlistButton from "@/components/wishlist/AddToWishlistButton";
 import ProductPrice from "@/components/product/ProductPrice";
+import DiscountTimer from "@/components/product/DiscountTimer";
+import type { ProductDiscount } from "@/lib/product-pricing";
 
-type Product = {
+type Product = ProductDiscount & {
     _id: string;
     name: string;
     description: string;
@@ -102,8 +104,9 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
                         </h1>
 
                         <p className="mt-5 text-2xl font-bold text-gray-900">
-                            <ProductPrice product={product} />
+                            <ProductPrice product={product} variant="detail" />
                         </p>
+                        <DiscountTimer product={product} />
 
                         <div className="mt-6 border-t border-gray-200 pt-6">
                             <h2 className="text-lg font-semibold text-gray-900">

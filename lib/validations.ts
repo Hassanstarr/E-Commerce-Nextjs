@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { getDiscountValidationError, memberDiscountMessage } from "@/lib/product-pricing";
 
 export const signupSchema = z.object({
     name: z
@@ -131,6 +132,9 @@ export const productSchema = z.object({
         .number()
         .int("Stock must be a whole number")
         .min(0, "Stock cannot be negative"),
+}).refine((data) => !getDiscountValidationError(data), {
+    message: memberDiscountMessage,
+    path: ["memberDiscountPercent"],
 }).refine((data) => !data.discountEndsAt || data.discountPercent > 0, {
     message: "Add a discount before setting an end time",
     path: ["discountEndsAt"],

@@ -27,6 +27,7 @@ import type { Cart } from "@/types/cart";
 import { useRouter } from "next/navigation";
 import { getProductPricing } from "@/lib/product-pricing";
 import useDiscountExpiry from "@/hooks/useDiscountExpiry";
+import ProductPrice from "@/components/product/ProductPrice";
 
 const initialForm = {
     customerName: "",
@@ -57,6 +58,7 @@ function CheckoutContent() {
     const summaryPagination = paginateCatalog(cart?.items || [], String(summaryPage), 8);
     useDiscountExpiry((cart?.items || []).filter((item) => item.product).map((item) => item.product));
     const stripeRequestId = useRef<string | null>(null);
+    const [stripeUrl, setStripeUrl] = useState("");
 
     const [formData, setFormData] = useState(initialForm);
 
@@ -75,17 +77,27 @@ function CheckoutContent() {
     useEffect(() => {
         if (!user) return;
 
-        setFormData((previous) => ({
-            ...previous,
-            customerName: user.name,
-            customerEmail: user.email,
-        }));
+        const timer = setTimeout(() => {
+            let details = { ...initialForm, customerName: user.name, customerEmail: user.email };
+            try {
+                const saved = JSON.parse(sessionStorage.getItem("checkout-draft:" + user.id) || "null");
+                if (saved && Date.now() - saved.savedAt >= 0 && Date.now() - saved.savedAt < 30 * 60 * 1000 &&
+                    Object.keys(initialForm).every((key) => typeof saved.details?.[key] === "string")) {
+                    details = { ...details, ...saved.details };
+                    setPaymentMethod("stripe");
+                }
+            } catch {
+                // Browser storage is optional; email verification still runs on the server.
+            }
+            setFormData(details);
 
-        setEmailDraft(user.email);
-        setVerifiedEmail("");
-        setOtp("");
-        setOtpSent(false);
-        setVerificationMessage("");
+            setEmailDraft(details.customerEmail);
+            setVerifiedEmail("");
+            setOtp("");
+            setOtpSent(false);
+            setVerificationMessage("");
+        }, 0);
+        return () => clearTimeout(timer);
     }, [user]);
 
     useEffect(() => {
@@ -146,6 +158,7 @@ function CheckoutContent() {
     ) => {
         const { name, value } = e.target;
         stripeRequestId.current = null;
+        setStripeUrl("");
 
         setFormData((previous) => ({
             ...previous,
@@ -157,6 +170,7 @@ function CheckoutContent() {
 
     const handleSaveEmail = () => {
         stripeRequestId.current = null;
+        setStripeUrl("");
         const email = emailDraft.trim().toLowerCase();
 
         if (!email) {
@@ -266,13 +280,24 @@ function CheckoutContent() {
             };
 
             if (paymentMethod === "stripe") {
+                try {
+                    sessionStorage.setItem("checkout-draft:" + user?.id, JSON.stringify({ details: formData, savedAt: Date.now() }));
+                } catch {
+                    // Storage restrictions must not prevent payment.
+                }
                 stripeRequestId.current ||= crypto.randomUUID();
                 const result = await createStripeCheckout(checkoutData, stripeRequestId.current);
+                setStripeUrl(result.data.url);
                 window.location.assign(result.data.url);
                 return;
             }
 
             const result = await createOrder(checkoutData);
+            try {
+                sessionStorage.removeItem("checkout-draft:" + user?.id);
+            } catch {
+                // The order has already been placed.
+            }
 
             router.push(
                 `/order-success/${result.data.orderId}`
@@ -384,6 +409,15 @@ function CheckoutContent() {
                                 Update your cart
                             </Link>
                         </div>
+                    </div>
+                )}
+
+                {stripeUrl && paymentMethod === "stripe" && (
+                    <div role="status" className="mb-6 rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-700">
+                        <p>Your secure payment page is ready. If it did not open automatically, continue below.</p>
+                        <a href={stripeUrl} className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-lg bg-black px-4 py-2 font-medium text-white hover:bg-gray-800">
+                            <FiCreditCard /> Continue to Stripe
+                        </a>
                     </div>
                 )}
 
@@ -750,7 +784,13 @@ function CheckoutContent() {
                                             }
                                         </p>
 
+                                        <div className="mt-2 text-sm">
+                                            <ProductPrice product={item.product} variant="applied" />
+                                            <span className="ml-1 text-xs text-gray-500">each</span>
+                                        </div>
+
                                         <p className="mt-1 text-sm font-medium text-gray-900">
+                                            <span className="mr-1 text-xs font-normal text-gray-500">Line total:</span>
                                             Rs.{" "}
                                             {(
                                                 Math.round(getProductPricing(item.product, undefined, user?.role).price * 100) * item.quantity / 100

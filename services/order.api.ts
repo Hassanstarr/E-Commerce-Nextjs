@@ -10,10 +10,22 @@ export async function getMyOrders(page = 1, signal?: AbortSignal) {
 }
 
 export async function createStripeCheckout(data: CheckoutInput, requestId: string) {
-    return apiRequest<{ data: { url: string } }>("/api/stripe/checkout", {
-        method: "POST",
-        body: JSON.stringify({ ...data, requestId }),
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 60000);
+    try {
+        return await apiRequest<{ data: { url: string } }>("/api/stripe/checkout", {
+            method: "POST",
+            body: JSON.stringify({ ...data, requestId }),
+            signal: controller.signal,
+        });
+    } catch (error) {
+        if (controller.signal.aborted) {
+            throw new Error("Opening Stripe took too long. Please try again; retrying this payment request will not create a duplicate checkout.");
+        }
+        throw error;
+    } finally {
+        clearTimeout(timer);
+    }
 }
 
 export async function verifyCheckoutEmail(email: string, otp?: string) {
