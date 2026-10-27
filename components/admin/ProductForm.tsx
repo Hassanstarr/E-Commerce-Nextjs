@@ -7,7 +7,7 @@ import { createAdminProduct, updateAdminProduct } from "@/services/admin.api";
 import { uploadImage } from "@/services/upload.api";
 import type { ProductInput } from "@/types";
 import ProductPrice from "@/components/product/ProductPrice";
-import { getProductDiscounts } from "@/lib/product-pricing";
+import { getProductDiscounts, getDiscountValidationError } from "@/lib/product-pricing";
 
 function localDateTime(value?: string | null) {
     if (!value) return "";
@@ -128,6 +128,11 @@ export default function ProductForm({
         event.preventDefault();
 
         if (loading || uploading) return;
+        const discountError = getDiscountValidationError(formData);
+        if (discountError) {
+            setError(discountError);
+            return;
+        }
         if ([formData.discountEndsAt, formData.memberDiscountEndsAt].some((value) => value && new Date(value).getTime() <= Date.now())) {
             setError("Discount end time must be in the future");
             return;
@@ -252,7 +257,7 @@ export default function ProductForm({
                         <Input label="Ends at (optional)" aria-label="Member discount end time" name="memberDiscountEndsAt" type="datetime-local" value={localDateTime(formData.memberDiscountEndsAt)} onChange={handleChange} disabled={!formData.memberDiscountPercent} className="bg-white text-black disabled:bg-gray-100" />
                     </div>
                 </div>
-                <p className="mt-3 text-xs text-gray-500">Both offers can run together. Users see the everyone offer; members see both and get the better discount. Percentages do not stack.</p>
+                <p className="mt-3 text-xs text-gray-500">Members get the everyone discount unless a member offer is active. A member discount must be at least the everyone discount. Both prices are shown with your applicable price highlighted; percentages do not stack.</p>
                 {Boolean(formData.discountPercent || formData.memberDiscountPercent) && formData.price > 0 && <p className="mt-3 text-sm font-semibold text-gray-900"><ProductPrice product={formData} preview /></p>}
             </div>
 

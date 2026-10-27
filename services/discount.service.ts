@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import Product from "@/models/Product";
 import ActivityLog from "@/models/ActivityLog";
 import AppError from "@/lib/AppError";
-import { getProductPricing, getProductDiscounts, type ProductDiscount } from "@/lib/product-pricing";
+import { getProductPricing, getProductDiscounts, getDiscountValidationError, type ProductDiscount } from "@/lib/product-pricing";
 import type { ProductInput } from "@/lib/validations";
 import { recordSubscriptionEvents } from "@/services/subscription-event.service";
 
@@ -65,6 +65,8 @@ export async function expireProductDiscounts() {
 type DiscountInput = Omit<ProductInput, "discountAudience" | "memberDiscountPercent" | "memberDiscountEndsAt"> & Partial<Pick<ProductInput, "discountAudience" | "memberDiscountPercent" | "memberDiscountEndsAt">>;
 
 export async function saveProductWithDiscount(data: DiscountInput, id?: string, user?: string) {
+    const discountError = getDiscountValidationError(data);
+    if (discountError) throw new AppError(discountError, 400);
     const product = await mongoose.connection.transaction(async (session) => {
         const product = id ? await Product.findById(id).session(session) : new Product();
         if (!product) throw new AppError("Product not found", 404);

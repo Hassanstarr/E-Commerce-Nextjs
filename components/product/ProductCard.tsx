@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import ProductPrice from "@/components/product/ProductPrice";
+import AddToCartButton from "@/components/cart/AddToCartButton";
 
 type ProductCardProps = {
     product: {
@@ -24,7 +25,7 @@ type ProductCardProps = {
 
 export default function ProductCard({ product }: ProductCardProps) {
     return (
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white transition-all duration-300 ease-out hover:scale-[1.03] hover:shadow-xl">
+        <div className="flex h-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white transition-all duration-300 ease-out hover:scale-[1.03] hover:shadow-xl">
             <Link href={`/products/${product._id}`}>
                 <div className="relative h-56 w-full bg-gray-100">
                     <Image
@@ -37,7 +38,7 @@ export default function ProductCard({ product }: ProductCardProps) {
                 </div>
             </Link>
 
-            <div className="p-5">
+            <div className="flex flex-1 flex-col p-5">
                 <p className="text-sm text-gray-500">
                     {product.category.name}
                 </p>
@@ -52,14 +53,17 @@ export default function ProductCard({ product }: ProductCardProps) {
                     {product.description}
                 </p>
 
-                <div className="mt-4 flex items-center justify-between">
-                    <p className="text-lg font-bold text-gray-900">
+                <div className="mt-auto flex items-start justify-between gap-3 pt-4">
+                    <p className="min-w-0 flex-1 text-lg font-bold text-gray-900">
                         <ProductPrice product={product} />
                     </p>
 
-                    <span className={`text-sm ${product.stock > 0 ? "text-green-600" : "text-red-500"}`}>
+                    <span className={`shrink-0 whitespace-nowrap pt-0.5 text-xs ${product.stock > 0 ? "text-green-600" : "text-red-500"}`}>
                         {product.stock > 0 ? "In Stock" : "Out of Stock"}
                     </span>
+                </div>
+                <div className="mt-3">
+                    <AddToCartButton productId={product._id} productName={product.name} stock={product.stock} variant="card" />
                 </div>
             </div>
         </div>
