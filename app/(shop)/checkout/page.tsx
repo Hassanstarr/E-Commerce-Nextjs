@@ -27,6 +27,7 @@ import type { Cart } from "@/types/cart";
 import { useRouter } from "next/navigation";
 import { getProductPricing } from "@/lib/product-pricing";
 import useDiscountExpiry from "@/hooks/useDiscountExpiry";
+import ProductPrice from "@/components/product/ProductPrice";
 
 const initialForm = {
     customerName: "",
@@ -76,24 +77,27 @@ function CheckoutContent() {
     useEffect(() => {
         if (!user) return;
 
-        let details = { ...initialForm, customerName: user.name, customerEmail: user.email };
-        try {
-            const saved = JSON.parse(sessionStorage.getItem("checkout-draft:" + user.id) || "null");
-            if (saved && Date.now() - saved.savedAt >= 0 && Date.now() - saved.savedAt < 30 * 60 * 1000 &&
-                Object.keys(initialForm).every((key) => typeof saved.details?.[key] === "string")) {
-                details = { ...details, ...saved.details };
-                setPaymentMethod("stripe");
+        const timer = setTimeout(() => {
+            let details = { ...initialForm, customerName: user.name, customerEmail: user.email };
+            try {
+                const saved = JSON.parse(sessionStorage.getItem("checkout-draft:" + user.id) || "null");
+                if (saved && Date.now() - saved.savedAt >= 0 && Date.now() - saved.savedAt < 30 * 60 * 1000 &&
+                    Object.keys(initialForm).every((key) => typeof saved.details?.[key] === "string")) {
+                    details = { ...details, ...saved.details };
+                    setPaymentMethod("stripe");
+                }
+            } catch {
+                // Browser storage is optional; email verification still runs on the server.
             }
-        } catch {
-            // Browser storage is optional; email verification still runs on the server.
-        }
-        setFormData(details);
+            setFormData(details);
 
-        setEmailDraft(details.customerEmail);
-        setVerifiedEmail("");
-        setOtp("");
-        setOtpSent(false);
-        setVerificationMessage("");
+            setEmailDraft(details.customerEmail);
+            setVerifiedEmail("");
+            setOtp("");
+            setOtpSent(false);
+            setVerificationMessage("");
+        }, 0);
+        return () => clearTimeout(timer);
     }, [user]);
 
     useEffect(() => {
@@ -780,7 +784,13 @@ function CheckoutContent() {
                                             }
                                         </p>
 
+                                        <div className="mt-2 text-sm">
+                                            <ProductPrice product={item.product} variant="applied" />
+                                            <span className="ml-1 text-xs text-gray-500">each</span>
+                                        </div>
+
                                         <p className="mt-1 text-sm font-medium text-gray-900">
+                                            <span className="mr-1 text-xs font-normal text-gray-500">Line total:</span>
                                             Rs.{" "}
                                             {(
                                                 Math.round(getProductPricing(item.product, undefined, user?.role).price * 100) * item.quantity / 100
