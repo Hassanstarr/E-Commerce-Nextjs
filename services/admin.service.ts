@@ -8,6 +8,7 @@ import { canChangeOrderStatus, canChangePaymentStatus } from "@/lib/order-status
 import AppError from "@/lib/AppError";
 import mongoose from "mongoose";
 import { recordSubscriptionEvents } from "@/services/subscription-event.service";
+import { queueNotification, queueStockNotifications, dispatchNotifications } from "@/services/notification-event.service";
 
 function escapeRegex(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -430,19 +431,30 @@ export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentS
                         throw new AppError(`Cannot reopen this order: "${item.name}" is unavailable or has insufficient stock.`, 409);
                     }
                     if (shouldRestoreStock && product) {
+                        await queueStockNotifications({ _id: product._id, name: product.name, stock: product.stock + item.quantity }, product.stock, session);
                         await recordSubscriptionEvents({
                             _id: product._id, stock: product.stock + item.quantity, discountPercent: product.discountPercent,
                         }, product.stock, false, session);
                     }
+                    if (shouldReserveStock && product) await queueStockNotifications({ _id: product._id, name: product.name, stock: product.stock - item.quantity }, product.stock, session);
                 }
             }
 
+            if (order.user && orderStatus && orderStatus !== previousStatus) await queueNotification({
+                key: `order:${orderId}:status:${order.updatedAt.getTime()}`, type: "order", audience: "user", userId: order.user.toString(),
+                title: "Order status updated", message: `Your order is now ${orderStatus}.`, href: "/orders",
+            }, session);
+            if (order.user && paymentStatus && paymentStatus !== previousPaymentStatus) await queueNotification({
+                key: `order:${orderId}:payment:${order.updatedAt.getTime()}`, type: "payment", audience: "user", userId: order.user.toString(),
+                title: "Payment status updated", message: `Your order payment is now ${paymentStatus}.`, href: "/orders",
+            }, session);
             return order;
         });
     } finally {
         await session.endSession();
     }
 
+    dispatchNotifications();
     if ( paymentStatus && paymentStatus !== previousPaymentStatus ) {
         await createActivityLog({
             user: changedBy,

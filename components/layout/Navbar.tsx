@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { HiOutlineBars3, HiOutlineXMark, HiOutlineChevronDown, HiOutlineArrowRightOnRectangle } from "react-icons/hi2";
 import { useAuth } from "@/context/AuthContext";
 import LogoutDialog from "@/components/auth/LogoutDialog";
-import NotificationBell from "@/components/notifications/NotificationBell";
+import NotificationBell from "@/components/notifications/LiveNotificationBell";
 
 const navigation = [
     { href: "/products", label: "Products" },

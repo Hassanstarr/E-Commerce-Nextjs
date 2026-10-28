@@ -1,0 +1,20 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function activeSession(userId) {
+      return request.auth != null && request.auth.uid == userId
+        && request.auth.token.notificationSession is string
+        && exists(/databases/$(database)/documents/notificationSessions/$(request.auth.token.notificationSession))
+        && get(/databases/$(database)/documents/notificationSessions/$(request.auth.token.notificationSession)).data.userId == userId
+        && get(/databases/$(database)/documents/notificationSessions/$(request.auth.token.notificationSession)).data.active == true
+        && request.time < get(/databases/$(database)/documents/notificationSessions/$(request.auth.token.notificationSession)).data.expiresAt;
+    }
+    // Only a change signal is exposed to the browser. Private items use the cookie-authenticated API.
+    match /notificationInboxes/{userId} {
+      allow get: if activeSession(userId);
+      allow list, write: if false;
+      match /{document=**} { allow read, write: if false; }
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

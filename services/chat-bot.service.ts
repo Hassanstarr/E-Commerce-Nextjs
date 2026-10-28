@@ -6,6 +6,7 @@ import { generateGeminiReply, isChatBotAvailable, type AssistantHistory } from "
 import { rateLimiters } from "@/lib/rate-limit";
 import type { ChatMessageData } from "@/types/chat";
 import { getChatStoreData } from "@/services/chat-context.service";
+import { queueChatNotification, dispatchNotifications } from "@/services/notification-event.service";
 
 const unavailableReply = "The AI assistant is temporarily unavailable. Your message is saved for our store team. Please try again shortly.";
 
@@ -45,7 +46,7 @@ export async function replyWhenAdminOffline(message: ChatMessageData, options: {
         }
 
         if (await isChatAdminOnline()) return null;
-        return await mongoose.connection.transaction(async (session) => {
+        const savedReply = await mongoose.connection.transaction(async (session) => {
             if (await isChatAdminOnline()) return null;
             const claimed = await ChatMessage.exists({ _id: source._id, botClaimUntil: claimUntil, botHandledAt: { $exists: false } }).session(session);
             if (!claimed || claimUntil.getTime() <= Date.now()) return null;
@@ -60,11 +61,14 @@ export async function replyWhenAdminOffline(message: ChatMessageData, options: {
                 conversation: conversation._id, sender: "bot", replyTo: source._id,
                 clientMessageId: `bot-${source._id}`, sequence: updated.sequence, text,
             }], { session });
+            await queueChatNotification(updated, "bot", session);
             await ChatMessage.updateOne({ _id: source._id, botClaimUntil: claimUntil }, {
                 $set: { botHandledAt: new Date() }, $unset: { botClaimUntil: "" },
             }, { session });
             return serializeChatMessage(reply);
         });
+        if (savedReply) dispatchNotifications();
+        return savedReply;
     } finally {
         await ChatMessage.updateOne({ _id: source._id, botClaimUntil: claimUntil }, {
             $set: { botHandledAt: new Date() }, $unset: { botClaimUntil: "" },

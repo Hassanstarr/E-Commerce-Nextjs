@@ -1,0 +1,9 @@
+{
+  "indexes": [
+    { "collectionGroup": "notificationItems", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "readAt", "order": "ASCENDING" }, { "fieldPath": "expiresAt", "order": "ASCENDING" }] },
+    { "collectionGroup": "notificationItems", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "readAt", "order": "ASCENDING" }, { "fieldPath": "expiresAt", "order": "DESCENDING" }] }
+  ],
+  "fieldOverrides": [
+    { "collectionGroup": "notificationItems", "fieldPath": "expiresAt", "indexes": [{ "order": "ASCENDING", "queryScope": "COLLECTION" }, { "order": "DESCENDING", "queryScope": "COLLECTION" }, { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }] }
+  ]
+}

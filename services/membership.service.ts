@@ -7,6 +7,7 @@ import AppError from "@/lib/AppError";
 import { getStripe } from "@/lib/stripe";
 import { membershipPlan } from "@/lib/membership";
 import type { MembershipData } from "@/types/membership";
+import { queueNotification, dispatchNotifications } from "@/services/notification-event.service";
 
 const requestOptions = { timeout: 15000, maxNetworkRetries: 0 };
 const endedStatuses = ["canceled", "incomplete_expired"];
@@ -90,6 +91,7 @@ async function syncSubscription(membership: InstanceType<typeof Membership>, sub
         cancelAtPeriodEnd: subscription.cancel_at_period_end || Boolean(subscription.cancel_at),
         unitAmount: item.price.unit_amount, currency: item.price.currency, priceId: item.price.id,
         invoiceUrl: invoice?.hosted_invoice_url || null,
+        latestInvoiceId: idOf(subscription.latest_invoice), latestInvoiceStatus: invoice?.status || null,
     };
     await mongoose.connection.transaction(async (session) => {
         const saved = await Membership.updateOne({ _id: membership._id, lockToken: membership.lockToken, lockUntil: { $gt: new Date() } }, {
@@ -99,8 +101,34 @@ async function syncSubscription(membership: InstanceType<typeof Membership>, sub
         await User.updateOne({ _id: membership.user, role: { $ne: "admin" } }, {
             $set: { role: active ? "member" : "user", memberUntil: paidUntil || null },
         }, { session });
+        const href = "/membership";
+        const userId = membership.user.toString();
+        if (paidUntil && paidUntil.getTime() > (membership.paidUntil?.getTime() || 0)) {
+            const renewed = Boolean(membership.paidUntil);
+            const message = `Your membership is ${renewed ? "renewed" : "active"} until ${paidUntil.toLocaleString("en-PK", { timeZone: "Asia/Karachi" })} (PKT).`;
+            await queueNotification({ key: `membership:${invoice?.id || subscription.id + paidUntil.getTime()}:paid:customer`, type: "membership", audience: "user", userId,
+                title: renewed ? "Membership renewed" : "Welcome to membership", message, href }, session);
+            await queueNotification({ key: `membership:${invoice?.id || subscription.id + paidUntil.getTime()}:paid:admin`, type: "membership", audience: "admins",
+                title: renewed ? "Membership payment received" : "New paid member", message: "A customer's membership payment was confirmed.", href: `/admin/customers/${userId}` }, session);
+        }
+        if (changes.cancelAtPeriodEnd && !membership.cancelAtPeriodEnd && paidUntil) {
+            await queueNotification({ key: `membership:${subscription.id}:cancel:${subscription.canceled_at || item.current_period_end}:customer`, type: "membership", audience: "user", userId,
+                title: "Auto-renew is off", message: `Your member benefits continue until ${paidUntil.toLocaleString("en-PK", { timeZone: "Asia/Karachi" })} (PKT). You will not renew automatically.`, href }, session);
+            await queueNotification({ key: `membership:${subscription.id}:cancel:${subscription.canceled_at || item.current_period_end}:admin`, type: "membership", audience: "admins",
+                title: "Membership cancellation scheduled", message: "A customer turned off automatic membership renewal.", href: `/admin/customers/${userId}` }, session);
+        }
+        if (membership.paidUntil && !paidUntil) await queueNotification({ key: `membership:${subscription.id}:${membership.paidUntil.getTime()}:ended`, type: "membership", audience: "user", userId,
+            title: "Membership ended", message: "Your paid membership has ended. You can view available plans in Membership.", href }, session);
     });
     Object.assign(membership, changes);
+    dispatchNotifications();
+}
+
+export async function syncMembershipForNotifications(userId: string) {
+    await withMembership(userId, async (membership) => {
+        if (membership.subscriptionId) await syncSubscription(membership, membership.subscriptionId);
+    });
+    return Membership.findOne({ user: userId }).lean();
 }
 
 async function syncCheckout(membership: InstanceType<typeof Membership>, checkoutId: string) {
@@ -220,5 +248,19 @@ export async function handleMembershipEvent(event: Stripe.Event) {
     const membership = await Membership.findById(membershipId);
     if (!membership) return true;
     await withMembership(membership.user.toString(), async (current) => { await syncSubscription(current, subscriptionId!); });
+    if (["invoice.payment_failed", "invoice.payment_action_required"].includes(event.type)) {
+        const invoice = event.data.object as Stripe.Invoice;
+        const latest = await Membership.findById(membershipId).lean();
+        if (latest?.latestInvoiceId === invoice.id) {
+            if (latest.latestInvoiceStatus !== "paid" && latest.latestInvoiceStatus !== "void") {
+                const userId = membership.user.toString();
+                await queueNotification({ key: `invoice:${invoice.id}:payment-issue:customer`, type: "membership", audience: "user", userId, invoiceId: invoice.id,
+                    title: "Membership payment needs attention", message: "Your membership payment failed or needs confirmation. Review your payment details.", href: "/membership" });
+                await queueNotification({ key: `invoice:${invoice.id}:payment-issue:admin`, type: "membership", audience: "admins", invoiceId: invoice.id,
+                    title: "Membership billing issue", message: "A customer's membership payment requires attention.", href: `/admin/customers/${userId}` });
+                dispatchNotifications();
+            }
+        }
+    }
     return true;
 }

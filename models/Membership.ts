@@ -15,6 +15,8 @@ const membershipSchema = new Schema({
     currentPeriodEnd: Date,
     cancelAtPeriodEnd: { type: Boolean, default: false },
     invoiceUrl: String,
+    latestInvoiceId: String,
+    latestInvoiceStatus: String,
     lockToken: String,
     lockUntil: Date,
 }, { timestamps: true });

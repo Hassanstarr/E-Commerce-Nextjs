@@ -13,7 +13,8 @@
     "test:stripe": "node --test tests/stripe.test.mjs",
     "dev:chat": "tsx watch websocket/dev.ts",
     "subscriptions:check": "tsx scripts/subscriptions.ts --dry-run",
-    "subscriptions:send": "tsx scripts/subscriptions.ts"
+    "subscriptions:send": "tsx scripts/subscriptions.ts",
+    "notifications:run": "tsx scripts/notifications.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
@@ -24,6 +25,8 @@
     "axios": "^1.20.0",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.11.0",
+    "firebase": "^13.1.0",
+    "firebase-admin": "^14.5.0",
     "jose": "^6.2.12",
     "mongoose": "^9.10.2",
     "next": "16.3.6",
@@ -37,6 +40,11 @@
     "stripe": "^23.0.0",
     "ws": "^8.22.0",
     "zod": "^4.6.5"
+  },
+  "overrides": {
+    "@firebase/firestore": {
+      "@grpc/grpc-js": "^1.13.6"
+    }
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

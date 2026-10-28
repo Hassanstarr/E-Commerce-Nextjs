@@ -1,7 +1,7 @@
 "use client";
 
 import { HiOutlineBars3, HiOutlineXMark } from "react-icons/hi2";
-import NotificationBell from "@/components/notifications/NotificationBell";
+import NotificationBell from "@/components/notifications/LiveNotificationBell";
 
 interface AdminHeaderProps {
     sidebarOpen: boolean;

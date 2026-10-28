@@ -9,6 +9,7 @@ import type { CreateOrderInput } from "@/types/order";
 import nodemailer from "nodemailer";
 import { getProductPricing } from "@/lib/product-pricing";
 import { expireProductDiscounts } from "@/services/discount.service";
+import { queueOrderNotifications, queueStockNotifications, dispatchNotifications } from "@/services/notification-event.service";
 
 const DELIVERY_FEE = 200;
 
@@ -156,6 +157,7 @@ export async function createOrder(
                         409
                     );
                 }
+                await queueStockNotifications(updatedProduct, updatedProduct.stock + cartItem.quantity, session);
             }
 
             const total = subtotal + DELIVERY_FEE;
@@ -192,6 +194,7 @@ export async function createOrder(
             );
 
             order = createdOrders;
+            await queueOrderNotifications(createdOrders, session);
 
             cart.items = [];
             await cart.save({ session });
@@ -207,6 +210,7 @@ export async function createOrder(
         );
     }
 
+    dispatchNotifications();
     try {
         await sendOrderConfirmationEmail(order);
     } catch (error) {

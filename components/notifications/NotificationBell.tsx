@@ -23,7 +23,7 @@ export type NotificationBellProps = {
     onRetry?: () => void;
 };
 
-export default function NotificationBell({ items = [], unreadCount = 0, loading = false, loadingMore = false, error = "", hasMore = false, filter, retentionDays = 7, onFilterChange, onLoadMore, onRead, onReadAll, onRetry }: NotificationBellProps) {
+export default function NotificationBell({ items = [], unreadCount = 0, loading = false, loadingMore = false, error = "", hasMore = false, filter, retentionDays = 30, onFilterChange, onLoadMore, onRead, onReadAll, onRetry }: NotificationBellProps) {
     const { user, loading: authLoading } = useAuth();
     const router = useRouter();
     const titleId = useId();

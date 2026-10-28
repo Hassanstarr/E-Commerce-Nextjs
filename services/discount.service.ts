@@ -5,6 +5,7 @@ import AppError from "@/lib/AppError";
 import { getProductPricing, getProductDiscounts, getDiscountValidationError, type ProductDiscount } from "@/lib/product-pricing";
 import type { ProductInput } from "@/lib/validations";
 import { recordSubscriptionEvents } from "@/services/subscription-event.service";
+import { queueNotification, queueStockNotifications, dispatchNotifications } from "@/services/notification-event.service";
 
 async function logDiscount(product: { _id: mongoose.Types.ObjectId; name: string; price: number; discountPercent: number; discountAudience?: "all" | "members"; discountEndsAt: Date | null }, action: "discount_started" | "discount_ended", session: mongoose.ClientSession, user?: string, expired = false) {
     const pricing = getProductPricing({ price: product.price, discountPercent: product.discountPercent });
@@ -96,6 +97,20 @@ export async function saveProductWithDiscount(data: DiscountInput, id?: string, 
             }
         }
         await product.save({ session });
+        if (!id) {
+            await queueNotification({ key: `product:${product._id}:created`, type: "product", audience: "customers", productId: product.id,
+                title: "New arrival", message: `${product.name} has been added to the store.`, href: `/products/${product._id}` }, session);
+        } else {
+            for (let index = 0; index < next.length; index++) {
+                const offer = next[index];
+                if (!offer.discountPercent || !changed[index]) continue;
+                await queueNotification({ key: `discount:${product._id}:${offer.discountAudience}:${product.updatedAt.getTime()}`, type: "discount",
+                    audience: offer.discountAudience === "members" ? "members" : "customers", productId: product.id,
+                    title: offer.discountAudience === "members" ? "New member discount" : "New store discount", message: `${product.name} has a new offer.`,
+                    href: `/products/${product._id}`, discountAudience: offer.discountAudience, discountPercent: offer.discountPercent, offerEndsAt: offer.discountEndsAt }, session);
+            }
+        }
+        await queueStockNotifications(product, previousStock, session);
         for (let index = 0; index < next.length; index++) {
             if (next[index].discountPercent > 0 && changed[index]) await logDiscount(next[index], "discount_started", session, user);
         }
@@ -105,5 +120,6 @@ export async function saveProductWithDiscount(data: DiscountInput, id?: string, 
         }
         return product;
     });
+    dispatchNotifications();
     return await product.populate("category");
 }
