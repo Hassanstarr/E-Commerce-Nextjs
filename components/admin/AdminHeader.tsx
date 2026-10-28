@@ -1,6 +1,7 @@
 "use client";
 
 import { HiOutlineBars3, HiOutlineXMark } from "react-icons/hi2";
+import NotificationBell from "@/components/notifications/LiveNotificationBell";
 
 interface AdminHeaderProps {
     sidebarOpen: boolean;
@@ -43,9 +44,10 @@ export default function AdminHeader({ sidebarOpen, setSidebarOpen }: AdminHeader
 
                 </div>
 
-                <div className="hidden items-center gap-2 md:flex">
-                    <span className="h-2 w-2 rounded-full bg-green-500" />
-                    <span className="text-sm font-medium text-gray-600">
+                <div className="flex items-center gap-2">
+                    <NotificationBell />
+                    <span className="hidden h-2 w-2 rounded-full bg-green-500 md:block" />
+                    <span className="hidden text-sm font-medium text-gray-600 md:block">
                         Admin
                     </span>
                 </div>

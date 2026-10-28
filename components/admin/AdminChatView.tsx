@@ -32,6 +32,17 @@ export default function AdminChatView() {
     useEffect(() => { reconcileMessages(history.history.messages); }, [history.history.messages, reconcileMessages]);
 
     useEffect(() => {
+        const id = new URLSearchParams(window.location.search).get("conversation");
+        if (!id || !/^[a-f\d]{24}$/i.test(id)) return;
+        let canceled = false;
+        void getChatInbox(1, id, "all").then((data) => {
+            const conversation = data.conversations.find((item) => item.id === id);
+            if (!canceled && conversation) setActiveConversation({ ...conversation, messages: conversation.messages.map(displayChatMessage) });
+        }).catch(() => { if (!canceled) setInboxError("Unable to open this conversation. Please try searching for the customer."); });
+        return () => { canceled = true; };
+    }, []);
+
+    useEffect(() => {
         let cancelled = false;
         const timer = setTimeout(() => {
             setLoadingInbox(true);

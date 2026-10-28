@@ -8,6 +8,7 @@ import { verifyToken } from "@/lib/auth";
 import AppError from "@/lib/AppError";
 import { chatIdSchema, chatSendSchema } from "@/lib/chat-validation";
 import type { ChatIdentity, ChatMessageData, ChatConversation as ChatConversationData } from "@/types/chat";
+import { queueChatNotification, dispatchNotifications } from "@/services/notification-event.service";
 
 export async function getChatIdentity(token: string): Promise<ChatIdentity> {
     const payload = await verifyToken(token);
@@ -134,6 +135,7 @@ export async function sendChatMessage(identity: ChatIdentity, input: unknown) {
                 text,
             }], { session });
             saved = serializeChatMessage(message);
+            await queueChatNotification(conversation, identity.role, session);
         });
     } catch (error) {
         if (error instanceof mongoose.mongo.MongoServerError && error.code === 11000) {
@@ -145,6 +147,7 @@ export async function sendChatMessage(identity: ChatIdentity, input: unknown) {
         await session.endSession();
     }
     if (!saved) throw new AppError("Unable to save message. Please try again.", 500);
+    dispatchNotifications();
     return saved;
 }
 
@@ -177,7 +180,7 @@ export async function listChatConversations(page: number, search: string, unread
     const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const filteredMatch = {
         ...(unreadOnly ? { unreadAdmin: { $gt: 0 } } : {}),
-        ...(search ? { $or: ["customer.name", "customer.email", "lastMessage"].map((field) => ({ [field]: { $regex: escaped, $options: "i" } })) } : {}),
+        ...(search ? { $or: [...["customer.name", "customer.email", "lastMessage"].map((field) => ({ [field]: { $regex: escaped, $options: "i" } })), ...(mongoose.isObjectIdOrHexString(search) ? [{ _id: new mongoose.Types.ObjectId(search) }] : [])] } : {}),
     };
     const [result] = await ChatConversation.aggregate([
         { $match: { sequence: { $gt: 0 } } },

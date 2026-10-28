@@ -12,6 +12,7 @@ import { sendOrderConfirmationEmail } from "@/services/order.service";
 import type { CheckoutInput } from "@/types/order";
 import { getProductPricing } from "@/lib/product-pricing";
 import { expireProductDiscounts } from "@/services/discount.service";
+import { queueNotification, queueOrderNotifications, queueStockNotifications, dispatchNotifications } from "@/services/notification-event.service";
 
 export async function createStripeCheckout(userId: string, data: CheckoutInput, requestId: string, appUrl: string) {
     await expireProductDiscounts();
@@ -91,7 +92,15 @@ export async function createStripeCheckout(userId: string, data: CheckoutInput, 
 
 async function refundCheckout(checkoutId: string, paymentIntentId: string) {
     await getStripe().refunds.create({ payment_intent: paymentIntentId }, { idempotencyKey: `checkout-refund-${checkoutId}` });
-    await StripeCheckout.updateOne({ _id: checkoutId, status: "refund_pending" }, { $set: { status: "refunded" } });
+    await mongoose.connection.transaction(async (session) => {
+        const checkout = await StripeCheckout.findOneAndUpdate({ _id: checkoutId, status: "refund_pending" }, { $set: { status: "refunded" } }, { returnDocument: "after", session });
+        if (!checkout) return;
+        await queueNotification({ key: `checkout:${checkoutId}:refunded:customer`, type: "payment", audience: "user", userId: checkout.user.toString(),
+            title: "Payment refunded", message: "An item became unavailable. Your card payment was refunded and no order was placed.", href: "/orders" }, session);
+        await queueNotification({ key: `checkout:${checkoutId}:refunded:admin`, type: "payment", audience: "admins",
+            title: "Checkout refunded", message: "A card checkout was refunded because inventory became unavailable.", href: "/admin/orders" }, session);
+    });
+    dispatchNotifications();
     return null;
 }
 
@@ -113,6 +122,13 @@ export async function applyStripePayment(intent: Stripe.PaymentIntent) {
                 { _id: checkoutId, status: { $in: ["pending", "failed", "canceled"] } },
                 { $set: { status: intent.status === "canceled" ? "canceled" : "failed", paymentIntentId: intent.id } }
             );
+            if (intent.status === "requires_payment_method") {
+                await queueNotification({ key: `checkout:${checkoutId}:${intent.id}:failed:customer`, type: "payment", audience: "user", userId: checkout.user.toString(), checkoutId,
+                    title: "Card payment needs attention", message: "Your payment was not completed. You can retry securely from checkout.", href: `/checkout/stripe/${checkoutId}` });
+                await queueNotification({ key: `checkout:${checkoutId}:${intent.id}:failed:admin`, type: "payment", audience: "admins", checkoutId,
+                    title: "Card payment failed", message: "A customer could not complete a card checkout. No order has been placed.", href: "/admin/orders" });
+                dispatchNotifications();
+            }
         }
         return null;
     }
@@ -138,6 +154,7 @@ export async function applyStripePayment(intent: Stripe.PaymentIntent) {
                     { new: true, session }
                 );
                 if (!product) throw new AppError("A product became unavailable before payment completed", 409);
+                await queueStockNotifications(product, product.stock + item.quantity, session);
             }
 
             const [order] = await Order.create([{
@@ -145,6 +162,7 @@ export async function applyStripePayment(intent: Stripe.PaymentIntent) {
                 paymentMethod: "stripe", paymentStatus: "paid", orderStatus: "pending",
                 stripePaymentIntentId: intent.id,
             }], { session });
+            await queueOrderNotifications(order, session);
 
             const cart = await Cart.findOne({ user: current.user }).session(session);
             if (cart) {
@@ -176,6 +194,7 @@ export async function applyStripePayment(intent: Stripe.PaymentIntent) {
     }
 
     if (created && orderId) {
+        dispatchNotifications();
         try {
             const order = await Order.findById(orderId);
             if (order) await sendOrderConfirmationEmail(order);
