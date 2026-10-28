@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { HiOutlineBars3, HiOutlineXMark, HiOutlineChevronDown, HiOutlineArrowRightOnRectangle } from "react-icons/hi2";
 import { useAuth } from "@/context/AuthContext";
 import LogoutDialog from "@/components/auth/LogoutDialog";
+import NotificationBell from "@/components/notifications/NotificationBell";
 
 const navigation = [
     { href: "/products", label: "Products" },
@@ -109,6 +110,7 @@ export default function Navbar() {
                 </div>
 
                 <div className="flex items-center gap-3">
+                    <NotificationBell />
                     {!loading && !user && (
                         <Link href="/auth/login" className="hidden rounded-lg bg-black px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800 md:block">Login</Link>
                     )}
