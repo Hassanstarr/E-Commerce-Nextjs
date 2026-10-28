@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type PointerEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { HiOutlineBell, HiOutlineCheck, HiOutlineXMark, HiOutlineShoppingBag, HiOutlineSparkles, HiOutlineChatBubbleLeftRight } from "react-icons/hi2";
@@ -28,6 +28,8 @@ export default function NotificationBell({ items = [], unreadCount = 0, loading 
     const router = useRouter();
     const titleId = useId();
     const dialogRef = useRef<HTMLDialogElement>(null);
+    const touchStart = useRef<{ id: number; x: number; y: number } | null>(null);
+    const backdropPointer = useRef<number | null>(null);
     const [open, setOpen] = useState(false);
     const [localFilter, setLocalFilter] = useState<NotificationFilter>("all");
     const selectedFilter = filter ?? localFilter;
@@ -39,12 +41,24 @@ export default function NotificationBell({ items = [], unreadCount = 0, loading 
         const dialog = dialogRef.current;
         const previousOverflow = document.body.style.overflow;
         document.body.style.overflow = "hidden";
-        dialog?.showModal();
         return () => {
             document.body.style.overflow = previousOverflow;
             dialog?.close();
         };
     }, [open]);
+
+    const openNotifications = () => {
+        const dialog = dialogRef.current;
+        if (!dialog || dialog.open) return;
+        dialog.showModal();
+        setOpen(true);
+    };
+
+    const isBackdrop = (event: PointerEvent<HTMLDialogElement>) => {
+        if (event.target !== event.currentTarget) return false;
+        const bounds = event.currentTarget.getBoundingClientRect();
+        return event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom;
+    };
 
     const selectFilter = (value: NotificationFilter) => {
         setLocalFilter(value);
@@ -59,11 +73,28 @@ export default function NotificationBell({ items = [], unreadCount = 0, loading 
 
     return (
         <>
-            <button type="button" onClick={() => setOpen(true)} aria-label={`Notifications${count ? `, ${count} unread` : ""}`} aria-haspopup="dialog" aria-expanded={open} className="relative flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-100 hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900">
-                <HiOutlineBell aria-hidden="true" className="h-6 w-6" />
-                {count > 0 && <span className="absolute right-0 top-0 flex min-w-5 items-center justify-center rounded-full bg-gray-900 px-1 text-[10px] font-semibold leading-5 text-white">{count > 99 ? "99+" : count}</span>}
+            <button type="button" onClick={openNotifications}
+                onPointerDown={(event) => {
+                    if (event.pointerType === "touch" && event.isPrimary) touchStart.current = { id: event.pointerId, x: event.clientX, y: event.clientY };
+                }}
+                onPointerUp={(event) => {
+                    const start = touchStart.current;
+                    touchStart.current = null;
+                    if (start?.id === event.pointerId && Math.hypot(event.clientX - start.x, event.clientY - start.y) <= 10) openNotifications();
+                }}
+                onPointerCancel={() => { touchStart.current = null; }}
+                aria-label={`Notifications${count ? `, ${count} unread` : ""}`} aria-haspopup="dialog" aria-expanded={open} className="relative flex h-11 w-11 shrink-0 touch-manipulation cursor-pointer items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-100 hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900">
+                <HiOutlineBell aria-hidden="true" className="pointer-events-none h-6 w-6" />
+                {count > 0 && <span className="pointer-events-none absolute right-0 top-0 flex min-w-5 items-center justify-center rounded-full bg-gray-900 px-1 text-[10px] font-semibold leading-5 text-white">{count > 99 ? "99+" : count}</span>}
             </button>
-            <dialog ref={dialogRef} aria-labelledby={titleId} onClose={() => setOpen(false)} onClick={(event) => { if (event.target === event.currentTarget) setOpen(false); }} className="fixed inset-x-0 bottom-0 top-auto m-0 w-full max-w-none overflow-hidden rounded-t-2xl border border-gray-200 bg-white p-0 text-gray-900 shadow-xl backdrop:bg-black/30 sm:bottom-auto sm:left-auto sm:right-5 sm:top-20 sm:w-[420px] sm:rounded-2xl">
+            <dialog ref={dialogRef} aria-labelledby={titleId} onClose={() => setOpen(false)}
+                onPointerDown={(event) => { backdropPointer.current = isBackdrop(event) ? event.pointerId : null; }}
+                onPointerUp={(event) => {
+                    if (backdropPointer.current === event.pointerId && isBackdrop(event)) setOpen(false);
+                    backdropPointer.current = null;
+                }}
+                onPointerCancel={() => { backdropPointer.current = null; }}
+                className="fixed inset-x-0 bottom-0 top-auto m-0 w-full max-w-none overflow-hidden rounded-t-2xl border border-gray-200 bg-white p-0 text-gray-900 shadow-xl backdrop:bg-black/30 sm:bottom-auto sm:left-auto sm:right-5 sm:top-20 sm:w-[420px] sm:rounded-2xl">
                 <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
                     <div>
                         <h2 id={titleId} className="text-lg font-semibold">Notifications</h2>
