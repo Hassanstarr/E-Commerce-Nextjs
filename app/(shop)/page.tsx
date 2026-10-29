@@ -88,7 +88,7 @@ export default async function HomePage() {
                         </p>
 
                         <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl lg:text-6xl">
-                            Find products you'll love.
+                            Find products you&apos;ll love.
                         </h1>
 
                         <p className="mt-6 max-w-2xl text-lg leading-8 text-gray-600">
@@ -144,6 +144,7 @@ export default async function HomePage() {
                                 <ProductCard
                                     key={product._id}
                                     product={product}
+                                    eager
                                 />
                             ))}
                         </div>
@@ -308,7 +309,7 @@ export default async function HomePage() {
 
                     <p className="mx-auto mt-3 max-w-xl text-gray-300">
                         Explore our products and find something that
-                        fits what you're looking for.
+                        fits what you&apos;re looking for.
                     </p>
 
                     <Link

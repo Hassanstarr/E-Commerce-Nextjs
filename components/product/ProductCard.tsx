@@ -4,6 +4,7 @@ import ProductPrice from "@/components/product/ProductPrice";
 import AddToCartButton from "@/components/cart/AddToCartButton";
 
 type ProductCardProps = {
+    eager?: boolean;
     product: {
         _id: string;
         name: string;
@@ -23,7 +24,7 @@ type ProductCardProps = {
     };
 };
 
-export default function ProductCard({ product }: ProductCardProps) {
+export default function ProductCard({ product, eager = false }: ProductCardProps) {
     return (
         <div className="flex h-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white transition-all duration-300 ease-out hover:scale-[1.03] hover:shadow-xl">
             <Link href={`/products/${product._id}`}>
@@ -32,6 +33,7 @@ export default function ProductCard({ product }: ProductCardProps) {
                         src={product.image}
                         alt={product.name}
                         fill
+                        loading={eager ? "eager" : "lazy"}
                         sizes="(min-width: 1280px) 294px, (min-width: 1024px) calc((100vw - 80px) / 3), (min-width: 640px) calc((100vw - 56px) / 2), calc(100vw - 32px)"
                         className="object-cover"
                     />
