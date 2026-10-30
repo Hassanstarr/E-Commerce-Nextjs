@@ -1,37 +1,11 @@
 import Link from "next/link";
+import Image from "next/image";
+import { redirect } from "next/navigation";
+import { getPublicCategories } from "@/services/public-catalog.service";
+import { categoryPath } from "@/lib/catalog-url";
+import { catalogPagePath, pageMetadata } from "@/lib/seo";
 import CatalogPagination from "@/components/ui/CatalogPagination";
 import { getCatalogQuery, paginateCatalog } from "@/lib/catalog";
-
-type Category = {
-    _id: string;
-    name: string;
-    description?: string;
-    image?: string;
-};
-
-type CategoriesResponse = {
-    success: boolean;
-    data: {
-        categories: Category[];
-    };
-};
-
-async function getCategories(): Promise<Category[]> {
-    const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/categories`,
-        {
-            cache: "no-store",
-        }
-    );
-
-    if (!response.ok) {
-        throw new Error("Failed to fetch categories");
-    }
-
-    const result: CategoriesResponse = await response.json();
-
-    return result.data.categories;
-}
 
 type CategoriesPageProps = {
     searchParams: Promise<{
@@ -40,16 +14,30 @@ type CategoriesPageProps = {
     }>;
 };
 
+export async function generateMetadata({ searchParams }: CategoriesPageProps) {
+    const params = await searchParams;
+    const search = getCatalogQuery(params.q);
+    const categories = await getPublicCategories();
+    const query = search.toLowerCase();
+    const filtered = categories.filter((category) => !query || category.name.toLowerCase().includes(query) || category.description?.toLowerCase().includes(query));
+    const pagination = paginateCatalog(filtered, getCatalogQuery(params.page));
+    return pageMetadata(`Categories${pagination.page > 1 ? ` – Page ${pagination.page}` : ""}`, "Explore ShopEase categories and discover products, prices and offers in each collection.", catalogPagePath("/categories", pagination.page, search), undefined, Boolean(search));
+}
+
 export default async function CategoriesPage({ searchParams }: CategoriesPageProps) {
     const params = await searchParams;
     const search = getCatalogQuery(params.q);
-    const categories = await getCategories();
+    const categories = await getPublicCategories();
     const query = search.toLowerCase();
     const filteredCategories = categories.filter((category) =>
         !query || category.name.toLowerCase().includes(query) ||
         category.description?.toLowerCase().includes(query)
     );
-    const pagination = paginateCatalog(filteredCategories, getCatalogQuery(params.page));
+    const pageValue = getCatalogQuery(params.page);
+    const pagination = paginateCatalog(filteredCategories, pageValue);
+    if (pageValue && (pageValue !== String(pagination.page) || pagination.page === 1)) {
+        redirect(catalogPagePath("/categories", pagination.page, search));
+    }
 
     return (
         <section className="flex flex-1 bg-gray-50 items-center justify-center">
@@ -116,14 +104,18 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
                         {pagination.items.map((category) => (
                             <Link
                                 key={category._id}
-                                href={`/products?category=${category._id}`}
+                                href={categoryPath(category)}
                                 className="group overflow-hidden rounded-xl border border-gray-200 bg-white transition hover:-translate-y-1 hover:shadow-lg"
                             >
                                 <div className="flex h-40 items-center justify-center bg-gray-100">
                                     {category.image ? (
-                                        <img
+                                        <Image
                                             src={category.image}
                                             alt={category.name}
+                                            unoptimized={!category.image.startsWith("https://res.cloudinary.com/")}
+                                            width={320}
+                                            height={160}
+                                            sizes="(min-width: 1280px) 294px, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
                                             className="h-full w-full object-cover"
                                         />
                                     ) : (

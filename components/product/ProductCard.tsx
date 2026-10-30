@@ -2,11 +2,14 @@ import Link from "next/link";
 import Image from "next/image";
 import ProductPrice from "@/components/product/ProductPrice";
 import AddToCartButton from "@/components/cart/AddToCartButton";
+import { productPath } from "@/lib/catalog-url";
 
 type ProductCardProps = {
     eager?: boolean;
+    headingLevel?: 2 | 3;
     product: {
         _id: string;
+        slug?: string;
         name: string;
         description: string;
         price: number;
@@ -24,10 +27,11 @@ type ProductCardProps = {
     };
 };
 
-export default function ProductCard({ product, eager = false }: ProductCardProps) {
+export default function ProductCard({ product, eager = false, headingLevel = 2 }: ProductCardProps) {
+    const Heading = headingLevel === 3 ? "h3" : "h2";
     return (
         <div className="flex h-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white transition-all duration-300 ease-out hover:scale-[1.03] hover:shadow-xl">
-            <Link href={`/products/${product._id}`}>
+            <Link href={productPath(product)}>
                 <div className="relative h-56 w-full bg-gray-100">
                     <Image
                         src={product.image}
@@ -45,10 +49,10 @@ export default function ProductCard({ product, eager = false }: ProductCardProps
                     {product.category.name}
                 </p>
 
-                <Link href={`/products/${product._id}`}>
-                    <h2 className="mt-1 line-clamp-1 text-lg font-semibold text-gray-900 hover:text-gray-600">
+                <Link href={productPath(product)}>
+                    <Heading className="mt-1 line-clamp-1 text-lg font-semibold text-gray-900 hover:text-gray-600">
                         {product.name}
-                    </h2>
+                    </Heading>
                 </Link>
 
                 <p className="mt-2 line-clamp-2 text-sm text-gray-500">

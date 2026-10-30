@@ -2,21 +2,24 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { categoryPath } from "@/lib/catalog-url";
 
 type Category = {
     _id: string;
     name: string;
+    slug?: string;
 };
 
 type ProductFilterProps = {
     categories: Category[];
+    selectedCategoryId?: string;
 };
 
-export default function ProductFilter({categories}: ProductFilterProps) {
+export default function ProductFilter({ categories, selectedCategoryId }: ProductFilterProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
 
-    const selectedCategory = searchParams.get("category") || "";
+    const selectedCategory = selectedCategoryId || searchParams.get("category") || "";
     const search = searchParams.get("q") || "";
 
     const handleCategoryChange = (
@@ -28,10 +31,10 @@ export default function ProductFilter({categories}: ProductFilterProps) {
         const form = event.currentTarget.form;
         const query = form ? String(new FormData(form).get("q") || "").trim() : search;
 
-        if (categoryId) params.set("category", categoryId);
         if (query) params.set("q", query);
-
-        router.push(params.size ? `/products?${params.toString()}` : "/products");
+        const category = categories.find((item) => item._id === categoryId);
+        const path = category ? categoryPath(category) : "/products";
+        router.push(params.size ? `${path}?${params.toString()}` : path);
     };
 
     return (

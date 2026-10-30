@@ -9,7 +9,7 @@ export async function getWishlist(userId: string) {
     await expireProductDiscounts();
     const wishlist = await Wishlist.findOne({ user: userId }).populate({
         path: "products",
-        select: "name description price discountPercent discountEndsAt discountAudience memberDiscountPercent memberDiscountEndsAt image stock category",
+        select: "name slug description price discountPercent discountEndsAt discountAudience memberDiscountPercent memberDiscountEndsAt image stock category",
         populate: {
             path: "category",
             model: Category,

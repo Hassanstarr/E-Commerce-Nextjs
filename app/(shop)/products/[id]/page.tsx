@@ -1,60 +1,20 @@
 import Image from "next/image";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import AddToCartButton from "@/components/cart/AddToCartButton";
 import AddToWishlistButton from "@/components/wishlist/AddToWishlistButton";
 import ProductPrice from "@/components/product/ProductPrice";
 import DiscountTimer from "@/components/product/DiscountTimer";
-import type { ProductDiscount } from "@/lib/product-pricing";
+import { getPublicProduct } from "@/services/public-catalog.service";
+import { productPath, categoryPath } from "@/lib/catalog-url";
+import { pageMetadata, seoDescription, productStructuredData, serializeJsonLd } from "@/lib/seo";
 
-type Product = ProductDiscount & {
-    _id: string;
-    name: string;
-    description: string;
-    price: number;
-    image: string;
-    stock: number;
-    category: {
-        _id: string;
-        name: string;
-    };
-};
-
-type ProductResponse = {
-    success: boolean;
-    data: {
-        product: Product;
-    };
-};
-
-
-function isValidObjectId(id: string): boolean {
-    return /^[a-fA-F0-9]{24}$/.test(id);
-}
-
-async function getProduct(id: string): Promise<Product | null> {
-    if (!isValidObjectId(id)) {
-        return null;
-    }
-
-    const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/products/${id}`,
-        {
-            cache: "no-store",
-        }
-    );
-
-    if (response.status === 404) {
-        return null;
-    }
-
-    if (!response.ok) {
-        throw new Error("Failed to fetch product");
-    }
-
-    const result: ProductResponse = await response.json();
-
-    return result.data.product;
+async function getProduct(identifier: string) {
+    const product = await getPublicProduct(identifier);
+    if (!product) notFound();
+    const path = productPath(product);
+    if (`/products/${identifier}` !== path) permanentRedirect(path);
+    return product;
 }
 
 type ProductDetailsPageProps = {
@@ -62,6 +22,11 @@ type ProductDetailsPageProps = {
         id: string;
     }>;
 };
+
+export async function generateMetadata({ params }: ProductDetailsPageProps) {
+    const product = await getProduct((await params).id);
+    return pageMetadata(product.name, seoDescription(product.description), productPath(product), product.image);
+}
 
 export default async function ProductDetailsPage({ params }: ProductDetailsPageProps) {
     const { id } = await params;
@@ -74,6 +39,7 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
 
     return (
         <section className="flex-1 bg-gray-50">
+            <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(productStructuredData(product)) }} />
             <div className="mx-auto max-w-7xl px-4 py-10">
                 <Link
                     href="/products"
@@ -89,14 +55,14 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
                             alt={product.name}
                             fill
                             sizes="(min-width: 1280px) 564px, (min-width: 768px) calc((100vw - 152px) / 2), calc(100vw - 80px)"
-                            priority
+                            loading="eager"
                             className="object-cover"
                         />
                     </div>
 
                     <div className="flex flex-col justify-center">
                         <p className="text-sm font-medium text-gray-500">
-                            {product.category.name}
+                            <Link href={categoryPath(product.category)} className="hover:text-black">{product.category.name}</Link>
                         </p>
 
                         <h1 className="mt-2 text-3xl font-bold text-gray-900 md:text-4xl">

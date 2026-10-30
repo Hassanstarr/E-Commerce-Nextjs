@@ -1,7 +1,9 @@
 import mongoose, { Document, Model } from "mongoose";
+import { catalogSlug } from "@/lib/catalog-url";
 
 export interface ICategory extends Document {
     name: string;
+    slug?: string;
     description?: string;
     image?: string;
     createdAt: Date;
@@ -19,6 +21,8 @@ const categorySchema = new mongoose.Schema<ICategory>(
             maxlength: [50, "Category name cannot exceed 50 characters"],
         },
 
+        slug: { type: String, immutable: true },
+
         description: {
             type: String,
             trim: true,
@@ -34,6 +38,11 @@ const categorySchema = new mongoose.Schema<ICategory>(
         timestamps: true,
     }
 );
+
+categorySchema.pre("validate", function () {
+    if (!this.slug && this.name) this.slug = catalogSlug(this.name, String(this._id));
+});
+categorySchema.index({ slug: 1 }, { unique: true, partialFilterExpression: { slug: { $type: "string" } } });
 
 categorySchema.index(
     { name: 1 },
