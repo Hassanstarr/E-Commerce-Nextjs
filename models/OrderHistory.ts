@@ -24,7 +24,7 @@ const orderHistorySchema = new Schema(
         changedBy: {
             type: Schema.Types.ObjectId,
             ref: "User",
-            required: true,
+            required: false,
         },
 
         note: {

@@ -42,7 +42,7 @@ export type Order = {
     deliveryFee: number;
     total: number;
     paymentMethod: "cod" | "stripe";
-    paymentStatus: "pending" | "paid";
+    paymentStatus: "pending" | "paid" | "refund_pending" | "refunded";
     orderStatus:
         | "pending"
         | "confirmed"

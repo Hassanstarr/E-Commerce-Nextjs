@@ -60,7 +60,7 @@ const statusColors: Record<string, string> = {
     cancelled: "#D1D5DB",
 };
 
-const paymentColors = ["#111827", "#9CA3AF"];
+const paymentColors = ["#9CA3AF", "#111827", "#D97706", "#2563EB"];
 
 const chartTooltipStyle = {
     borderRadius: "8px",

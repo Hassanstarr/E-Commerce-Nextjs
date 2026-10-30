@@ -3,8 +3,9 @@ import Product from "@/models/Product";
 import User from "@/models/User";
 import Category from "@/models/Category";
 import OrderHistory from "@/models/OrderHistory";
-import { createActivityLog } from "./activity.service";
-import { canChangeOrderStatus, canChangePaymentStatus } from "@/lib/order-status";
+import ActivityLog from "@/models/ActivityLog";
+import { canChangeOrderStatus, canChangePaymentStatus, cancellationRestoresStock } from "@/lib/order-status";
+import { refundAdminOrder } from "./order-refund.service";
 import AppError from "@/lib/AppError";
 import mongoose from "mongoose";
 import { recordSubscriptionEvents } from "@/services/subscription-event.service";
@@ -268,6 +269,7 @@ export const getAdminOrderById = async ( orderId: string ) => {
     if (order.orderStatus === "cancelled" && !order.statusBeforeCancellation) {
         order.statusBeforeCancellation = await getStatusBeforeCancellation(orderId);
     }
+    if (order.fulfillmentStarted === undefined) order.fulfillmentStarted = ["shipped", "delivered"].includes(order.orderStatus) || Boolean(await OrderHistory.exists({ order: orderId, status: { $in: ["shipped", "delivered"] } }));
 
     return order;
 };
@@ -286,6 +288,7 @@ const validOrderStatuses = [
 const validPaymentStatuses = [
     "pending",
     "paid",
+    "refunded",
 ];
 
 interface UpdateAdminOrderParams {
@@ -293,9 +296,11 @@ interface UpdateAdminOrderParams {
     paymentStatus?: string;
     changedBy: string;
     note?: string;
+    restock?: boolean;
+    retryRefund?: boolean;
 }
 
-export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentStatus, changedBy, note="" }: UpdateAdminOrderParams ) => {
+export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentStatus, changedBy, note="", restock = false, retryRefund = false }: UpdateAdminOrderParams ) => {
     if (!mongoose.Types.ObjectId.isValid(orderId)) {
         throw new AppError("Invalid order ID", 400);
     }
@@ -306,7 +311,8 @@ export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentS
 
     note = note.trim();
 
-    if (orderStatus === undefined && paymentStatus === undefined && !note) {
+    if (typeof restock !== "boolean" || typeof retryRefund !== "boolean") throw new AppError("Invalid order action", 400);
+    if (orderStatus === undefined && paymentStatus === undefined && !note && !restock && !retryRefund) {
         const error: any = new Error(
             "No update data provided"
         );
@@ -361,26 +367,42 @@ export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentS
         ? existingOrder.statusBeforeCancellation || await getStatusBeforeCancellation(orderId)
         : undefined;
 
-    if (orderStatus !== undefined && !canChangeOrderStatus(previousStatus, orderStatus, statusBeforeCancellation)) {
+    if (orderStatus !== undefined && !canChangeOrderStatus(previousStatus, orderStatus, statusBeforeCancellation, previousPaymentStatus)) {
         throw new AppError(
-            `Cannot change order status from ${previousStatus} to ${orderStatus}. Move one stage forward or backward, or cancel the order. Cancelled orders can only return to their previous stage.`,
+            `Cannot change order status from ${previousStatus} to ${orderStatus}. Paid orders cannot move backwards, and refunded orders cannot be reopened. Otherwise move one stage at a time or restore the previous cancelled stage.`,
             400
         );
     }
 
-    if (paymentStatus !== undefined && !canChangePaymentStatus(previousPaymentStatus, paymentStatus, orderStatus || previousStatus)) {
+    if (paymentStatus !== undefined && !canChangePaymentStatus(previousPaymentStatus, paymentStatus, orderStatus || previousStatus, existingOrder.paymentMethod)) {
         throw new AppError(
-            "Payment can only change from pending to paid after delivery. Paid payments cannot be reversed.",
+            "Only delivered cash payments can be marked paid. Cancelled cash payments can be marked refunded after returning the money. Stripe payments are managed by Stripe.",
             400
         );
     }
 
-    const shouldRestoreStock = orderStatus === "cancelled" && previousStatus !== "cancelled";
-    const shouldReserveStock = previousStatus === "cancelled" && orderStatus !== undefined && orderStatus !== "cancelled";
+    const cancelling = orderStatus === "cancelled" && previousStatus !== "cancelled";
+    const fulfillmentStarted = existingOrder.fulfillmentStarted ?? (["shipped", "delivered"].includes(previousStatus) || Boolean(await OrderHistory.exists({ order: orderId, status: { $in: ["shipped", "delivered"] } })));
+    updateData.fulfillmentStarted = fulfillmentStarted || orderStatus === "shipped" || orderStatus === "delivered";
+    // Legacy cancellations always restored stock. Never restock those orders twice.
+    const stockRestored = existingOrder.stockRestored ?? previousStatus === "cancelled";
+    if (restock && (previousStatus !== "cancelled" || stockRestored || (orderStatus && orderStatus !== "cancelled"))) throw new AppError("Only cancelled orders with unreturned stock can be restocked", 400);
+    if (retryRefund && (previousStatus !== "cancelled" || existingOrder.paymentMethod !== "stripe" || !["paid", "refund_pending"].includes(previousPaymentStatus))) throw new AppError("This order has no card refund to retry", 400);
+    if (retryRefund && orderStatus && orderStatus !== "cancelled") throw new AppError("A refund cannot be retried while reopening an order", 400);
+    const shouldRestoreStock = (cancelling && !fulfillmentStarted && cancellationRestoresStock(previousStatus)) || restock;
+    const shouldReserveStock = previousStatus === "cancelled" && orderStatus !== undefined && orderStatus !== "cancelled" && stockRestored;
 
-    if (shouldRestoreStock) {
+    if (cancelling) {
         updateData.statusBeforeCancellation = previousStatus;
+        updateData.stockRestored = shouldRestoreStock;
     }
+    if (restock) updateData.stockRestored = true;
+    if (previousStatus === "cancelled" && orderStatus && orderStatus !== "cancelled") updateData.stockRestored = false;
+    if ((cancelling || retryRefund) && existingOrder.paymentMethod === "stripe" && previousPaymentStatus === "paid") {
+        paymentStatus = "refund_pending";
+        updateData.paymentStatus = paymentStatus;
+    }
+    if (paymentStatus === "refunded" && (orderStatus || previousStatus) !== "cancelled") throw new AppError("Refunded orders must stay cancelled", 400);
 
     const session = await mongoose.startSession();
     let updatedOrder;
@@ -392,11 +414,12 @@ export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentS
                     _id: orderId,
                     orderStatus: previousStatus,
                     paymentStatus: previousPaymentStatus,
+                    stockRestored: existingOrder.stockRestored ?? { $exists: false },
                     updatedAt: existingOrder.updatedAt,
                 },
                 {
                     $set: updateData,
-                    ...(shouldReserveStock ? { $unset: { statusBeforeCancellation: "" } } : {}),
+                    ...(previousStatus === "cancelled" && orderStatus && orderStatus !== "cancelled" ? { $unset: { statusBeforeCancellation: "" } } : {}),
                 },
                 {
                     new: true,
@@ -448,6 +471,28 @@ export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentS
                 key: `order:${orderId}:payment:${order.updatedAt.getTime()}`, type: "payment", audience: "user", userId: order.user.toString(),
                 title: "Payment status updated", message: `Your order payment is now ${paymentStatus}.`, href: "/orders",
             }, session);
+            const activity = [];
+            if (paymentStatus && paymentStatus !== previousPaymentStatus) activity.push({
+                user: changedBy, action: "update_payment_status", entityType: "order", entityId: orderId,
+                description: `Order payment status changed from ${previousPaymentStatus} to ${paymentStatus}`,
+                metadata: { previousStatus: previousPaymentStatus, newStatus: paymentStatus, note },
+            });
+            if (orderStatus && orderStatus !== previousStatus) activity.push({
+                user: changedBy, action: "update_order_status", entityType: "order", entityId: orderId,
+                description: `Order status changed from ${previousStatus} to ${orderStatus}`,
+                metadata: { previousStatus, newStatus: orderStatus, note },
+            });
+            if (restock || (note && !activity.length)) activity.push({
+                user: changedBy, action: restock ? "restock_order" : "add_order_note", entityType: "order", entityId: orderId,
+                description: restock ? "Returned order items checked and restocked" : "Note added to order", metadata: { note },
+            });
+            if (activity.length) {
+                await ActivityLog.insertMany(activity, { session });
+                await OrderHistory.create([{ order: orderId, status: orderStatus || previousStatus, changedBy,
+                    note: [note, restock ? "Returned items checked and restocked by admin." : "",
+                        paymentStatus && paymentStatus !== previousPaymentStatus ? `Payment: ${previousPaymentStatus} → ${paymentStatus}.` : ""].filter(Boolean).join(" "),
+                }], { session });
+            }
             return order;
         });
     } finally {
@@ -455,56 +500,15 @@ export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentS
     }
 
     dispatchNotifications();
-    if ( paymentStatus && paymentStatus !== previousPaymentStatus ) {
-        await createActivityLog({
-            user: changedBy,
-            action: "update_payment_status",
-            entityType: "order",
-            entityId: orderId,
-            description: `Order payment status changed from ${previousPaymentStatus} to ${paymentStatus}`,
-            metadata: {
-                previousStatus: previousPaymentStatus,
-                newStatus: paymentStatus,
-                note,
-            },
-        });
+    if (existingOrder.paymentMethod === "stripe" && (cancelling || retryRefund) && ["paid", "refund_pending"].includes(previousPaymentStatus)) {
+        try {
+            await refundAdminOrder(orderId, changedBy);
+            updatedOrder = await Order.findById(orderId).lean();
+        } catch (error) {
+            console.error("Order refund needs retry:", error instanceof Error ? error.message : "Unknown refund error");
+            return { ...updatedOrder, refundWarning: "Order saved, but the card refund is not confirmed. Use Check / retry refund to try again, or review the payment in Stripe." };
+        }
     }
-
-    if ((orderStatus && orderStatus !== previousStatus) || note) {
-        await OrderHistory.create({
-            order: orderId,
-            status: orderStatus || previousStatus,
-            changedBy,
-            note,
-        });
-    }
-
-    if ( orderStatus && orderStatus !== previousStatus ) {
-        await createActivityLog({
-            user: changedBy,
-            action: "update_order_status",
-            entityType: "order",
-            entityId: orderId,
-            description: `Order status changed from ${previousStatus} to ${orderStatus}`,
-            metadata: {
-                previousStatus,
-                newStatus: orderStatus,
-                note,
-            },
-        });
-    }
-
-    if (note && (!orderStatus || orderStatus === previousStatus) && (!paymentStatus || paymentStatus === previousPaymentStatus)) {
-        await createActivityLog({
-            user: changedBy,
-            action: "add_order_note",
-            entityType: "order",
-            entityId: orderId,
-            description: "Note added to order",
-            metadata: { note },
-        });
-    }
-
     return updatedOrder;
 };
 
@@ -830,7 +834,7 @@ export const getAdminAnalytics = async ( requestedPeriod: string = "30" ) => {
         ]),
 
         Order.aggregate([
-            { $match: currentDateMatch },
+            { $match: { ...currentDateMatch, $nor: [{ orderStatus: "cancelled", paymentStatus: { $in: ["paid", "pending"] } }] } },
             {
                 $group: {
                     _id: "$paymentStatus",
@@ -1094,7 +1098,7 @@ export const getAdminAnalytics = async ( requestedPeriod: string = "30" ) => {
         "cancelled",
     ];
 
-    const paymentOrder = ["pending", "paid"];
+    const paymentOrder = ["pending", "paid", "refund_pending", "refunded"];
 
     const orderStatusMap = new Map(
         orderStatusCounts.map((item) => [
@@ -1116,7 +1120,7 @@ export const getAdminAnalytics = async ( requestedPeriod: string = "30" ) => {
     }));
 
     const paymentStatusDistribution = paymentOrder.map((status) => ({
-        name: status === "paid" ? "Paid" : "Pending",
+        name: status === "paid" ? "Paid" : status === "refunded" ? "Refunded" : status === "refund_pending" ? "Refund pending" : "Pending",
         count: paymentStatusMap.get(status) || 0,
     }));
 
