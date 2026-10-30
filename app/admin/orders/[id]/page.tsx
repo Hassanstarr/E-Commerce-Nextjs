@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import { adminFetch } from "@/lib/admin-api";
 import { canChangeOrderStatus, canChangePaymentStatus } from "@/lib/order-status";
 
@@ -33,6 +33,8 @@ type OrderDetails = {
     paymentStatus: string;
     orderStatus: string;
     statusBeforeCancellation?: string;
+    stockRestored?: boolean;
+    fulfillmentStarted?: boolean;
     createdAt: string;
 };
 
@@ -60,7 +62,7 @@ function formatDate(date: string) {
 
 function formatStatus(status: string) {
     return (
-        status.charAt(0).toUpperCase() + status.slice(1)
+        status.charAt(0).toUpperCase() + status.slice(1).replaceAll("_", " ")
     );
 }
 
@@ -91,6 +93,12 @@ function getPaymentClass(status: string) {
         case "paid":
             return "border-green-200 bg-green-50 text-green-700";
 
+        case "refunded":
+            return "border-blue-200 bg-blue-50 text-blue-700";
+
+        case "refund_pending":
+            return "border-amber-200 bg-amber-50 text-amber-700";
+
         case "failed":
             return "border-red-200 bg-red-50 text-red-700";
 
@@ -104,7 +112,6 @@ function getPaymentClass(status: string) {
 
 export default function AdminOrderDetailsPage() {
     const params = useParams();
-    const router = useRouter();
 
     const id = params.id as string;
 
@@ -116,10 +123,11 @@ export default function AdminOrderDetailsPage() {
     const [selectedStatus, setSelectedStatus] = useState("");
     const [selectedPaymentStatus, setSelectedPaymentStatus] = useState("");
     const [note, setNote] = useState("");
+    const [notice, setNotice] = useState("");
 
-    const loadOrder = async () => {
+    const loadOrder = useCallback(async (showLoading = true) => {
         try {
-            setLoading(true);
+            if (showLoading) setLoading(true);
             setError("");
 
             const [ orderResponse, historyResponse ] = await Promise.all([
@@ -143,21 +151,21 @@ export default function AdminOrderDetailsPage() {
             setSelectedStatus(orderResponse.data.orderStatus);
             setSelectedPaymentStatus(orderResponse.data.paymentStatus);
 
-        } catch (error: any) {
+        } catch (error) {
             setError(
-                error?.message ||
+                error instanceof Error ? error.message :
                 "Failed to load order"
             );
         } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        if (id) {
-            loadOrder();
+            if (showLoading) setLoading(false);
         }
     }, [id]);
+
+    useEffect(() => {
+        if (!id) return;
+        const timeout = window.setTimeout(() => { void loadOrder(); }, 0);
+        return () => window.clearTimeout(timeout);
+    }, [id, loadOrder]);
 
     const updateOrder = async () => {
         if (!order) return;
@@ -168,12 +176,14 @@ export default function AdminOrderDetailsPage() {
         if (!statusChanged && !paymentChanged && !note.trim()) {
             return;
         }
+        if (selectedStatus === "cancelled" && order.orderStatus !== "cancelled" && !window.confirm(cancellationMessage())) return;
+        if (selectedPaymentStatus === "refunded" && paymentChanged && !window.confirm("Confirm you have already returned the full cash payment to the customer. This records the refund; it does not transfer money.")) return;
 
         try {
             setUpdating(true);
             setError("");
 
-            await adminFetch(
+            const response = await adminFetch<{ data: { refundWarning?: string } }>(
                 `/api/admin/orders/${id}`,
                 {
                     method: "PATCH",
@@ -187,9 +197,39 @@ export default function AdminOrderDetailsPage() {
 
             setNote("");
 
-            await loadOrder();
-        } catch (error: any) {
-            setError(error?.message || "Failed to update order");
+            await loadOrder(false);
+            setNotice(response.data.refundWarning || "Order updated successfully.");
+        } catch (error) {
+            setError(error instanceof Error ? error.message : "Failed to update order");
+        } finally {
+            setUpdating(false);
+        }
+    };
+
+    const cancellationMessage = () => {
+        if (!order) return "Cancel this order?";
+        return "Cancel this order? " +
+            (order.fulfillmentStarted || ["shipped", "delivered"].includes(order.orderStatus)
+                ? "Stock will only be restored after you confirm the items were returned. "
+                : "Unshipped items will return to stock. ") +
+            (order.paymentStatus === "paid"
+                ? order.paymentMethod === "stripe" ? "A full card refund will be requested. This cannot be undone." : "Return the cash separately, then mark the payment Refunded."
+                : "You can restore the previous stage later if no refund has started.");
+    };
+
+    const runOrderAction = async (action: "restock" | "retryRefund") => {
+        if (action === "restock" && !window.confirm("Confirm all items have been physically returned and checked. Add them back to available stock?")) return;
+        try {
+            setUpdating(true);
+            setError("");
+            setNotice("");
+            const response = await adminFetch<{ data: { refundWarning?: string } }>(`/api/admin/orders/${id}`, {
+                method: "PATCH", body: JSON.stringify({ [action]: true }),
+            });
+            await loadOrder(false);
+            setNotice(response.data.refundWarning || (action === "restock" ? "Returned items restocked." : "Refund status checked."));
+        } catch (error) {
+            setError(error instanceof Error ? error.message : "Unable to update order");
         } finally {
             setUpdating(false);
         }
@@ -198,16 +238,11 @@ export default function AdminOrderDetailsPage() {
     const cancelOrder = async () => {
         if (!order) return;
 
-        if (!canChangeOrderStatus(order.orderStatus, "cancelled", order.statusBeforeCancellation) || order.orderStatus === "cancelled") {
+        if (!canChangeOrderStatus(order.orderStatus, "cancelled", order.statusBeforeCancellation, order.paymentStatus) || order.orderStatus === "cancelled") {
             return;
         }
 
-        const confirmed = window.confirm(
-            "Cancel this order? Product quantities will be returned to available stock. " +
-            (order.paymentStatus === "paid"
-                ? "The payment will remain Paid. No automatic refund will be issued."
-                : "You can restore the previous stage later if stock is available.")
-        );
+        const confirmed = window.confirm(cancellationMessage());
 
         if (!confirmed) {
             return;
@@ -217,7 +252,7 @@ export default function AdminOrderDetailsPage() {
             setUpdating(true);
             setError("");
 
-            await adminFetch(
+            const response = await adminFetch<{ data: { refundWarning?: string } }>(
                 `/api/admin/orders/${id}`,
                 {
                     method: "PATCH",
@@ -228,9 +263,10 @@ export default function AdminOrderDetailsPage() {
                 }
             );
 
-            await loadOrder();
-        } catch (error: any) {
-            setError(error?.message || "Failed to cancel order");
+            await loadOrder(false);
+            setNotice(response.data.refundWarning || "Order cancelled.");
+        } catch (error) {
+            setError(error instanceof Error ? error.message : "Failed to cancel order");
         } finally {
             setUpdating(false);
         }
@@ -318,6 +354,7 @@ export default function AdminOrderDetailsPage() {
                     </div>
                 )}
 
+                {notice && <p role="status" className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">{notice}</p>}
                 <div className="grid gap-6 lg:grid-cols-3">
                     <div className="space-y-6 lg:col-span-2">
                         <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -583,35 +620,35 @@ export default function AdminOrderDetailsPage() {
                                         value={selectedStatus}
                                         onChange={( event ) => {
                                             setSelectedStatus(event.target.value);
-                                            if (event.target.value !== "delivered") {
+                                            if (!canChangePaymentStatus(order.paymentStatus, selectedPaymentStatus, event.target.value, order.paymentMethod)) {
                                                 setSelectedPaymentStatus(order.paymentStatus);
                                             }
                                         }}
                                         disabled={updating}
                                         className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-black focus:ring-1 focus:ring-black"
                                     >
-                                        <option value="pending" disabled={!canChangeOrderStatus(order.orderStatus, "pending", order.statusBeforeCancellation)}>
+                                        <option value="pending" disabled={!canChangeOrderStatus(order.orderStatus, "pending", order.statusBeforeCancellation, order.paymentStatus)}>
                                             Pending
                                         </option>
 
-                                        <option value="confirmed" disabled={!canChangeOrderStatus(order.orderStatus, "confirmed", order.statusBeforeCancellation)}>
+                                        <option value="confirmed" disabled={!canChangeOrderStatus(order.orderStatus, "confirmed", order.statusBeforeCancellation, order.paymentStatus)}>
                                             Confirmed
                                         </option>
 
-                                        <option value="shipped" disabled={!canChangeOrderStatus(order.orderStatus, "shipped", order.statusBeforeCancellation)}>
+                                        <option value="shipped" disabled={!canChangeOrderStatus(order.orderStatus, "shipped", order.statusBeforeCancellation, order.paymentStatus)}>
                                             Shipped
                                         </option>
 
-                                        <option value="delivered" disabled={!canChangeOrderStatus(order.orderStatus, "delivered", order.statusBeforeCancellation)}>
+                                        <option value="delivered" disabled={!canChangeOrderStatus(order.orderStatus, "delivered", order.statusBeforeCancellation, order.paymentStatus)}>
                                             Delivered
                                         </option>
 
-                                        <option value="cancelled" disabled={!canChangeOrderStatus(order.orderStatus, "cancelled", order.statusBeforeCancellation)}>
+                                        <option value="cancelled" disabled={!canChangeOrderStatus(order.orderStatus, "cancelled", order.statusBeforeCancellation, order.paymentStatus)}>
                                             Cancelled
                                         </option>
                                     </select>
                                     <p className="mt-2 text-xs text-gray-500">
-                                        Move orders one step at a time. Cancel anytime, even after payment; cancellation restores stock, not refunds. Reinstatement requires available stock.
+                                        Move one step at a time. Paid orders cannot move backwards. Refunded orders cannot be reopened. Shipped items must be returned before restocking.
                                     </p>
                                 </div>
 
@@ -627,19 +664,21 @@ export default function AdminOrderDetailsPage() {
                                         id="payment-status"
                                         value={selectedPaymentStatus}
                                         onChange={( event ) => setSelectedPaymentStatus(event.target.value)}
-                                        disabled={updating}
+                                        disabled={updating || order.paymentMethod === "stripe"}
                                         className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-black focus:ring-1 focus:ring-black"
                                     >
-                                        <option value="pending" disabled={!canChangePaymentStatus(order.paymentStatus, "pending", selectedStatus)}>
+                                        {order.paymentStatus === "refund_pending" && <option value="refund_pending">Refund pending</option>}
+                                        <option value="refunded" disabled={!canChangePaymentStatus(order.paymentStatus, "refunded", selectedStatus, order.paymentMethod)}>Refunded</option>
+                                        <option value="pending" disabled={!canChangePaymentStatus(order.paymentStatus, "pending", selectedStatus, order.paymentMethod)}>
                                             Pending
                                         </option>
 
-                                        <option value="paid" disabled={!canChangePaymentStatus(order.paymentStatus, "paid", selectedStatus)}>
+                                        <option value="paid" disabled={!canChangePaymentStatus(order.paymentStatus, "paid", selectedStatus, order.paymentMethod)}>
                                             Paid
                                         </option>
                                     </select>
                                     <p className="mt-2 text-xs text-gray-500">
-                                        Cash on delivery payments can be marked paid after delivery and cannot be reversed.
+                                        {order.paymentMethod === "stripe" ? "Card payments and refunds are confirmed by Stripe." : "Mark cash payments paid after delivery. For a cancelled paid order, return the money before selecting Refunded."}
                                     </p>
                                 </div>
 
@@ -685,7 +724,7 @@ export default function AdminOrderDetailsPage() {
                                     onClick={cancelOrder}
                                     disabled={
                                         updating ||
-                                        !canChangeOrderStatus(order.orderStatus, "cancelled", order.statusBeforeCancellation) ||
+                                        !canChangeOrderStatus(order.orderStatus, "cancelled", order.statusBeforeCancellation, order.paymentStatus) ||
                                         order.orderStatus === "cancelled"
                                     }
                                     className="w-full rounded-lg border border-red-200 px-4 py-3 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
@@ -693,7 +732,11 @@ export default function AdminOrderDetailsPage() {
                                     Cancel Order
                                 </button>
                                 {order.orderStatus === "cancelled" && (
-                                    <p className="text-xs text-gray-500">This order is already cancelled. Select its previous stage above to restore it.</p>
+                                    <div className="space-y-3">
+                                        <p className="text-xs text-gray-500">{["refunded", "refund_pending"].includes(order.paymentStatus) ? "This order cannot be reopened because a refund has started." : "This order is cancelled. You can restore its previous stage before a refund starts."}</p>
+                                        {order.stockRestored === false && <button type="button" onClick={() => runOrderAction("restock")} disabled={updating} className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium disabled:opacity-50">Restock returned items</button>}
+                                        {order.paymentMethod === "stripe" && ["paid", "refund_pending"].includes(order.paymentStatus) && <button type="button" onClick={() => runOrderAction("retryRefund")} disabled={updating} className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium disabled:opacity-50">Check / retry refund</button>}
+                                    </div>
                                 )}
                             </div>
                         </div>

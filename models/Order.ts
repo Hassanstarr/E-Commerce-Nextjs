@@ -27,7 +27,10 @@ export interface IOrder extends Document {
     paymentMethod: "cod" | "stripe";
     stripePaymentIntentId?: string;
     statusBeforeCancellation?: "pending" | "confirmed" | "shipped" | "delivered";
-    paymentStatus: "pending" | "paid";
+    stripeRefundId?: string;
+    stockRestored?: boolean;
+    fulfillmentStarted?: boolean;
+    paymentStatus: "pending" | "paid" | "refund_pending" | "refunded";
     orderStatus:
         | "pending"
         | "confirmed"
@@ -167,7 +170,7 @@ const orderSchema = new Schema<IOrder>(
 
         paymentStatus: {
             type: String,
-            enum: ["pending", "paid"],
+            enum: ["pending", "paid", "refund_pending", "refunded"],
             default: "pending",
             required: true,
         },
@@ -177,6 +180,10 @@ const orderSchema = new Schema<IOrder>(
             unique: true,
             sparse: true,
         },
+
+        stripeRefundId: String,
+        stockRestored: Boolean,
+        fulfillmentStarted: Boolean,
 
         statusBeforeCancellation: {
             type: String,

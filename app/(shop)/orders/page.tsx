@@ -133,7 +133,7 @@ function OrdersContent() {
                                                 <p className="text-sm text-gray-500">
                                                     {order.paymentMethod === "stripe" ? "Stripe" : "Cash on Delivery"}
                                                     <span className={`ml-2 rounded-full px-3 py-1 text-xs font-medium ${order.paymentStatus === "paid" ? "bg-green-50 text-green-700" : "bg-yellow-50 text-yellow-700"}`}>
-                                                        {order.paymentStatus === "paid" ? "Paid" : "Payment Pending"}
+                                                        {order.paymentStatus === "paid" ? "Paid" : order.paymentStatus === "refunded" ? "Refunded" : order.paymentStatus === "refund_pending" ? "Refund pending" : "Payment Pending"}
                                                     </span>
                                                 </p>
                                             </div>

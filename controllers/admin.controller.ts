@@ -159,9 +159,12 @@ export const updateAdminOrderController = async ( req: NextRequest, orderId: str
     try {
         const authUser = await requireAdmin();
 
-        const body = await req.json();
+        const body = await req.json().catch(() => null);
+        if (!body || typeof body !== "object" || Array.isArray(body)) {
+            return NextResponse.json({ success: false, message: "Provide a valid order update" }, { status: 400 });
+        }
 
-        const { orderStatus, paymentStatus, note } = body;
+        const { orderStatus, paymentStatus, note, restock, retryRefund } = body;
 
         const updatedOrder = await updateAdminOrder(
                 orderId,
@@ -170,6 +173,8 @@ export const updateAdminOrderController = async ( req: NextRequest, orderId: str
                     paymentStatus,
                     changedBy: authUser.userId,
                     note,
+                    restock,
+                    retryRefund,
                 }
             );
 

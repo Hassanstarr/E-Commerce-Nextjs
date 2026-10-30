@@ -35,7 +35,7 @@ type OrderTableProps = {
 function formatStatus( status: string ) {
     return (
         status.charAt(0).toUpperCase() +
-        status.slice(1)
+        status.slice(1).replaceAll("_", " ")
     );
 }
 
@@ -65,6 +65,12 @@ function getPaymentStatusClass( status: string ) {
     switch (status) {
         case "paid":
             return "border-green-200 bg-green-50 text-green-700";
+
+        case "refunded":
+            return "border-blue-200 bg-blue-50 text-blue-700";
+
+        case "refund_pending":
+            return "border-amber-200 bg-amber-50 text-amber-700";
 
         case "failed":
             return "border-red-200 bg-red-50 text-red-700";
@@ -170,6 +176,8 @@ export default function OrderTable({
                         <option value="pending">
                             Pending
                         </option>
+                        <option value="refund_pending">Refund pending</option>
+                        <option value="refunded">Refunded</option>
                     </select>
                 </div>
             </div>

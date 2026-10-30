@@ -35,7 +35,9 @@ const schemas = {
     ]),
     OrderUpdate: z.object({
         orderStatus: z.enum(["pending", "confirmed", "shipped", "delivered", "cancelled"]).optional(),
-        paymentStatus: z.enum(["pending", "paid"]).optional(),
+        paymentStatus: z.enum(["pending", "paid", "refunded"]).optional(),
+        restock: z.boolean().optional(),
+        retryRefund: z.boolean().optional(),
         note: z.string().max(1000).optional(),
     }),
     Contact: z.object({ name: z.string().min(1), email: z.string().min(1), message: z.string().min(1) }),
