@@ -3,15 +3,16 @@ import { getProductPricing, type ProductDiscount } from "@/lib/product-pricing";
 import { productPath } from "@/lib/catalog-url";
 
 export function siteUrl() {
-    const configured = process.env.NEXT_PUBLIC_APP_URL;
+    const deploymentHost = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
+    const configured = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_APP_URL || (deploymentHost ? `https://${deploymentHost}` : undefined);
     if (!configured && process.env.NODE_ENV === "production") {
-        throw new Error("Set NEXT_PUBLIC_APP_URL to the public HTTPS store URL for SEO.");
+        throw new Error("Set NEXT_PUBLIC_API_URL to the public HTTPS store URL for SEO.");
     }
     const url = new URL(configured || "http://localhost:3000");
     const local = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
     if (!["http:", "https:"].includes(url.protocol) || (process.env.NODE_ENV === "production" && url.protocol !== "https:" && !local)
         || (process.env.VERCEL_ENV === "production" && local)) {
-        throw new Error("NEXT_PUBLIC_APP_URL must be a valid store URL (HTTPS in production).");
+        throw new Error("NEXT_PUBLIC_API_URL must be a valid store URL (HTTPS in production).");
     }
     return url.origin;
 }
