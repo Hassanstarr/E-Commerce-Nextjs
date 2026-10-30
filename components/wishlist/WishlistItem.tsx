@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { WishlistProduct } from "@/types/wishlist";
 import ProductPrice from "@/components/product/ProductPrice";
+import { productPath } from "@/lib/catalog-url";
 
 type WishlistItemProps = {
     product: WishlistProduct;
@@ -23,7 +24,7 @@ export default function WishlistItem({
     return (
         <div className="flex flex-col gap-5 border-b border-gray-200 py-6 sm:flex-row sm:items-center">
             <Link
-                href={`/products/${product._id}`}
+                href={productPath(product)}
                 className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-gray-100"
             >
                 <Image
@@ -37,7 +38,7 @@ export default function WishlistItem({
 
             <div className="min-w-0 flex-1">
                 <Link
-                    href={`/products/${product._id}`}
+                    href={productPath(product)}
                     className="font-semibold text-gray-900 transition hover:text-gray-600"
                 >
                     {product.name}

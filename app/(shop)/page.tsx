@@ -1,85 +1,23 @@
 import Link from "next/link";
+import Image from "next/image";
+import { getFeaturedProducts, getPublicCategories } from "@/services/public-catalog.service";
+import { categoryPath } from "@/lib/catalog-url";
+import { pageMetadata } from "@/lib/seo";
 import ProductCard from "@/components/product/ProductCard";
 
-type Product = {
-    _id: string;
-    name: string;
-    description: string;
-    price: number;
-    image: string;
-    stock: number;
-    category: {
-        _id: string;
-        name: string;
-    };
-};
-
-type Category = {
-    _id: string;
-    name: string;
-    description?: string;
-    image?: string;
-};
-
-async function getProducts(): Promise<Product[]> {
-    try {
-        const baseUrl =
-            process.env.NEXT_PUBLIC_API_URL ||
-            "http://localhost:3000";
-
-        const response = await fetch(
-            `${baseUrl}/api/products`,
-            {
-                cache: "no-store",
-            }
-        );
-
-        if (!response.ok) {
-            return [];
-        }
-
-        const result = await response.json();
-
-        return result.data?.products || [];
-    } catch {
-        return [];
-    }
-}
-
-async function getCategories(): Promise<Category[]> {
-    try {
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-
-        const response = await fetch(
-            `${baseUrl}/api/categories`,
-            {
-                cache: "no-store",
-            }
-        );
-
-        if (!response.ok) {
-            return [];
-        }
-
-        const result = await response.json();
-
-        return result.data?.categories || [];
-    } catch {
-        return [];
-    }
-}
+export const metadata = pageMetadata("Shop Products Online", "Explore ShopEase products and categories, compare current prices and discover offers for your next order.", "/");
 
 export default async function HomePage() {
     const [products, categories] = await Promise.all([
-        getProducts(),
-        getCategories(),
+        getFeaturedProducts(),
+        getPublicCategories(),
     ]);
 
     const featuredProducts = products.slice(0, 4);
     const featuredCategories = categories.slice(0, 4);
 
     return (
-        <main className="bg-white">
+        <div className="bg-white">
             <section className="border-b border-gray-200 bg-gray-50">
                 <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8 lg:py-28">
                     <div className="max-w-3xl">
@@ -145,6 +83,7 @@ export default async function HomePage() {
                                     key={product._id}
                                     product={product}
                                     eager
+                                    headingLevel={3}
                                 />
                             ))}
                         </div>
@@ -189,13 +128,17 @@ export default async function HomePage() {
                             {featuredCategories.map((category) => (
                                 <Link
                                     key={category._id}
-                                    href={`/products?category=${category._id}`}
+                                    href={categoryPath(category)}
                                     className="group rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
                                 >
                                     {category.image && (
-                                        <img
+                                        <Image
                                             src={category.image}
                                             alt={category.name}
+                                            unoptimized={!category.image.startsWith("https://res.cloudinary.com/")}
+                                            width={320}
+                                            height={160}
+                                            sizes="(min-width: 1024px) 260px, (min-width: 640px) 50vw, 100vw"
                                             className="mb-5 h-40 w-full rounded-lg object-cover"
                                         />
                                     )}
@@ -320,6 +263,6 @@ export default async function HomePage() {
                     </Link>
                 </div>
             </section>
-        </main>
+        </div>
     );
 }

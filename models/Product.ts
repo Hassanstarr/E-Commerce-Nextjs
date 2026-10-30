@@ -1,7 +1,9 @@
 import mongoose, { Document, Model, Types } from "mongoose";
+import { catalogSlug } from "@/lib/catalog-url";
 
 export interface IProduct extends Document {
     name: string;
+    slug?: string;
     description: string;
     price: number;
     discountPercent: number;
@@ -25,6 +27,8 @@ const productSchema = new mongoose.Schema<IProduct>(
             minlength: [2, "Product name must contain at least 2 characters"],
             maxlength: [100, "Product name cannot exceed 100 characters"],
         },
+
+        slug: { type: String, immutable: true },
 
         description: {
             type: String,
@@ -92,6 +96,10 @@ const productSchema = new mongoose.Schema<IProduct>(
     }
 );
 
+productSchema.pre("validate", function () {
+    if (!this.slug && this.name) this.slug = catalogSlug(this.name, String(this._id));
+});
+productSchema.index({ slug: 1 }, { unique: true, partialFilterExpression: { slug: { $type: "string" } } });
 productSchema.index({ category: 1 });
 productSchema.index({ memberDiscountEndsAt: 1 }, { partialFilterExpression: { memberDiscountPercent: { $gt: 0 } } });
 productSchema.index({ discountEndsAt: 1 }, { partialFilterExpression: { discountPercent: { $gt: 0 } } });
