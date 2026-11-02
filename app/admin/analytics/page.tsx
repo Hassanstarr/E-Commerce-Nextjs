@@ -13,10 +13,10 @@ type AnalyticsData = {
         totalOrders: number;
         productsSold: number;
         averageOrderValue: number;
-        revenueChange: number;
-        ordersChange: number;
-        productsSoldChange: number;
-        averageOrderValueChange: number;
+        revenueChange: number | null;
+        ordersChange: number | null;
+        productsSoldChange: number | null;
+        averageOrderValueChange: number | null;
     };
     revenueTrend: { label: string; revenue: number; orders: number }[];
     topProducts: { name: string; quantity: number; revenue: number }[];
@@ -32,7 +32,8 @@ type AnalyticsResponse = {
 
 const formatCurrency = (value: number) => `Rs. ${Math.round(value).toLocaleString("en-PK")}`;
 
-const formatChange = (value: number) => {
+const formatChange = (value: number | null) => {
+    if (value === null) return "New — no previous period data";
     const prefix = value > 0 ? "+" : "";
     return `${prefix}${value}% compared to previous period`;
 };
@@ -100,7 +101,7 @@ export default function AdminAnalyticsPage() {
             [],
             ["Summary Metrics", "Value"],
             ["Total Revenue (PKR)", analytics.summary.totalRevenue],
-            ["Total Orders", analytics.summary.totalOrders],
+            ["Paid Orders", analytics.summary.totalOrders],
             ["Products Sold", analytics.summary.productsSold],
             ["Average Order Value (PKR)", Math.round(analytics.summary.averageOrderValue)],
             ["Revenue Change (%)", analytics.summary.revenueChange],
@@ -109,7 +110,7 @@ export default function AdminAnalyticsPage() {
             ["Average Order Value Change (%)", analytics.summary.averageOrderValueChange],
             [],
             ["Revenue Trend"],
-            ["Date / Period", "Revenue (PKR)", "Delivered and Paid Orders"],
+            ["Date / Period", "Revenue (PKR)", "Paid, non-cancelled orders"],
             ...analytics.revenueTrend.map((item) => [
                 item.label,
                 item.revenue,
@@ -175,7 +176,7 @@ export default function AdminAnalyticsPage() {
                   change: analytics.summary.revenueChange,
               },
               {
-                  title: "Total Orders",
+                  title: "Paid Orders",
                   value: analytics.summary.totalOrders.toLocaleString(),
                   change: analytics.summary.ordersChange,
               },
@@ -205,7 +206,7 @@ export default function AdminAnalyticsPage() {
                             Analytics
                         </h1>
                         <p className="mt-1 text-sm text-gray-500">
-                            Analyze sales, orders, customers and product performance.
+                            Revenue, paid orders and average value use paid, non-cancelled orders, excluding delivery fees. Status charts cover the selected period.
                         </p>
                     </div>
 
@@ -274,9 +275,9 @@ export default function AdminAnalyticsPage() {
 
                                 <p
                                     className={`mt-1 text-xs ${
-                                        stat.change > 0
+                                        stat.change !== null && stat.change > 0
                                             ? "text-green-600"
-                                            : stat.change < 0
+                                            : stat.change !== null && stat.change < 0
                                               ? "text-red-600"
                                               : "text-gray-500"
                                     }`}

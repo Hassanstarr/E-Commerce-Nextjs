@@ -12,6 +12,12 @@
 
 # testing
 /coverage
+**/tests/
+**/test/
+**/__tests__/
+*.test.*
+*.spec.*
+**/scripts/
 
 # next.js
 /.next/
@@ -19,8 +25,6 @@
 
 # production
 /build
-/tests
-/scripts
 /docs
 /data
 /project-notes/
@@ -44,3 +48,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local QA diagnostics
+/.qa-*.json

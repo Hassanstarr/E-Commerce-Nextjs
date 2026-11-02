@@ -1,3 +1,5 @@
+import { validationResponse } from "@/lib/validation-response";
+import { readJson } from "@/lib/request-body";
 import { NextRequest } from "next/server";
 import { categorySchema } from "@/lib/validations";
 import { createCategory, getCategories, getCategoryById, updateCategory, deleteCategory } from "@/services/category.service";
@@ -11,17 +13,12 @@ export async function createCategoryController( req: NextRequest ) {
     try {
         const admin = await requireAdmin();
 
-        const body = await req.json();
+        const body = await readJson(req);
 
         const validation = categorySchema.safeParse(body);
 
         if (!validation.success) {
-            return errorResponse(
-                validation.error.issues
-                    .map((issue) => issue.message)
-                    .join(", "),
-                400
-            );
+            return validationResponse(validation.error);
         }
 
         const category = await createCategory(validation.data);
@@ -106,7 +103,7 @@ export async function updateCategoryController( req: NextRequest, id: string ) {
     try {
         const admin = await requireAdmin();
 
-        const body = await req.json();
+        const body = await readJson(req);
 
         const validation = categorySchema.safeParse(body);
 

@@ -1,3 +1,4 @@
+import { getAdminCatalogProducts } from "@/services/admin-catalog.service";
 import { notFound } from "next/navigation";
 import CategoriesView, { Category } from "@/components/admin/CategoriesView";
 import CategoryEditModal from "@/components/admin/CategoryEditModal";
@@ -59,22 +60,7 @@ async function getCategories(): Promise<Category[]> {
 }
 
 async function getProducts(): Promise<Product[]> {
-    const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/products`,
-        {
-            cache: "no-store",
-        }
-    );
-
-    const result = await response.json();
-
-    if (!response.ok) {
-        throw new Error(
-            result.message || "Failed to fetch products"
-        );
-    }
-
-    return result.data.products;
+    return getAdminCatalogProducts();
 }
 
 export default async function EditCategoryPage({ params }: PageProps) {

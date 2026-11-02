@@ -3,18 +3,18 @@ import { getDiscountValidationError, memberDiscountMessage } from "@/lib/product
 
 export const signupSchema = z.object({
     name: z
-        .string()
+        .string({ error: "Please enter a name" })
         .trim()
         .min(2, "Name must contain at least 2 characters")
         .max(50, "Name cannot exceed 50 characters"),
 
     email: z
-        .string()
+        .string({ error: "Please enter your email address" })
         .trim()
         .email("Please enter a valid email address"),
 
     password: z
-        .string()
+        .string({ error: "Please enter your password" })
         .min(6, "Password must contain at least 6 characters")
         .max(100, "Password cannot exceed 100 characters")
         .refine((value) => value.trim().length >= 6, "Password must contain at least 6 non-padding characters"),
@@ -26,12 +26,12 @@ export const verifySignupSchema = z.object({
 
 export const loginSchema = z.object({
     email: z
-        .string()
+        .string({ error: "Please enter your email address" })
         .trim()
         .email("Please enter a valid email address"),
 
     password: z
-        .string()
+        .string({ error: "Please enter your password" })
         .min(1, "Password is required"),
 });
 
@@ -68,19 +68,19 @@ export const resetPasswordSchema = forgotPasswordSchema.extend({
 
 export const categorySchema = z.object({
     name: z
-        .string()
+        .string({ error: "Please enter a name" })
         .trim()
         .min(2, "Category name must contain at least 2 characters")
         .max(50, "Category name cannot exceed 50 characters"),
 
     description: z
-        .string()
+        .string({ error: "Please enter a description" })
         .trim()
         .max(500, "Description cannot exceed 500 characters")
         .optional(),
 
     image: z
-        .string()
+        .string({ error: "Please provide an image URL" })
         .trim()
         .url("Image must be a valid URL")
         .regex(/^https?:\/\//i, "Image must use an HTTP or HTTPS URL")
@@ -90,31 +90,31 @@ export const categorySchema = z.object({
 
 export const productSchema = z.object({
     name: z
-        .string()
+        .string({ error: "Please enter a name" })
         .trim()
         .min(2, "Product name must contain at least 2 characters")
         .max(100, "Product name cannot exceed 100 characters"),
 
     description: z
-        .string()
+        .string({ error: "Please enter a description" })
         .trim()
         .min(10, "Description must contain at least 10 characters")
         .max(2000, "Description cannot exceed 2000 characters"),
 
     price: z
-        .number()
+        .number({ error: "Please enter a valid number" })
         .min(1, "Please enter a valid price greater than 0.")
         .max(9999999.99, "Price cannot exceed Rs. 9,999,999.99")
         .refine((value) => Math.abs(value * 100 - Math.round(value * 100)) < 0.000001, "Price can have at most 2 decimal places"),
 
     image: z
-        .string()
+        .string({ error: "Please provide an image URL" })
         .trim()
         .url("Image must be a valid URL")
         .regex(/^https?:\/\//i, "Image must use an HTTP or HTTPS URL"),
 
     category: z
-        .string()
+        .string({ error: "Please select a category" })
         .trim()
         .min(1, "Category is required"),
 
@@ -129,7 +129,7 @@ export const productSchema = z.object({
     memberDiscountEndsAt: z.string().datetime({ offset: true }).nullable().optional().default(null),
 
     stock: z
-        .number()
+        .number({ error: "Please enter a valid number" })
         .int("Stock must be a whole number")
         .min(0, "Stock cannot be negative"),
 }).refine((data) => !getDiscountValidationError(data), {
@@ -151,18 +151,18 @@ export const productSchema = z.object({
 
 export const checkoutSchema = z.object({
     customerName: z
-        .string()
+        .string({ error: "Please enter your full name" })
         .trim()
         .min(2, "Name must contain at least 2 characters")
         .max(100, "Name cannot exceed 100 characters"),
 
     customerEmail: z
-        .string()
+        .string({ error: "Please enter your email address" })
         .trim()
         .email("Please enter a valid email address"),
 
     phone: z
-        .string()
+        .string({ error: "Please enter your phone number" })
         .trim()
         .min(7, "Phone number is required")
         .max(20, "Phone number cannot exceed 20 characters")
@@ -173,20 +173,20 @@ export const checkoutSchema = z.object({
         }, "Phone number must contain 7 to 15 digits"),
 
     address: z
-        .string()
+        .string({ error: "Please enter your shipping address" })
         .trim()
         .min(5, "Address must contain at least 5 characters")
         .max(300, "Address cannot exceed 300 characters")
         .regex(/[\p{L}\p{N}]/u, "Address must contain letters or numbers"),
 
     city: z
-        .string()
+        .string({ error: "Please enter your city" })
         .trim()
         .min(2, "City must contain at least 2 characters")
         .max(100, "City cannot exceed 100 characters"),
 
     postalCode: z
-        .string()
+        .string({ error: "Please enter your postal code" })
         .trim()
         .min(3, "Postal code is required")
         .max(20, "Postal code cannot exceed 20 characters")

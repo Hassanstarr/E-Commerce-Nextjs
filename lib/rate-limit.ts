@@ -2,138 +2,147 @@
 import { Redis } from "@upstash/redis";
 import { Ratelimit } from "@upstash/ratelimit";
 
-const redis = Redis.fromEnv();
+export type RateLimiter = Pick<Ratelimit, "limit">;
 
+function createLimiter(config: Omit<ConstructorParameters<typeof Ratelimit>[0], "redis">): RateLimiter {
+    let limiter: Ratelimit | undefined;
+    return {
+        limit(...args: Parameters<Ratelimit["limit"]>) {
+            limiter ||= new Ratelimit({ ...config, redis: Redis.fromEnv() });
+            return limiter.limit(...args);
+        },
+    };
+}
 
 export const rateLimiters = {
-    notificationsRead: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(120, "1 m"), prefix: "shopease:notifications-read" }),
-    notificationsWrite: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(60, "1 m"), prefix: "shopease:notifications-write" }),
-    chatBot: new Ratelimit({
-        redis,
+    notificationsRead: createLimiter({ timeout: 1500, limiter: Ratelimit.slidingWindow(120, "1 m"), prefix: "shopease:notifications-read" }),
+    notificationsWrite: createLimiter({ timeout: 1500, limiter: Ratelimit.slidingWindow(60, "1 m"), prefix: "shopease:notifications-write" }),
+    chatBot: createLimiter({
+        timeout: 1500,
         limiter: Ratelimit.slidingWindow(10, "1 m"),
         prefix: "shopease:chat-bot",
     }),
 
-    signupVerify: new Ratelimit({
-        redis,
+    signupVerify: createLimiter({
+        timeout: 1500,
         limiter: Ratelimit.slidingWindow(20, "10 m"),
         prefix: "shopease:signup-verify",
     }),
 
-    signupResend: new Ratelimit({
-        redis,
+    signupResend: createLimiter({
+        timeout: 1500,
         limiter: Ratelimit.slidingWindow(5, "10 m"),
         prefix: "shopease:signup-resend",
     }),
 
-    chatConnection: new Ratelimit({
-        redis,
+    chatConnection: createLimiter({
+        timeout: 1500,
         limiter: Ratelimit.slidingWindow(20, "1 m"),
         prefix: "shopease:chat-connection",
     }),
 
-    chatRead: new Ratelimit({
-        redis,
+    chatRead: createLimiter({
+        timeout: 1500,
         limiter: Ratelimit.slidingWindow(300, "1 m"),
         prefix: "shopease:chat-read",
     }),
 
-    chatMessage: new Ratelimit({
-        redis,
+    chatMessage: createLimiter({
+        timeout: 1500,
         limiter: Ratelimit.slidingWindow(30, "1 m"),
         prefix: "shopease:chat-message",
     }),
-    accountUpdate: new Ratelimit({
-        redis,
+    accountUpdate: createLimiter({
+        timeout: 1500,
         limiter: Ratelimit.slidingWindow(20, "1 m"),
         prefix: "shopease:account-update",
     }),
 
-    passwordChange: new Ratelimit({
-        redis,
+    passwordChange: createLimiter({
+        timeout: 1500,
         limiter: Ratelimit.slidingWindow(5, "10 m"),
         prefix: "shopease:password-change",
     }),
 
-    passwordResetRequest: new Ratelimit({
-        redis,
+    passwordResetRequest: createLimiter({
+        timeout: 1500,
         limiter: Ratelimit.slidingWindow(5, "10 m"),
         prefix: "shopease:password-reset-request",
     }),
 
-    passwordReset: new Ratelimit({
-        redis,
+    passwordReset: createLimiter({
+        timeout: 1500,
         limiter: Ratelimit.slidingWindow(10, "10 m"),
         prefix: "shopease:password-reset",
     }),
-    general: new Ratelimit({
-        redis,
+    general: createLimiter({
+        timeout: 1500,
         limiter: Ratelimit.slidingWindow(100, "1 m"),
         prefix: "shopease:general",
     }),
 
-    login: new Ratelimit({
-        redis,
+    login: createLimiter({
+        timeout: 1500,
         limiter: Ratelimit.slidingWindow(5, "1 m"),
         prefix: "shopease:login",
     }),
 
-    register: new Ratelimit({
-        redis,
+    register: createLimiter({
+        timeout: 1500,
         limiter: Ratelimit.slidingWindow(5, "10 m"),
         prefix: "shopease:register",
     }),
 
-    checkout: new Ratelimit({
-        redis,
+    checkout: createLimiter({
+        timeout: 1500,
         limiter: Ratelimit.slidingWindow(5, "1 m"),
         prefix: "shopease:checkout",
     }),
 
-    emailVerification: new Ratelimit({
-        redis,
+    emailVerification: createLimiter({
+        timeout: 1500,
         limiter: Ratelimit.slidingWindow(10, "10 m"),
         prefix: "shopease:email-verification",
     }),
 
-    contact: new Ratelimit({
-        redis,
+    contact: createLimiter({
+        timeout: 1500,
         limiter: Ratelimit.slidingWindow(3, "10 m"),
         prefix: "shopease:contact",
     }),
 
-    upload: new Ratelimit({
-        redis,
+    upload: createLimiter({
+        timeout: 1500,
         limiter: Ratelimit.slidingWindow(10, "1 m"),
         prefix: "shopease:upload",
     }),
 
-    cartMutation: new Ratelimit({
-        redis,
+    cartMutation: createLimiter({
+        timeout: 1500,
         limiter: Ratelimit.slidingWindow(60, "1 m"),
         prefix: "shopease:cart-mutation",
     }),
 
-    wishlistMutation: new Ratelimit({
-        redis,
+    wishlistMutation: createLimiter({
+        timeout: 1500,
         limiter: Ratelimit.slidingWindow(60, "1 m"),
         prefix: "shopease:wishlist-mutation",
     }),
 
-    adminRead: new Ratelimit({
-        redis,
+    adminRead: createLimiter({
+        timeout: 1500,
         limiter: Ratelimit.slidingWindow(60, "1 m"),
         prefix: "shopease:admin-read",
     }),
 
-    logout: new Ratelimit({
-        redis,
+    logout: createLimiter({
+        timeout: 1500,
         limiter: Ratelimit.slidingWindow(30, "1 m"),
         prefix: "shopease:logout",
     }),
 
-    adminMutation: new Ratelimit({
-        redis,
+    adminMutation: createLimiter({
+        timeout: 1500,
         limiter: Ratelimit.slidingWindow(30, "1 m"),
         prefix: "shopease:admin-mutation",
     }),

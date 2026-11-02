@@ -1,3 +1,5 @@
+import { validationResponse } from "@/lib/validation-response";
+import { readJson } from "@/lib/request-body";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { connectDB } from "@/lib/db";
@@ -21,13 +23,10 @@ export async function POST(req: NextRequest) {
         if (blocked) return blocked;
 
         const user = await requireAuth();
-        const validation = verificationSchema.safeParse(await req.json());
+        const validation = verificationSchema.safeParse(await readJson(req));
 
         if (!validation.success) {
-            return errorResponse(
-                validation.error.issues.map((issue) => issue.message).join(", "),
-                400
-            );
+            return validationResponse(validation.error);
         }
 
         await connectDB();

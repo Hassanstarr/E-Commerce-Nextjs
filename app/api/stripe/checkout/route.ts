@@ -1,3 +1,5 @@
+import { validationResponse } from "@/lib/validation-response";
+import { readJson } from "@/lib/request-body";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { connectDB } from "@/lib/db";
@@ -22,8 +24,8 @@ export async function POST(req: NextRequest) {
 
     try {
         const user = await requireAuth();
-        const validation = stripeCheckoutSchema.safeParse(await req.json());
-        if (!validation.success) return errorResponse(validation.error.issues.map((issue) => issue.message).join(", "), 400);
+        const validation = stripeCheckoutSchema.safeParse(await readJson(req));
+        if (!validation.success) return validationResponse(validation.error);
 
         await connectDB();
         if (!await isCheckoutEmailVerified(user.userId, validation.data.customerEmail)) {

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import ActivityLog from "@/models/ActivityLog";
 import User from "@/models/User";
 import { expireProductDiscounts } from "@/services/discount.service";
@@ -14,10 +15,7 @@ interface CreateActivityParams {
         | "system";
     entityId?: string;
     description: string;
-    metadata?: Record<
-        string,
-        any
-    >;
+    metadata?: Record<string, unknown>;
 }
 
 export const createActivityLog = async ({
@@ -54,7 +52,7 @@ export const getActivityLogs = async ({
     await expireProductDiscounts();
     limit = Number.isFinite(limit) ? Math.min(100, Math.max(1, Math.floor(limit))) : 20;
     
-    const query: any = {};
+    const query: mongoose.QueryFilter<Record<string, unknown>> = {};
 
     if (type) {
         query.entityType = type === "customer" ? { $in: ["customer", "user"] } : type;

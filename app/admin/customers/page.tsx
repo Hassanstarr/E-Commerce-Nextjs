@@ -3,12 +3,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import CustomerTable, { AdminCustomer } from "@/components/admin/CustomerTable";
+import { formatAmount } from "@/lib/currency";
 import { adminFetch } from "@/lib/admin-api";
 
 type CustomersResponse = {
     success: boolean;
     data: {
         customers: AdminCustomer[];
+        summary: { totalCustomers: number; activeCustomers: number; inactiveCustomers: number; averageSpent: number };
         pagination: {
             page: number;
             limit: number;
@@ -23,8 +25,12 @@ const PAGE_SIZE = 10;
 export default function AdminCustomersPage() {
     const [customers, setCustomers] = useState<AdminCustomer[]>([]);
     const [loading, setLoading] = useState(true);
+    const [hasLoaded, setHasLoaded] = useState(false);
     const [error, setError] = useState("");
     const [page, setPage] = useState(1);
+    const [search, setSearch] = useState("");
+    const [status, setStatus] = useState("all");
+    const [summary, setSummary] = useState({ totalCustomers: 0, activeCustomers: 0, inactiveCustomers: 0, averageSpent: 0 });
     const [pagination, setPagination] = useState({
         page: 1,
         limit: PAGE_SIZE,
@@ -32,18 +38,21 @@ export default function AdminCustomersPage() {
         totalPages: 0,
     });
 
-    const loadCustomers = useCallback(async () => {
+    const loadCustomers = useCallback(async (signal?: AbortSignal) => {
         try {
             setLoading(true);
             setError("");
 
             const response = await adminFetch<CustomersResponse>(
-                `/api/admin/customers?page=${page}&limit=${PAGE_SIZE}`
+                `/api/admin/customers?page=${page}&limit=${PAGE_SIZE}&search=${encodeURIComponent(search)}&status=${status}`, { signal }
             );
 
+            if (signal?.aborted) return;
             setCustomers(response.data.customers);
+            setSummary(response.data.summary);
             setPagination(response.data.pagination);
         } catch (error: unknown) {
+            if (signal?.aborted) return;
             console.error("Failed to load customers:", error);
 
             setError(
@@ -52,35 +61,17 @@ export default function AdminCustomersPage() {
                     : "Failed to load customers"
             );
         } finally {
-            setLoading(false);
+            if (!signal?.aborted) { setLoading(false); setHasLoaded(true); }
         }
-    }, [page]);
+    }, [page, search, status]);
 
     useEffect(() => {
-        loadCustomers();
+        const controller = new AbortController();
+        const timer = window.setTimeout(() => { void loadCustomers(controller.signal); }, 250);
+        return () => { window.clearTimeout(timer); controller.abort(); };
     }, [loadCustomers]);
 
     
-    const totalCustomers = customers.length;
-
-    const activeCustomers = customers.filter(
-        (customer) => customer.status === "Active"
-    ).length;
-
-    const inactiveCustomers = customers.filter(
-        (customer) => customer.status === "Inactive"
-    ).length;
-
-    const totalRevenue = customers.reduce(
-        (sum, customer) => sum + customer.totalSpent,
-        0
-    );
-
-    const averageSpent =
-        totalCustomers > 0
-            ? Math.round(totalRevenue / totalCustomers)
-            : 0;
-
     const startCustomer =
         pagination.total === 0
             ? 0
@@ -91,7 +82,7 @@ export default function AdminCustomersPage() {
         pagination.total
     );
 
-    if (loading) {
+    if (loading && !hasLoaded) {
         return (
             <div className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
                 <div className="flex min-h-100 items-center justify-center">
@@ -111,7 +102,7 @@ export default function AdminCustomersPage() {
 
                     <button
                         type="button"
-                        onClick={loadCustomers}
+                        onClick={() => void loadCustomers()}
                         className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
                     >
                         Retry
@@ -139,7 +130,7 @@ export default function AdminCustomersPage() {
                         Total Customers
                     </p>
                     <p className="mt-2 text-2xl font-semibold text-gray-900">
-                        {pagination.total.toLocaleString("en-PK")}
+                        {summary.totalCustomers.toLocaleString("en-PK")}
                     </p>
                 </div>
 
@@ -148,7 +139,7 @@ export default function AdminCustomersPage() {
                         Active Customers
                     </p>
                     <p className="mt-2 text-2xl font-semibold text-green-600">
-                        {activeCustomers}
+                        {summary.activeCustomers}
                     </p>
                 </div>
 
@@ -157,7 +148,7 @@ export default function AdminCustomersPage() {
                         Inactive Customers
                     </p>
                     <p className="mt-2 text-2xl font-semibold text-gray-600">
-                        {inactiveCustomers}
+                        {summary.inactiveCustomers}
                     </p>
                 </div>
 
@@ -166,12 +157,14 @@ export default function AdminCustomersPage() {
                         Average Spent
                     </p>
                     <p className="mt-2 text-2xl font-semibold text-gray-900">
-                        Rs. {averageSpent.toLocaleString("en-PK")}
+                        Rs. {formatAmount(summary.averageSpent)}
                     </p>
                 </div>
             </div>
 
-            <CustomerTable customers={customers} />
+            <CustomerTable loading={loading} customers={customers} total={pagination.total} search={search} statusFilter={status}
+                onSearchChange={(value) => { setSearch(value); setPage(1); }}
+                onStatusChange={(value) => { setStatus(value); setPage(1); }} />
 
             <div className="mt-5 flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-gray-600">

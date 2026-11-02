@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { errorMessage } from "@/lib/errors";
+
+import { useEffect, useState, type ComponentProps } from "react";
 import {
     HiOutlineArrowTrendingUp,
     HiOutlineCube,
@@ -32,8 +34,8 @@ interface DashboardData {
         cancelled: number;
     };
 
-    recentOrders: any[];
-    lowStockProducts: any[];
+    recentOrders: ComponentProps<typeof RecentOrders>["orders"];
+    lowStockProducts: ComponentProps<typeof LowStockProducts>["products"];
 }
 
 interface AnalyticsSnippet {
@@ -73,9 +75,9 @@ export default function AdminPage() {
                 if (isMounted) {
                     setDashboardData(response.data);
                 }
-            } catch (error: any) {
+            } catch (error) {
                 if (isMounted) {
-                    setError(error?.message || "Failed to load dashboard");
+                    setError(errorMessage(error, "Failed to load dashboard"));
                 }
             } finally {
                 if (isMounted) {
@@ -107,10 +109,10 @@ export default function AdminPage() {
                 if (isMounted) {
                     setAnalyticsData(response.data);
                 }
-            } catch (err: any) {
+            } catch (err) {
                 if (isMounted) {
                     setAnalyticsError(
-                        err?.message || "Failed to load revenue overview"
+                        errorMessage(err, "Failed to load revenue overview")
                     );
                 }
             } finally {
@@ -162,19 +164,19 @@ export default function AdminPage() {
         {
             title: "Total Revenue",
             value: `Rs. ${dashboardData.summary.totalRevenue.toLocaleString()}`,
-            description: "from delivered orders",
+            description: "paid, non-cancelled orders · excludes delivery",
             icon: HiOutlineArrowTrendingUp,
         },
         {
-            title: "Total Orders",
+            title: "Paid Orders",
             value: dashboardData.summary.totalOrders.toLocaleString(),
-            description: "all orders",
+            description: "paid, non-cancelled orders",
             icon: HiOutlineShoppingCart,
         },
         {
             title: "Products Sold",
             value: dashboardData.summary.productsSold.toLocaleString(),
-            description: "from delivered orders",
+            description: "paid, non-cancelled orders · excludes delivery",
             icon: HiOutlineCube,
         },
         {

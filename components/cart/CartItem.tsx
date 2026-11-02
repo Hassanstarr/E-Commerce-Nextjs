@@ -1,5 +1,7 @@
 "use client";
 
+import { formatAmount } from "@/lib/currency";
+
 import Image from "next/image";
 import type { CartItem as CartItemType } from "@/types/cart";
 import ProductPrice from "@/components/product/ProductPrice";
@@ -82,7 +84,7 @@ export default function CartItem({ item, onUpdate, onRemove, updating }: CartIte
 
             <div className="sm:w-32 sm:text-right">
                 <p className="font-semibold text-gray-900">
-                    Rs. {subtotal.toLocaleString()}
+                    Rs. {formatAmount(subtotal)}
                 </p>
 
                 <button

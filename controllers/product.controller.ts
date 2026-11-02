@@ -1,3 +1,5 @@
+import { validationResponse } from "@/lib/validation-response";
+import { readJson } from "@/lib/request-body";
 import { NextRequest } from "next/server";
 import { productSchema } from "@/lib/validations";
 import { createProduct, getProducts, getProductById, updateProduct, deleteProduct } from "@/services/product.service";
@@ -12,17 +14,12 @@ export async function createProductController(req: NextRequest) {
     try {
         const admin = await requireAdmin();
 
-        const body = await req.json();
+        const body = await readJson(req);
 
         const validation = productSchema.safeParse(body);
 
         if (!validation.success) {
-            return errorResponse(
-                validation.error.issues
-                    .map((issue) => issue.message)
-                    .join(", "),
-                400
-            );
+            return validationResponse(validation.error);
         }
 
         const product = await createProduct(validation.data, admin.userId);
@@ -63,10 +60,14 @@ export async function getProductsController(req: NextRequest) {
     try {
         const categoryId = req.nextUrl.searchParams.get("category") || undefined;
 
-        const products = await getProducts(categoryId);
+        const data = await getProducts(categoryId, {
+            page: Number(req.nextUrl.searchParams.get("page") || 1),
+            limit: Number(req.nextUrl.searchParams.get("limit") || 20),
+            search: req.nextUrl.searchParams.get("search") || "",
+        });
 
         return successResponse(
-            { products },
+            data,
             "Products retrieved successfully"
         );
     } catch (error) {
@@ -110,7 +111,7 @@ export async function updateProductController( req: NextRequest, id: string ) {
     try {
         const admin = await requireAdmin();
 
-        const body = await req.json();
+        const body = await readJson(req);
 
         const validation = productSchema.safeParse(body);
 

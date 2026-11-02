@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 
-import { adminOrderDetailsController, updateAdminOrderController, adminOrderHistoryController } from "@/controllers/admin.controller";
+import { adminOrderDetailsController, updateAdminOrderController } from "@/controllers/admin.controller";
 import { enforceRateLimit } from "@/lib/enforce-rate-limit";
 import { rateLimiters } from "@/lib/rate-limit";
 

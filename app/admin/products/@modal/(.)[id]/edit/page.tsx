@@ -45,7 +45,7 @@ async function getCategories() {
 
     await connectDB();
     const categories = await Category.find().sort({ createdAt: -1 }).lean();
-    return categories.map((cat: any) => ({
+    return categories.map((cat) => ({
         _id: cat._id.toString(),
         name: cat.name,
     }));

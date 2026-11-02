@@ -1,7 +1,9 @@
 "use client";
 
+import { formatAmount } from "@/lib/currency";
+
 import Link from "next/link";
-import { useMemo, useState } from "react";
+
 
 export type AdminCustomer = {
     _id: string;
@@ -18,28 +20,15 @@ export type AdminCustomer = {
 type CustomerTableProps = {
     customers: AdminCustomer[];
     loading?: boolean;
+    total: number;
+    search: string;
+    statusFilter: string;
+    onSearchChange: (value: string) => void;
+    onStatusChange: (value: string) => void;
 };
 
-export default function CustomerTable({ customers, loading }: CustomerTableProps) {
-    const [search, setSearch] = useState("");
-    const [statusFilter, setStatusFilter] = useState("all");
-
-    const filteredCustomers = useMemo(() => {
-        return customers.filter((customer) => {
-            const searchValue = search.toLowerCase();
-
-            const matchesSearch =
-                customer.name.toLowerCase().includes(searchValue) ||
-                customer.email.toLowerCase().includes(searchValue) ||
-                (customer.phone && customer.phone.toLowerCase().includes(searchValue)) ||
-                customer._id.toLowerCase().includes(searchValue);
-
-            const matchesStatus =
-                statusFilter === "all" || customer.status === statusFilter;
-
-            return matchesSearch && matchesStatus;
-        });
-    }, [customers, search, statusFilter]);
+export default function CustomerTable({ customers, loading, total, search, statusFilter, onSearchChange, onStatusChange }: CustomerTableProps) {
+    const filteredCustomers = customers;
 
     const formatDate = (date: string | null) => {
         if (!date || date === "-" || date === "N/A") {
@@ -75,7 +64,7 @@ export default function CustomerTable({ customers, loading }: CustomerTableProps
                             type="text"
                             value={search}
                             onChange={(event) =>
-                                setSearch(event.target.value)
+                                onSearchChange(event.target.value)
                             }
                             placeholder="Search by name, email, phone or customer ID..."
                             className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-black focus:ring-1 focus:ring-black"
@@ -85,7 +74,7 @@ export default function CustomerTable({ customers, loading }: CustomerTableProps
                     <select
                         value={statusFilter}
                         onChange={(event) =>
-                            setStatusFilter(event.target.value)
+                            onStatusChange(event.target.value)
                         }
                         className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-700 outline-none transition focus:border-black focus:ring-1 focus:ring-black"
                     >
@@ -104,7 +93,7 @@ export default function CustomerTable({ customers, loading }: CustomerTableProps
                     </span>{" "}
                     of{" "}
                     <span className="font-medium text-gray-900">
-                        {customers.length}
+                        {total}
                     </span>{" "}
                     customers
                 </p>
@@ -181,7 +170,7 @@ export default function CustomerTable({ customers, loading }: CustomerTableProps
                                 </td>
 
                                 <td className="px-5 py-4 font-semibold text-gray-900">
-                                    Rs. {customer.totalSpent.toLocaleString()}
+                                    Rs. {formatAmount(customer.totalSpent)}
                                 </td>
 
                                 <td className="whitespace-nowrap px-5 py-4 text-gray-600">

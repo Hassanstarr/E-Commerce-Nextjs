@@ -24,7 +24,7 @@ type CustomerOrder = {
         | "shipped"
         | "delivered"
         | "cancelled";
-    paymentStatus: "pending" | "paid";
+    paymentStatus: "pending" | "paid" | "refund_pending" | "refunded";
 };
 
 type CustomerDetailsResponse = {
@@ -32,6 +32,7 @@ type CustomerDetailsResponse = {
     data: {
         customer: Customer;
         statistics: {
+            status: "Active" | "Inactive";
             totalOrders: number;
             totalSpent: number;
         };
@@ -46,6 +47,7 @@ export default function CustomerDetailsPage() {
     const [customer, setCustomer] = useState<Customer | null>(null);
 
     const [statistics, setStatistics] = useState({
+        status: "Inactive",
         totalOrders: 0,
         totalSpent: 0,
     });
@@ -115,9 +117,7 @@ export default function CustomerDetailsPage() {
     const latestOrder = orders[0] ?? null;
     const phone = latestOrder?.phone || "";
 
-    const isActive = latestOrder
-                    ? Date.now() - new Date(latestOrder.createdAt).getTime() <= 30 * 24 * 60 * 60 * 1000
-                    : false;
+    const isActive = statistics.status === "Active";
 
     const customerStatus = isActive ? "Active" : "Inactive";
 

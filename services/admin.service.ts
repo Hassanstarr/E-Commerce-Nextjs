@@ -1,4 +1,5 @@
-import Order from "@/models/Order";
+import { after } from "next/server";
+import Order, { type IOrder } from "@/models/Order";
 import Product from "@/models/Product";
 import User from "@/models/User";
 import Category from "@/models/Category";
@@ -64,14 +65,14 @@ export const getAdminDashboardData = async () => {
         deliveredOrderCount,
         cancelledOrders,
     ] = await Promise.all([
-        Order.countDocuments(),
+        Order.countDocuments({ paymentStatus: "paid", orderStatus: { $ne: "cancelled" } }),
 
         User.countDocuments({ role: { $in: ["user", "member"] } }),
 
         Order.aggregate([
             {
                 $match: {
-                    orderStatus: "delivered",
+                    orderStatus: { $ne: "cancelled" },
                     paymentStatus: "paid",
                 },
             },
@@ -168,7 +169,7 @@ export const getAdminOrders = async ({
     paymentStatus = "",
 }: GetAdminOrdersParams) => {
     
-    const query: any = {};
+    const query: mongoose.QueryFilter<IOrder> = {};
         
     if (search.trim()) {
         const searchTerm = search.trim();
@@ -202,11 +203,13 @@ export const getAdminOrders = async ({
 
 
     if (orderStatus) {
-        query.orderStatus = orderStatus;
+        if (!validOrderStatuses.includes(orderStatus)) throw new AppError("Invalid order status", 400);
+        query.orderStatus = orderStatus as IOrder["orderStatus"];
     }
 
     if (paymentStatus) {
-        query.paymentStatus = paymentStatus;
+        if (!["pending", "paid", "refund_pending", "refunded"].includes(paymentStatus)) throw new AppError("Invalid payment status", 400);
+        query.paymentStatus = paymentStatus as IOrder["paymentStatus"];
     }
 
     const skip = (page - 1) * limit;
@@ -257,13 +260,7 @@ export const getAdminOrderById = async ( orderId: string ) => {
     const order = await Order.findById(orderId).lean();
 
     if (!order) {
-        const error: any = new Error(
-            "Order not found"
-        );
-
-        error.statusCode = 404;
-
-        throw error;
+        throw new AppError("Order not found", 404);
     }
 
     if (order.orderStatus === "cancelled" && !order.statusBeforeCancellation) {
@@ -313,52 +310,31 @@ export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentS
 
     if (typeof restock !== "boolean" || typeof retryRefund !== "boolean") throw new AppError("Invalid order action", 400);
     if (orderStatus === undefined && paymentStatus === undefined && !note && !restock && !retryRefund) {
-        const error: any = new Error(
-            "No update data provided"
-        );
-
-        error.statusCode = 400;
-
-        throw error;
+        throw new AppError("No update data provided", 400);
     }
 
     if (orderStatus !== undefined && !validOrderStatuses.includes(orderStatus)) {
-        const error: any = new Error(
-            "Invalid order status"
-        );
-
-        error.statusCode = 400;
-
-        throw error;
+        throw new AppError("Invalid order status", 400);
     }
 
     if (paymentStatus !== undefined && !validPaymentStatuses.includes(paymentStatus)) {
-        const error: any = new Error(
-            "Invalid payment status"
-        );
-
-        error.statusCode = 400;
-
-        throw error;
+        throw new AppError("Invalid payment status", 400);
     }
 
     const existingOrder = await Order.findById(orderId)
 
     if(!existingOrder){
-        const error: any = new Error("Order not found");
-        error.statusCode = 404;
-
-        throw error;
+        throw new AppError("Order not found", 404);
     }
 
-    const updateData: any = {};
+    const updateData: Partial<IOrder> = {};
 
     if (orderStatus) {
-        updateData.orderStatus = orderStatus;
+        updateData.orderStatus = orderStatus as IOrder["orderStatus"];
     }
 
     if (paymentStatus) {
-        updateData.paymentStatus = paymentStatus;
+        updateData.paymentStatus = paymentStatus as IOrder["paymentStatus"];
     }
 
     const previousStatus = existingOrder.orderStatus;
@@ -400,7 +376,7 @@ export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentS
     if (previousStatus === "cancelled" && orderStatus && orderStatus !== "cancelled") updateData.stockRestored = false;
     if ((cancelling || retryRefund) && existingOrder.paymentMethod === "stripe" && previousPaymentStatus === "paid") {
         paymentStatus = "refund_pending";
-        updateData.paymentStatus = paymentStatus;
+        updateData.paymentStatus = paymentStatus as IOrder["paymentStatus"];
     }
     if (paymentStatus === "refunded" && (orderStatus || previousStatus) !== "cancelled") throw new AppError("Refunded orders must stay cancelled", 400);
 
@@ -501,6 +477,15 @@ export const updateAdminOrder = async ( orderId: string, { orderStatus, paymentS
 
     dispatchNotifications();
     if (existingOrder.paymentMethod === "stripe" && (cancelling || retryRefund) && ["paid", "refund_pending"].includes(previousPaymentStatus)) {
+        if (!retryRefund) {
+            try {
+                after(async () => {
+                    try { await refundAdminOrder(orderId, changedBy); }
+                    catch { console.error("Order refund deferred; the admin can retry the saved pending refund."); }
+                });
+                return updatedOrder;
+            } catch { /* Non-request test/CLI callers perform the same work below. */ }
+        }
         try {
             await refundAdminOrder(orderId, changedBy);
             updatedOrder = await Order.findById(orderId).lean();
@@ -537,157 +522,51 @@ interface GetAdminCustomersParams {
     page?: number;
     limit?: number;
     search?: string;
+    status?: string;
 }
 
-export const getAdminCustomers = async ({
-    page = 1,
-    limit = 10,
-    search = "",
-}: GetAdminCustomersParams) => {
-    
-    const currentPage = Math.max(1, Math.floor(page) || 1);
-    const pageSize = Math.min(100, Math.max(1, Math.floor(limit) || 10));
-
-    const query: any = {
-        role: { $in: ["user", "member"] },
-    };
-
+export const getAdminCustomers = async ({ page = 1, limit = 10, search = "", status = "" }: GetAdminCustomersParams) => {
+    const currentPage = Number.isSafeInteger(page) ? Math.max(1, page) : 1;
+    const pageSize = Number.isSafeInteger(limit) ? Math.min(100, Math.max(1, limit)) : 10;
+    const cutoff = new Date(Date.now() - 30 * 86400000);
+    const filters: mongoose.PipelineStage.Match["$match"] = {};
     if (search.trim()) {
-        const searchRegex = {
-            $regex: escapeRegex(search.trim()),
-            $options: "i",
-        };
-
-        query.$or = [
-            { name: searchRegex },
-            { email: searchRegex },
-        ];
+        const regex = { $regex: escapeRegex(search.trim().slice(0, 100)), $options: "i" };
+        filters.$or = [{ name: regex }, { email: regex }, { phone: regex }, { displayId: regex }];
     }
-
-    const skip = (currentPage - 1) * pageSize;
-
-    const [customers, totalCustomers] = await Promise.all([
-        User.find(query)
-            .select("-password")
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(pageSize)
-            .lean(),
-
-        User.countDocuments(query),
-    ]);
-
-    const customerIds = customers.map(
-        (customer) => customer._id
-    );
-
-    const orderStats = await Order.aggregate([
-        {
-            $match: {
-                user: { $in: customerIds },
-            },
-        },
-        {
-            $sort: {
-                createdAt: -1,
-            },
-        },
-        {
-            $group: {
-                _id: "$user",
-
-                totalOrders: {
-                    $sum: 1,
-                },
-
-                totalSpent: {
-                    $sum: {
-                        $cond: [
-                            {
-                                $eq: [
-                                    "$paymentStatus",
-                                    "paid",
-                                ],
-                            },
-                            "$total",
-                            0,
-                        ],
-                    },
-                },
-
-                latestOrder: {
-                    $first: "$createdAt",
-                },
-
-                latestPhone: {
-                    $first: "$phone",
-                },
-            },
-        },
-    ]);
-
-    const statsMap = new Map(
-        orderStats.map((item) => [
-            item._id.toString(),
-            item,
-        ])
-    );
-
-    const now = Date.now();
-    const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
-
-    const customersWithStats = customers.map((customer) => {
-        const stats = statsMap.get(
-            customer._id.toString()
-        );
-
-        const lastOrder = stats?.latestOrder
-                        ? new Date(stats.latestOrder).toISOString()
-                        : null;
-
-        const status = lastOrder && now - new Date(lastOrder).getTime() <= thirtyDaysInMs
-                    ? "Active"
-                    : "Inactive";
-
-        return {
-            _id: customer._id.toString(),
-            name: customer.name,
-            email: customer.email,
-            phone: stats?.latestPhone || "",
-            ordersCount: stats?.totalOrders || 0,
-            totalSpent: stats?.totalSpent || 0,
-            lastOrder,
-            status,
-            joinedAt: customer.createdAt,
-        };
-    });
-
-    customersWithStats.sort((a, b) => {
-        if (!a.lastOrder && !b.lastOrder) {
-            return 0;
-        }
-
-        if (!a.lastOrder) {
-            return 1;
-        }
-
-        if (!b.lastOrder) {
-            return -1;
-        }
-
-        return (
-            new Date(b.lastOrder).getTime() - new Date(a.lastOrder).getTime()
-        );
-    });
-
+    if (status === "Active" || status === "Inactive") filters.status = status;
+    const base: mongoose.PipelineStage[] = [
+        { $match: { role: { $in: ["user", "member"] } } },
+        { $lookup: { from: "orders", let: { customer: "$_id" }, pipeline: [
+            { $match: { $expr: { $eq: ["$user", "$$customer"] } } },
+            { $sort: { createdAt: -1, _id: -1 } },
+            { $group: { _id: null, ordersCount: { $sum: 1 },
+                totalSpent: { $sum: { $cond: [{ $eq: ["$paymentStatus", "paid"] }, "$total", 0] } },
+                lastOrder: { $first: "$createdAt" }, phone: { $first: "$phone" } } },
+        ], as: "orders" } },
+        { $set: { orderStats: { $arrayElemAt: ["$orders", 0] }, displayId: { $toString: "$_id" } } },
+        { $set: { ordersCount: { $ifNull: ["$orderStats.ordersCount", 0] }, totalSpent: { $ifNull: ["$orderStats.totalSpent", 0] },
+            lastOrder: { $ifNull: ["$orderStats.lastOrder", null] }, phone: { $ifNull: ["$orderStats.phone", ""] },
+            status: { $cond: [{ $gte: ["$orderStats.lastOrder", cutoff] }, "Active", "Inactive"] }, joinedAt: "$createdAt" } },
+    ];
+    const projection = { _id: { $toString: "$_id" }, name: 1, email: 1, phone: 1, ordersCount: 1, totalSpent: 1, lastOrder: 1, status: 1, joinedAt: 1 };
+    const [result] = await User.aggregate([...base, { $facet: {
+        customers: [{ $match: filters }, { $sort: { lastOrder: -1, joinedAt: -1, _id: -1 } }, { $skip: (currentPage - 1) * pageSize }, { $limit: pageSize }, { $project: projection }],
+        count: [{ $match: filters }, { $count: "total" }],
+        summary: [{ $group: { _id: null, totalCustomers: { $sum: 1 }, activeCustomers: { $sum: { $cond: [{ $eq: ["$status", "Active"] }, 1, 0] } }, averageSpent: { $avg: "$totalSpent" } } }],
+    } }]);
+    const total = result.count[0]?.total || 0;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const effectivePage = Math.min(currentPage, totalPages);
+    if (effectivePage !== currentPage) {
+        result.customers = await User.aggregate([...base, { $match: filters }, { $sort: { lastOrder: -1, joinedAt: -1, _id: -1 } }, { $skip: (effectivePage - 1) * pageSize }, { $limit: pageSize }, { $project: projection }]);
+    }
+    const summary = result.summary[0] || { totalCustomers: 0, activeCustomers: 0, averageSpent: 0 };
     return {
-        customers: customersWithStats,
-        pagination: {
-            page: currentPage,
-            limit: pageSize,
-            total: totalCustomers,
-            totalPages: Math.ceil(totalCustomers / pageSize),
-        },
+        customers: result.customers,
+        summary: { totalCustomers: summary.totalCustomers, activeCustomers: summary.activeCustomers,
+            inactiveCustomers: summary.totalCustomers - summary.activeCustomers, averageSpent: summary.averageSpent },
+        pagination: { page: effectivePage, limit: pageSize, total, totalPages },
     };
 };
 
@@ -704,13 +583,7 @@ export const getAdminCustomerById = async ( customerId: string ) => {
     }).select("-password").lean();
 
     if (!customer) {
-        const error: any = new Error(
-            "Customer not found"
-        );
-
-        error.statusCode = 404;
-
-        throw error;
+        throw new AppError("Customer not found", 404);
     }
 
     const orders = await Order.find({
@@ -726,6 +599,7 @@ export const getAdminCustomerById = async ( customerId: string ) => {
     return {
         customer,
         statistics: {
+            status: orders[0] && Date.now() - orders[0].createdAt.getTime() <= 30 * 86400000 ? "Active" : "Inactive",
             totalOrders: orders.length,
             totalSpent,
         },
@@ -765,7 +639,7 @@ const getPercentageChange = (current: number, previous: number) => {
 
     if (previous === 0) {
         if (current === 0) return 0;
-        return current > 0 ? 100 : -100;
+        return null;
     }
 
     const change = ((current - previous) / previous) * 100;
@@ -788,7 +662,7 @@ export const getAdminAnalytics = async ( requestedPeriod: string = "30" ) => {
     const { start, end, previousStart, previousEnd } = getAnalyticsDateRange(period);
 
     const revenueMatch = {
-        orderStatus: "delivered" as const,
+        orderStatus: { $ne: "cancelled" as const },
         paymentStatus: "paid" as const,
     };
 
@@ -820,8 +694,8 @@ export const getAdminAnalytics = async ( requestedPeriod: string = "30" ) => {
             ...previousDateMatch,
         }).select("subtotal items").lean(),
 
-        Order.countDocuments(currentDateMatch),
-        Order.countDocuments(previousDateMatch),
+        Order.countDocuments({ ...revenueMatch, ...currentDateMatch }),
+        Order.countDocuments({ ...revenueMatch, ...previousDateMatch }),
 
         Order.aggregate([
             { $match: currentDateMatch },
@@ -1006,10 +880,10 @@ export const getAdminAnalytics = async ( requestedPeriod: string = "30" ) => {
 
     const previousProductsSoldTotal = previousProductsSold;
 
-    const paidDeliveredOrderCount = currentRevenueOrders.length;
+    const paidOrderCount = currentRevenueOrders.length;
 
-    const averageOrderValue = paidDeliveredOrderCount > 0
-                            ? totalRevenue / paidDeliveredOrderCount
+    const averageOrderValue = paidOrderCount > 0
+                            ? totalRevenue / paidOrderCount
                             : 0;
 
     const previousAverageOrderValue = previousRevenueOrders.length > 0
@@ -1135,7 +1009,7 @@ export const getAdminAnalytics = async ( requestedPeriod: string = "30" ) => {
             totalOrders,
             productsSold,
             averageOrderValue,
-            paidDeliveredOrderCount,
+            paidOrderCount,
             revenueChange: getPercentageChange(
                 totalRevenue,
                 previousRevenue

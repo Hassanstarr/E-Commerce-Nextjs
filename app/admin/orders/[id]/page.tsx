@@ -1,5 +1,9 @@
 "use client";
 
+import { formatAmount } from "@/lib/currency";
+
+import Image from "next/image";
+
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
@@ -167,6 +171,15 @@ export default function AdminOrderDetailsPage() {
         return () => window.clearTimeout(timeout);
     }, [id, loadOrder]);
 
+    const applyUpdatedOrder = (updated: OrderDetails) => {
+        setOrder(updated);
+        setSelectedStatus(updated.orderStatus);
+        setSelectedPaymentStatus(updated.paymentStatus);
+        void adminFetch<{ data: OrderHistory[] }>(`/api/admin/orders/${id}/history`)
+            .then((response) => setHistory(response.data))
+            .catch(() => setNotice("Order saved. Refresh the page to reload its history."));
+    };
+
     const updateOrder = async () => {
         if (!order) return;
 
@@ -183,7 +196,7 @@ export default function AdminOrderDetailsPage() {
             setUpdating(true);
             setError("");
 
-            const response = await adminFetch<{ data: { refundWarning?: string } }>(
+            const response = await adminFetch<{ data: OrderDetails & { refundWarning?: string } }>(
                 `/api/admin/orders/${id}`,
                 {
                     method: "PATCH",
@@ -197,7 +210,7 @@ export default function AdminOrderDetailsPage() {
 
             setNote("");
 
-            await loadOrder(false);
+            applyUpdatedOrder(response.data);
             setNotice(response.data.refundWarning || "Order updated successfully.");
         } catch (error) {
             setError(error instanceof Error ? error.message : "Failed to update order");
@@ -223,10 +236,10 @@ export default function AdminOrderDetailsPage() {
             setUpdating(true);
             setError("");
             setNotice("");
-            const response = await adminFetch<{ data: { refundWarning?: string } }>(`/api/admin/orders/${id}`, {
+            const response = await adminFetch<{ data: OrderDetails & { refundWarning?: string } }>(`/api/admin/orders/${id}`, {
                 method: "PATCH", body: JSON.stringify({ [action]: true }),
             });
-            await loadOrder(false);
+            applyUpdatedOrder(response.data);
             setNotice(response.data.refundWarning || (action === "restock" ? "Returned items restocked." : "Refund status checked."));
         } catch (error) {
             setError(error instanceof Error ? error.message : "Unable to update order");
@@ -252,7 +265,7 @@ export default function AdminOrderDetailsPage() {
             setUpdating(true);
             setError("");
 
-            const response = await adminFetch<{ data: { refundWarning?: string } }>(
+            const response = await adminFetch<{ data: OrderDetails & { refundWarning?: string } }>(
                 `/api/admin/orders/${id}`,
                 {
                     method: "PATCH",
@@ -263,7 +276,7 @@ export default function AdminOrderDetailsPage() {
                 }
             );
 
-            await loadOrder(false);
+            applyUpdatedOrder(response.data);
             setNotice(response.data.refundWarning || "Order cancelled.");
         } catch (error) {
             setError(error instanceof Error ? error.message : "Failed to cancel order");
@@ -379,7 +392,7 @@ export default function AdminOrderDetailsPage() {
                                             className="flex gap-4 px-5 py-5"
                                         >
                                             <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-gray-100">
-                                                <img
+                                                <Image unoptimized width={64} height={64}
                                                     src={item.image}
                                                     alt={item.name}
                                                     className="h-full w-full object-cover"
@@ -393,7 +406,7 @@ export default function AdminOrderDetailsPage() {
 
                                                 <p className="mt-1 text-sm text-gray-500">
                                                     Rs.{" "}
-                                                    {item.price.toLocaleString()}
+                                                    {formatAmount(item.price)}
                                                     {" x "}
                                                     {item.quantity}
                                                 </p>
@@ -401,7 +414,7 @@ export default function AdminOrderDetailsPage() {
 
                                             <p className="font-semibold text-gray-900">
                                                 Rs.{" "}
-                                                {( item.price * item.quantity ).toLocaleString()}
+                                                {formatAmount(Math.round(item.price * 100) * item.quantity / 100)}
                                             </p>
                                         </div>
                                     )
@@ -417,7 +430,7 @@ export default function AdminOrderDetailsPage() {
 
                                         <span>
                                             Rs.{" "}
-                                            {order.subtotal.toLocaleString()}
+                                            {formatAmount(order.subtotal)}
                                         </span>
                                     </div>
 
@@ -428,7 +441,7 @@ export default function AdminOrderDetailsPage() {
 
                                         <span>
                                             Rs.{" "}
-                                            {order.deliveryFee.toLocaleString()}
+                                            {formatAmount(order.deliveryFee)}
                                         </span>
                                     </div>
 
@@ -439,7 +452,7 @@ export default function AdminOrderDetailsPage() {
 
                                         <span>
                                             Rs.{" "}
-                                            {order.total.toLocaleString()}
+                                            {formatAmount(order.total)}
                                         </span>
                                     </div>
                                 </div>
