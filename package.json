@@ -10,11 +10,13 @@
     "stripe": "node scripts/stripe-listen.mjs",
     "stripe:login": "stripe login",
     "stripe:listen": "node scripts/stripe-listen.mjs",
-    "test:stripe": "node --test tests/stripe.test.mjs",
+    "test:stripe": "tsx --test tests/stripe-checkout-client.test.ts",
     "dev:chat": "tsx watch websocket/dev.ts",
     "subscriptions:check": "tsx scripts/subscriptions.ts --dry-run",
     "subscriptions:send": "tsx scripts/subscriptions.ts",
-    "notifications:run": "tsx scripts/notifications.ts"
+    "notifications:run": "tsx scripts/notifications.ts",
+    "test": "tsx --test tests/order-status.test.ts tests/seo.test.ts tests/stripe-checkout-client.test.ts tests/qa.test.ts",
+    "test:integration": "tsx --test tests/order-status.integration.test.ts tests/qa.integration.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
@@ -26,10 +28,10 @@
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.11.0",
     "firebase": "^13.1.0",
-    "firebase-admin": "13.10.0",
+    "firebase-admin": "14.5.0",
     "jose": "^6.2.12",
     "mongoose": "^9.10.2",
-    "next": "16.3.6",
+    "next": "16.4.4",
     "nodemailer": "^10.0.13",
     "react": "19.2.8",
     "react-dom": "19.2.8",
@@ -40,7 +42,7 @@
     "stripe": "^23.0.0",
     "swagger-ui-react": "^5.34.0",
     "ws": "^8.22.0",
-    "zod": "^4.6.5"
+    "zod": "^4.6.6"
   },
   "overrides": {
     "jwks-rsa": {
@@ -48,7 +50,11 @@
     },
     "@firebase/firestore": {
       "@grpc/grpc-js": "^1.13.6"
-    }
+    },
+    "@vercel/cli-config": {
+      "zod": "4.6.6"
+    },
+    "gaxios@^7.0.0": "7.3.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -59,9 +65,12 @@
     "@types/swagger-ui-react": "^5.18.0",
     "@types/ws": "^8.18.2",
     "eslint": "^9",
-    "eslint-config-next": "16.3.6",
+    "eslint-config-next": "16.4.4",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5"
+  },
+  "engines": {
+    "node": "24.x"
   }
 }

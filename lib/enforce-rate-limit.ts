@@ -1,10 +1,16 @@
 
 import { NextResponse } from "next/server";
-import type { Ratelimit } from "@upstash/ratelimit";
+import { rateLimiters, type RateLimiter } from "@/lib/rate-limit";
+
+const sensitiveLimiters = new Set([
+    rateLimiters.login, rateLimiters.register, rateLimiters.signupVerify, rateLimiters.signupResend,
+    rateLimiters.passwordChange, rateLimiters.passwordResetRequest, rateLimiters.passwordReset,
+    rateLimiters.emailVerification, rateLimiters.contact, rateLimiters.chatBot, rateLimiters.upload,
+]);
 
 export async function enforceRateLimit(
     request: Request,
-    limiter: Ratelimit,
+    limiter: RateLimiter,
     message = "Too many requests. Please try again later."
 ): Promise<NextResponse | null> {
     const forwardedFor = request.headers.get("x-forwarded-for");
@@ -17,6 +23,8 @@ export async function enforceRateLimit(
 
     try {
         const result = await limiter.limit(ip);
+
+        if (result.reason === "timeout" && sensitiveLimiters.has(limiter)) throw new Error("Rate limit service timed out");
 
         if (result.success) {
             return null;
@@ -44,6 +52,8 @@ export async function enforceRateLimit(
         );
     } catch (error) {
         console.error("Rate limit check failed:", error);
+
+        if (!sensitiveLimiters.has(limiter)) return null;
 
         return NextResponse.json(
             {

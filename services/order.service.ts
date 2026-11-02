@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
-import Order from "@/models/Order";
+import Order, { type IOrder } from "@/models/Order";
+import { formatAmount, lineTotal } from "@/lib/currency";
 import Cart from "@/models/Cart";
 import Product from "@/models/Product";
 import User from "@/models/User";
@@ -60,7 +61,7 @@ export async function createOrder(
     await expireProductDiscounts();
     const session = await mongoose.startSession();
 
-    let order: mongoose.Document<any, any, any> & { _id: any } | undefined;
+    let order: IOrder | undefined;
 
     try {
         await session.withTransaction(async () => {
@@ -223,7 +224,7 @@ export async function createOrder(
     return order;
 }
 
-export async function sendOrderConfirmationEmail( order: any ) {
+export async function sendOrderConfirmationEmail( order: Pick<IOrder, "_id" | "items" | "customerName" | "customerEmail" | "paymentMethod" | "shippingAddress" | "subtotal" | "deliveryFee" | "total"> ) {
     if (
         !process.env.EMAIL_USER ||
         !process.env.EMAIL_PASSWORD
@@ -245,9 +246,9 @@ export async function sendOrderConfirmationEmail( order: any ) {
 
     const itemLines = order.items
         .map(
-            (item: any) =>
+            (item) =>
                 `${item.name} x ${item.quantity} - Rs. ${
-                    item.price * item.quantity
+                    formatAmount(lineTotal(item.price, item.quantity))
                 }`
         )
         .join("\n");
@@ -269,13 +270,13 @@ export async function sendOrderConfirmationEmail( order: any ) {
         ${itemLines}
 
         Subtotal:
-        Rs. ${order.subtotal}
+        Rs. ${formatAmount(order.subtotal)}
 
         Delivery:
-        Rs. ${order.deliveryFee}
+        Rs. ${formatAmount(order.deliveryFee)}
 
         Total:
-        Rs. ${order.total}
+        Rs. ${formatAmount(order.total)}
 
         Shipping Address:
         ${order.shippingAddress.address}

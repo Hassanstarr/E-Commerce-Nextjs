@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
@@ -28,6 +30,12 @@ import { useRouter } from "next/navigation";
 import { getProductPricing } from "@/lib/product-pricing";
 import useDiscountExpiry from "@/hooks/useDiscountExpiry";
 import ProductPrice from "@/components/product/ProductPrice";
+import { checkoutSchema } from "@/lib/validations";
+import { ApiRequestError } from "@/lib/api";
+import { formatAmount } from "@/lib/currency";
+import { z } from "zod";
+
+const checkoutDetailsSchema = checkoutSchema.omit({ paymentMethod: true });
 
 const initialForm = {
     customerName: "",
@@ -72,7 +80,7 @@ function CheckoutContent() {
     const [verificationMessage, setVerificationMessage] = useState("");
 
     const [error, setError] = useState("");
-    const [stockError, setStockError] = useState("");
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
 
     useEffect(() => {
         if (!user) return;
@@ -124,32 +132,13 @@ function CheckoutContent() {
         }
     }, [authLoading, user]);
 
-    useEffect(() => {
-        if (!cart) return;
-
-        const unavailableItem = cart.items.find(
-            (item) => !item.product
-        );
-
-        if (unavailableItem) {
-            setStockError(
-                "Your cart contains a deleted or unavailable product. Return to your cart and remove it before checkout."
-            );
-            return;
-        }
-
-        const outOfStockItem = cart.items.find(
-            (item) => item.quantity > item.product.stock
-        );
-
-        if (outOfStockItem) {
-            setStockError(
-                `${outOfStockItem.product.name} only has ${outOfStockItem.product.stock} item(s) available, but you requested ${outOfStockItem.quantity}.`
-            );
-        } else {
-            setStockError("");
-        }
-    }, [cart]);
+    const unavailableItem = cart?.items.find((item) => !item.product);
+    const outOfStockItem = cart?.items.find((item) => item.product && item.quantity > item.product.stock);
+    const stockError = unavailableItem
+        ? "Your cart contains a deleted or unavailable product. Return to your cart and remove it before checkout."
+        : outOfStockItem
+            ? `${outOfStockItem.product.name} only has ${outOfStockItem.product.stock} item(s) available, but you requested ${outOfStockItem.quantity}.`
+            : "";
 
     const handleChange = (
         e: React.ChangeEvent<
@@ -157,6 +146,7 @@ function CheckoutContent() {
         >
     ) => {
         const { name, value } = e.target;
+        setFieldErrors((previous) => ({ ...previous, [name]: [] }));
         stripeRequestId.current = null;
         setStripeUrl("");
 
@@ -257,6 +247,14 @@ function CheckoutContent() {
             return;
         }
 
+        const validation = checkoutDetailsSchema.safeParse(formData);
+        if (!validation.success) {
+            setFieldErrors(z.flattenError(validation.error).fieldErrors);
+            setError("Please check the highlighted fields");
+            return;
+        }
+        setFieldErrors({});
+
         if (emailEditing || verifiedEmail !== formData.customerEmail.trim().toLowerCase()) {
             setError(
                 "Please save and verify your email before placing an order"
@@ -303,6 +301,7 @@ function CheckoutContent() {
                 `/order-success/${result.data.orderId}`
             );
         } catch (error) {
+            if (error instanceof ApiRequestError && error.errors?.fieldErrors) setFieldErrors(error.errors.fieldErrors);
             setError(
                 error instanceof Error
                     ? error.message
@@ -454,6 +453,8 @@ function CheckoutContent() {
 
                                         <input
                                             name="customerName"
+                                            aria-invalid={Boolean(fieldErrors.customerName?.length)}
+                                            aria-describedby="customerName-error"
                                             value={
                                                 formData.customerName
                                             }
@@ -464,6 +465,7 @@ function CheckoutContent() {
                                             placeholder="Your name"
                                         />
                                     </div>
+                                    {fieldErrors.customerName?.[0] && <p id="customerName-error" className="mt-1 text-sm text-red-600" role="alert">{fieldErrors.customerName[0]}</p>}
                                 </div>
 
                                 <div>
@@ -565,7 +567,8 @@ function CheckoutContent() {
                                         {verifyingEmail ? "Verifying..." : "Verify Email"}
                                     </button>
 
-                                    {verificationMessage && (
+                                    {fieldErrors.customerEmail?.[0] && <p className="mt-1 text-sm text-red-600" role="alert">{fieldErrors.customerEmail[0]}</p>}
+                            {verificationMessage && (
                                         <p role="status" className="mt-2 text-sm text-green-700">
                                             {verificationMessage}
                                         </p>
@@ -612,6 +615,8 @@ function CheckoutContent() {
                                         <input
                                             type="tel"
                                             name="phone"
+                                            aria-invalid={Boolean(fieldErrors.phone?.length)}
+                                            aria-describedby="phone-error"
                                             value={
                                                 formData.phone
                                             }
@@ -622,6 +627,7 @@ function CheckoutContent() {
                                             placeholder="03XX XXXXXXX"
                                         />
                                     </div>
+                                    {fieldErrors.phone?.[0] && <p id="phone-error" className="mt-1 text-sm text-red-600" role="alert">{fieldErrors.phone[0]}</p>}
                                 </div>
                             </div>
                         </div>
@@ -651,6 +657,8 @@ function CheckoutContent() {
 
                                     <textarea
                                         name="address"
+                                            aria-invalid={Boolean(fieldErrors.address?.length)}
+                                            aria-describedby="address-error"
                                         value={
                                             formData.address
                                         }
@@ -661,6 +669,7 @@ function CheckoutContent() {
                                         className="w-full resize-none rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-gray-900"
                                         placeholder="House, street, area..."
                                     />
+                                    {fieldErrors.address?.[0] && <p id="address-error" className="mt-1 text-sm text-red-600" role="alert">{fieldErrors.address[0]}</p>}
                                 </div>
 
                                 <div className="grid gap-5 sm:grid-cols-2">
@@ -671,6 +680,8 @@ function CheckoutContent() {
 
                                         <input
                                             name="city"
+                                            aria-invalid={Boolean(fieldErrors.city?.length)}
+                                            aria-describedby="city-error"
                                             value={
                                                 formData.city
                                             }
@@ -680,6 +691,7 @@ function CheckoutContent() {
                                             className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-gray-900"
                                             placeholder="Lahore"
                                         />
+                                    {fieldErrors.city?.[0] && <p id="city-error" className="mt-1 text-sm text-red-600" role="alert">{fieldErrors.city[0]}</p>}
                                     </div>
 
                                     <div>
@@ -689,6 +701,8 @@ function CheckoutContent() {
 
                                         <input
                                             name="postalCode"
+                                            aria-invalid={Boolean(fieldErrors.postalCode?.length)}
+                                            aria-describedby="postalCode-error"
                                             value={
                                                 formData.postalCode
                                             }
@@ -698,6 +712,7 @@ function CheckoutContent() {
                                             className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-gray-900"
                                             placeholder="54000"
                                         />
+                                    {fieldErrors.postalCode?.[0] && <p id="postalCode-error" className="mt-1 text-sm text-red-600" role="alert">{fieldErrors.postalCode[0]}</p>}
                                     </div>
                                 </div>
                             </div>
@@ -762,7 +777,7 @@ function CheckoutContent() {
                                     key={item.product._id}
                                     className="flex gap-3"
                                 >
-                                    <img
+                                    <Image unoptimized width={64} height={64}
                                         src={item.product.image}
                                         alt={
                                             item.product.name
@@ -792,9 +807,7 @@ function CheckoutContent() {
                                         <p className="mt-1 text-sm font-medium text-gray-900">
                                             <span className="mr-1 text-xs font-normal text-gray-500">Line total:</span>
                                             Rs.{" "}
-                                            {(
-                                                Math.round(getProductPricing(item.product, undefined, user?.role).price * 100) * item.quantity / 100
-                                            ).toLocaleString()}
+                                            {formatAmount(Math.round(getProductPricing(item.product, undefined, user?.role).price * 100) * item.quantity / 100)}
                                         </p>
                                     </div>
                                 </div>
@@ -813,7 +826,7 @@ function CheckoutContent() {
 
                                 <span className="font-medium text-gray-700">
                                     Rs.{" "}
-                                    {subtotal.toLocaleString()}
+                                    {formatAmount(subtotal)}
                                 </span>
                             </div>
 
@@ -824,7 +837,7 @@ function CheckoutContent() {
 
                                 <span className="font-medium text-gray-700">
                                     Rs.{" "}
-                                    {deliveryFee.toLocaleString()}
+                                    {formatAmount(deliveryFee)}
                                 </span>
                             </div>
 
@@ -835,7 +848,7 @@ function CheckoutContent() {
 
                                 <span className="font-bold">
                                     Rs.{" "}
-                                    {total.toLocaleString()}
+                                    {formatAmount(total)}
                                 </span>
                             </div>
                         </div>

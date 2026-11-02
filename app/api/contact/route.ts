@@ -1,3 +1,5 @@
+import AppError from "@/lib/AppError";
+import { readJson } from "@/lib/request-body";
 import { NextRequest } from "next/server";
 import nodemailer from "nodemailer";
 import { successResponse } from "@/lib/apiResponse";
@@ -15,11 +17,11 @@ export async function POST(req: NextRequest) {
     if (blocked) return blocked;
 
     try {
-        const body = await req.json();
+        const body = await readJson(req);
 
         const { name, email, message } = body;
 
-        if (!name || !email || !message) {
+        if (typeof name !== "string" || typeof email !== "string" || typeof message !== "string" || !name.trim() || !email.trim() || !message.trim()) {
             return errorResponse(
                 "Name, email and message are required",
                 400
@@ -84,6 +86,7 @@ export async function POST(req: NextRequest) {
             "Message sent successfully"
         );
     } catch (error) {
+        if (error instanceof AppError) return errorResponse(error.message, error.statusCode);
         console.error("Contact form error:", error);
 
         return errorResponse(

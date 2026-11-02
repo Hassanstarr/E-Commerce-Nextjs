@@ -1,3 +1,4 @@
+import { readJson } from "@/lib/request-body";
 import { NextRequest } from "next/server";
 import { requireAuth } from "@/middleware/auth";
 import { successResponse } from "@/lib/apiResponse";
@@ -36,11 +37,11 @@ export async function addToWishlistController( req: NextRequest ) {
     try {
         const user = await requireAuth();
 
-        const body = await req.json();
+        const body = await readJson(req);
 
         const { productId } = body;
 
-        if (!productId) {
+        if (typeof productId !== "string" || !productId) {
             return errorResponse(
                 "Product ID is required",
                 400
@@ -78,11 +79,11 @@ export async function removeFromWishlistController( req: NextRequest ) {
     try {
         const user = await requireAuth();
 
-        const body = await req.json();
+        const body = await readJson(req);
 
         const { productId } = body;
 
-        if (!productId) {
+        if (typeof productId !== "string" || !productId) {
             return errorResponse(
                 "Product ID is required",
                 400

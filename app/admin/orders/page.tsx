@@ -1,5 +1,7 @@
 "use client";
 
+import { errorMessage } from "@/lib/errors";
+
 import { useEffect, useState } from "react";
 import OrderTable, { type AdminOrder } from "@/components/admin/OrderTable";
 import { adminFetch } from "@/lib/admin-api";
@@ -100,8 +102,8 @@ export default function AdminOrdersPage() {
                 setOrders(response.data.orders);
                 setPagination(response.data.pagination);
 
-            } catch (error: any) {
-                setError(error?.message || "Failed to load orders");
+            } catch (error) {
+                setError(errorMessage(error, "Failed to load orders"));
             } finally {
                 setLoading(false);
             }

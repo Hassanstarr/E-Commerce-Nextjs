@@ -1,3 +1,4 @@
+import { readJson } from "@/lib/request-body";
 import { NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { requireAuth } from "@/middleware/auth";
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
     if (blocked) return blocked;
     try {
         const user = await requireAuth();
-        const body = await req.json();
+        const body = await readJson(req);
         if (!body || typeof body !== "object" || Array.isArray(body)) return errorResponse("Invalid notification request", 400);
         if (body.action === "connect") {
             const token = (await cookies()).get("auth_token")?.value;

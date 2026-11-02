@@ -1,3 +1,5 @@
+import { validationResponse } from "@/lib/validation-response";
+import { readJson } from "@/lib/request-body";
 import { NextRequest } from "next/server";
 import { requireAuth } from "@/middleware/auth";
 import { checkoutSchema } from "@/lib/validations";
@@ -28,17 +30,12 @@ export async function createOrderController( req: NextRequest ) {
     try {
         const user = await requireAuth();
 
-        const body = await req.json();
+        const body = await readJson(req);
 
         const validation = checkoutSchema.safeParse(body);
 
         if (!validation.success) {
-            return errorResponse(
-                validation.error.issues
-                    .map((issue) => issue.message)
-                    .join(", "),
-                400
-            );
+            return validationResponse(validation.error);
         }
 
         if (!await isCheckoutEmailVerified(

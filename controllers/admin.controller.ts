@@ -1,3 +1,4 @@
+import { errorMessage, errorStatus } from "@/lib/errors";
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireAdmin } from "@/middleware/admin";
@@ -10,7 +11,6 @@ import {
     getAdminCustomers,
     getAdminCustomerById,
     getAdminAnalytics,
-    getAdminActivity,
     getAdminOrderHistory,
 } from "@/services/admin.service";
 
@@ -19,7 +19,7 @@ import { getActivityLogs } from "@/services/activity.service";
 
 // DASHBOARD
 
-export const adminDashboardController = async (req: NextRequest) => {
+export const adminDashboardController = async () => {
     try {
         await requireAdmin();
 
@@ -29,7 +29,7 @@ export const adminDashboardController = async (req: NextRequest) => {
             success: true,
             data: dashboardData,
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error(
             "Admin dashboard controller error:",
             error
@@ -38,12 +38,10 @@ export const adminDashboardController = async (req: NextRequest) => {
         return NextResponse.json(
             {
                 success: false,
-                message: error?.message ||
-                        "Failed to load admin dashboard",
+                message: errorMessage(error, "Failed to load admin dashboard"),
             },
             {
-                status: error?.statusCode ||
-                        500,
+                status: errorStatus(error),
             }
         );
     }
@@ -95,7 +93,7 @@ export const adminOrdersController = async (req: NextRequest) => {
             success: true,
             data,
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error(
             "Admin orders controller error:",
             error
@@ -105,13 +103,11 @@ export const adminOrdersController = async (req: NextRequest) => {
             {
                 success: false,
                 message:
-                    error?.message ||
-                    "Failed to load orders",
+                    errorMessage(error, "Failed to load orders"),
             },
             {
                 status:
-                    error?.statusCode ||
-                    500,
+                    errorStatus(error),
             }
         );
     }
@@ -130,7 +126,7 @@ export const adminOrderDetailsController = async ( req: NextRequest, orderId: st
             success: true,
             data: order,
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error(
             "Admin order details controller error:",
             error
@@ -140,13 +136,11 @@ export const adminOrderDetailsController = async ( req: NextRequest, orderId: st
             {
                 success: false,
                 message:
-                    error?.message ||
-                    "Failed to load order",
+                    errorMessage(error, "Failed to load order"),
             },
             {
                 status:
-                    error?.statusCode ||
-                    500,
+                    errorStatus(error),
             }
         );
     }
@@ -184,18 +178,16 @@ export const updateAdminOrderController = async ( req: NextRequest, orderId: str
                 "Order updated successfully",
             data: updatedOrder,
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error("Update admin order controller error:", error);
 
         return NextResponse.json(
             {
                 success: false,
-                message: error?.message ||
-                        "Failed to update order",
+                message: errorMessage(error, "Failed to update order"),
             },
             {
-                status: error?.statusCode ||
-                        500,
+                status: errorStatus(error),
             }
         );
     }
@@ -211,18 +203,16 @@ export const adminOrderHistoryController = async ( req: NextRequest, orderId: st
             success: true,
             data: history,
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error("Admin order history controller error:", error);
 
         return NextResponse.json(
             {
                 success: false,
-                message: error?.message ||
-                        "Failed to load order history",
+                message: errorMessage(error, "Failed to load order history"),
             },
             {
-                status: error?.statusCode ||
-                        500,
+                status: errorStatus(error),
             }
         );
     }
@@ -249,24 +239,23 @@ export const adminCustomersController = async (req: NextRequest) => {
             page,
             limit,
             search,
+            status: searchParams.get("status") || "",
         });
             
         return NextResponse.json({
             success: true,
             data,
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error("Admin customers controller error:", error);
 
         return NextResponse.json(
             {
                 success: false,
-                message: error?.message ||
-                        "Failed to load customers",
+                message: errorMessage(error, "Failed to load customers"),
             },
             {
-                status: error?.statusCode ||
-                        500,
+                status: errorStatus(error),
             }
         );
     }
@@ -285,18 +274,16 @@ export const adminCustomerDetailsController = async ( req: NextRequest, customer
             success: true,
             data,
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error("Admin customer details controller error:", error);
 
         return NextResponse.json(
             {
                 success: false,
-                message: error?.message ||
-                        "Failed to load customer",
+                message: errorMessage(error, "Failed to load customer"),
             },
             {
-                status: error?.statusCode ||
-                        500,
+                status: errorStatus(error),
             }
         );
     }
@@ -316,16 +303,16 @@ export const adminAnalyticsController = async (req: NextRequest) => {
             success: true,
             data,
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error("Admin analytics controller error:", error);
 
         return NextResponse.json(
             {
                 success: false,
-                message: error?.message || "Failed to load analytics",
+                message: errorMessage(error, "Failed to load analytics"),
             },
             {
-                status: error?.statusCode || 500,
+                status: errorStatus(error),
             }
         );
     }
@@ -362,18 +349,16 @@ export const adminActivityController = async (req: NextRequest) => {
             data,
         });
         
-    } catch (error: any) {
+    } catch (error) {
         console.error("Admin activity controller error:", error);
 
         return NextResponse.json(
             {
                 success: false,
-                message: error?.message ||
-                        "Failed to load activity",
+                message: errorMessage(error, "Failed to load activity"),
             },
             {
-                status: error?.statusCode ||
-                        500,
+                status: errorStatus(error),
             }
         );
     }

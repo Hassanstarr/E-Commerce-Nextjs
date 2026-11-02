@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import ActivityTable, { AdminActivity } from "@/components/admin/ActivityTable";
 import { adminFetch } from "@/lib/admin-api";
+import { errorMessage } from "@/lib/errors";
 import Spinner from "@/components/ui/Spinner";
 
 interface PaginationInfo {
@@ -12,23 +13,7 @@ interface PaginationInfo {
     totalPages: number;
 }
 
-export default function AdminActivityPage() {
-    const [activities, setActivities] = useState<AdminActivity[]>([]);
-    const [pagination, setPagination] = useState<PaginationInfo>({
-        page: 1,
-        limit: 20,
-        total: 0,
-        totalPages: 1,
-    });
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
-    const [page, setPage] = useState(1);
-    const [search, setSearch] = useState("");
-    const [typeFilter, setTypeFilter] = useState("all");
-    const [initialLoading, setInitialLoading] = useState(true);
-    const [summary, setSummary] = useState({ total: 0, orders: 0, products: 0, customers: 0 });
-
-    const formatType = (rawType: string): AdminActivity["type"] => {
+const formatType = (rawType: string): AdminActivity["type"] => {
         if (!rawType) return "System";
         const normalized = rawType.toLowerCase();
         switch (normalized) {
@@ -46,7 +31,24 @@ export default function AdminActivityPage() {
         }
     };
 
-    const loadActivities = async (signal: AbortSignal) => {
+
+export default function AdminActivityPage() {
+    const [activities, setActivities] = useState<AdminActivity[]>([]);
+    const [pagination, setPagination] = useState<PaginationInfo>({
+        page: 1,
+        limit: 20,
+        total: 0,
+        totalPages: 1,
+    });
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+    const [page, setPage] = useState(1);
+    const [search, setSearch] = useState("");
+    const [typeFilter, setTypeFilter] = useState("all");
+    const [initialLoading, setInitialLoading] = useState(true);
+    const [summary, setSummary] = useState({ total: 0, orders: 0, products: 0, customers: 0 });
+
+    const loadActivities = useCallback(async (signal: AbortSignal) => {
         try {
             setLoading(true);
             setError("");
@@ -62,7 +64,7 @@ export default function AdminActivityPage() {
             const response = await adminFetch<{
                 success: boolean;
                 data: {
-                    activities: any[];
+                    activities: { _id: string; entityType: string; action?: string; description?: string; user?: string | { name?: string; email?: string }; entityId?: string; createdAt?: string }[];
                     pagination: PaginationInfo;
                     summary: typeof summary;
                 };
@@ -90,16 +92,16 @@ export default function AdminActivityPage() {
             }));
 
             setActivities(mappedActivities);
-        } catch (err: any) {
+        } catch (err) {
             if (signal.aborted) return;
-            setError(err?.message || "Failed to load activity log");
+            setError(errorMessage(err, "Failed to load activity log"));
         } finally {
             if (!signal.aborted) {
                 setLoading(false);
                 setInitialLoading(false);
             }
         }
-    };
+    }, [page, search, typeFilter]);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -109,7 +111,7 @@ export default function AdminActivityPage() {
             clearTimeout(timer);
             controller.abort();
         };
-    }, [page, search, typeFilter]);
+    }, [loadActivities, search]);
 
     const totalActivities = summary.total;
 

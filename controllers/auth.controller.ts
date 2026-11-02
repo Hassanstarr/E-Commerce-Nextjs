@@ -1,3 +1,4 @@
+import { readJson } from "@/lib/request-body";
 import { NextRequest } from "next/server";
 import { signupSchema, verifySignupSchema, loginSchema } from "@/lib/validations";
 import { signupUser, loginUser } from "@/services/auth.service";
@@ -7,7 +8,6 @@ import { errorResponse } from "@/lib/apiError";
 import AppError from "@/lib/AppError";
 import { getCurrentUser } from "@/services/auth.service";
 import { requireAuth } from "@/middleware/auth";
-import { requireAdmin } from "@/middleware/admin";
 import { connectDB } from "@/lib/db";
 
 export async function signupController(req: NextRequest, action: "request" | "verify" | "resend" = "request") {
@@ -28,7 +28,7 @@ export async function signupController(req: NextRequest, action: "request" | "ve
             const { requestSignup, resendSignupCode } = await import("@/services/signup-verification.service");
             let challenge;
             if (action === "request") {
-                const validation = signupSchema.safeParse(await req.json().catch(() => null));
+                const validation = signupSchema.safeParse(await readJson(req).catch(() => null));
                 if (!validation.success) return errorResponse(validation.error.issues[0].message, 400);
                 challenge = await requestSignup(validation.data);
             } else {
@@ -40,7 +40,7 @@ export async function signupController(req: NextRequest, action: "request" | "ve
             return response;
         }
 
-        const validation = verifySignupSchema.safeParse(await req.json().catch(() => null));
+        const validation = verifySignupSchema.safeParse(await readJson(req).catch(() => null));
         if (!validation.success) return errorResponse(validation.error.issues[0].message, 400);
         const user = await signupUser(challengeToken, validation.data.otp);
         const token = await createToken(user.id, user.role, user.sessionVersion);
@@ -77,7 +77,7 @@ export async function signupController(req: NextRequest, action: "request" | "ve
 
 export async function loginController(req: NextRequest) {
     try {
-        const body = await req.json();
+        const body = await readJson(req);
 
         const validation = loginSchema.safeParse(body);
 

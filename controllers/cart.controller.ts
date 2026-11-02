@@ -1,3 +1,4 @@
+import { readJson } from "@/lib/request-body";
 import { NextRequest } from "next/server";
 import { requireAuth } from "@/middleware/auth";
 import { successResponse } from "@/lib/apiResponse";
@@ -36,11 +37,11 @@ export async function addToCartController(req: NextRequest) {
     try {
         const user = await requireAuth();
 
-        const body = await req.json();
+        const body = await readJson(req);
 
         const { productId, quantity } = body;
 
-        if (!productId || quantity === undefined) {
+        if (typeof productId !== "string" || quantity === undefined) {
             return errorResponse(
                 "Product ID and quantity are required",
                 400
@@ -79,11 +80,11 @@ export async function updateCartController(req: NextRequest) {
     try {
         const user = await requireAuth();
 
-        const body = await req.json();
+        const body = await readJson(req);
 
         const { productId, quantity } = body;
 
-        if (!productId || quantity === undefined) {
+        if (typeof productId !== "string" || quantity === undefined) {
             return errorResponse(
                 "Product ID and quantity are required",
                 400
@@ -121,11 +122,11 @@ export async function removeFromCartController(req: NextRequest) {
     try {
         const user = await requireAuth();
 
-        const body = await req.json();
+        const body = await readJson(req);
 
         const { productId } = body;
 
-        if (!productId) {
+        if (typeof productId !== "string" || !productId) {
             return errorResponse(
                 "Product ID is required",
                 400

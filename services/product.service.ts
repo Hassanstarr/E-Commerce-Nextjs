@@ -4,7 +4,7 @@ import Category from "@/models/Category";
 import Cart from "@/models/Cart";
 import AppError from "@/lib/AppError";
 import type { ProductInput } from "@/lib/validations";
-import { expireProductDiscounts, saveProductWithDiscount } from "@/services/discount.service";
+import { saveProductWithDiscount } from "@/services/discount.service";
 
 export async function createProduct(data: ProductInput, user?: string) {
     if (!mongoose.Types.ObjectId.isValid(data.category)) {
@@ -35,9 +35,16 @@ export async function createProduct(data: ProductInput, user?: string) {
     return await saveProductWithDiscount(data, undefined, user);
 }
 
-export async function getProducts(categoryId?: string) {
-    await expireProductDiscounts();
-    const filter: { category?: string } = {};
+export async function getProducts(categoryId?: string, { page = 1, limit = 20, search = "" } = {}) {
+    if (!Number.isSafeInteger(page) || page < 1 || page > 100000 || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+        throw new AppError("Use a valid page and a limit between 1 and 100", 400);
+    }
+    if (search.length > 100) throw new AppError("Search must be at most 100 characters", 400);
+    const filter: mongoose.QueryFilter<InstanceType<typeof Product>> = {};
+    if (search.trim()) {
+        const literal = search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        filter.$or = [{ name: { $regex: literal, $options: "i" } }, { description: { $regex: literal, $options: "i" } }];
+    }
 
     if (categoryId) {
         if (!mongoose.Types.ObjectId.isValid(categoryId)) {
@@ -53,9 +60,12 @@ export async function getProducts(categoryId?: string) {
         filter.category = categoryId;
     }
 
-    return await Product.find(filter)
-        .populate("category", "name image")
-        .sort({ createdAt: -1 });
+    const total = await Product.countDocuments(filter);
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    page = Math.min(page, totalPages);
+    const products = await Product.find(filter).populate("category", "name image")
+        .sort({ createdAt: -1, _id: -1 }).skip((page - 1) * limit).limit(limit).lean();
+    return { products, pagination: { page, limit, total, totalPages } };
 }
 
 export async function getProductById(id: string) {
@@ -63,17 +73,20 @@ export async function getProductById(id: string) {
         throw new AppError("Invalid product ID", 400);
     }
 
-    await expireProductDiscounts();
     const product = await Product.findById(id).populate(
         "category",
         "name image"
-    );
+    ).lean();
 
     if (!product) {
         throw new AppError("Product not found", 404);
     }
 
-    return product;
+    const now = Date.now();
+    return { ...product,
+        ...(product.discountEndsAt && product.discountEndsAt.getTime() <= now ? { discountPercent: 0, discountEndsAt: null } : {}),
+        ...(product.memberDiscountEndsAt && product.memberDiscountEndsAt.getTime() <= now ? { memberDiscountPercent: 0, memberDiscountEndsAt: null } : {}),
+    };
 }
 
 export async function updateProduct( id: string, data: ProductInput, user?: string ) {

@@ -1,5 +1,7 @@
 "use client";
 
+import { formatAmount } from "@/lib/currency";
+
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { HiOutlineShoppingBag } from "react-icons/hi2";
@@ -18,7 +20,7 @@ const statusColors: Record<Order["orderStatus"], string> = {
 };
 
 function formatPrice(value: number) {
-    return `Rs. ${value.toLocaleString("en-PK", { maximumFractionDigits: 2 })}`;
+    return `Rs. ${formatAmount(value)}`;
 }
 
 function OrdersContent() {

@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
@@ -39,7 +40,7 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
 
     return (
         <section className="flex-1 bg-gray-50">
-            <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(productStructuredData(product)) }} />
+            <script nonce={(await headers()).get("x-nonce") || undefined} type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(productStructuredData(product)) }} />
             <div className="mx-auto max-w-7xl px-4 py-10">
                 <Link
                     href="/products"

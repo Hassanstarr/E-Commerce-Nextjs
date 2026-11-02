@@ -110,7 +110,7 @@ add("/api/auth/reset-password", "post", "Authentication", "Reset password", { ac
 add("/api/account", "patch", "Account", "Update account name", { body: "Profile" });
 add("/api/account/password", "put", "Account", "Change password", { body: "ChangePassword" });
 
-add("/api/products", "get", "Products", "List products", { access: "public", parameters: [query("category", "Filter by category ObjectId")], description: "Optional login determines membership pricing. Returns the full list; the storefront paginates on the client." });
+add("/api/products", "get", "Products", "List products", { access: "public", parameters: [page, { ...limit, schema: { ...limit.schema, default: 20 } }, query("search", "Search product name or description (maximum 100 characters)"), query("category", "Filter by category ObjectId")], description: "Optional login determines membership pricing. Returns data.products and data.pagination. Results are paginated in the database; expired discounts are omitted without changing records during this read." });
 add("/api/products", "post", "Products", "Create product", { access: "admin", body: "Product", status: 201 });
 add("/api/products/{id}", "get", "Products", "Get product", { access: "public", description: "Optional login determines membership pricing." });
 add("/api/products/{id}", "put", "Products", "Update product and discounts", { access: "admin", body: "Product", description: "Member discounts cannot be below the active everyone discount. Discount end times must be in the future. Server validation remains authoritative." });
@@ -152,14 +152,14 @@ add("/api/chat/{id}/read", "patch", "Chat", "Mark conversation read", { body: "C
 add("/api/chat/socket", "get", "Chat", "Upgrade to live chat WebSocket", { description: "WebSocket transport, not a REST message endpoint. Swagger cannot open WebSockets; use the website's chat interface. Local development uses the separate npm run dev:chat server." });
 paths["/api/chat/socket"].get.responses = { "101": { description: "WebSocket connection established" }, "401": error, "403": error, "429": error, "503": error };
 add("/api/admin/chats", "get", "Admin", "List customer conversations", { access: "admin", parameters: [page, search, query("filter", "Use unread to show unread conversations", { type: "string", enum: ["unread"] })] });
-add("/api/admin/dashboard", "get", "Admin", "Get dashboard totals", { access: "admin" });
+add("/api/admin/dashboard", "get", "Admin", "Get dashboard totals", { access: "admin", description: "Revenue, paid orders and products sold use paid, non-cancelled orders. Revenue excludes delivery fees." });
 add("/api/admin/orders", "get", "Admin", "List and search orders", { access: "admin", parameters: [page, limit, query("search", "Search order ID or customer"), query("orderStatus", "Filter order status"), query("paymentStatus", "Filter payment status")] });
 add("/api/admin/orders/{id}", "get", "Admin", "Get order details", { access: "admin" });
 add("/api/admin/orders/{id}", "patch", "Admin", "Update order status, payment or note", { access: "admin", body: "OrderUpdate", description: "Existing transition rules apply: adjacent order steps, cancellation and restoration to the previous status. Payment changes remain restricted by the order/payment rules. A note can be sent alone." });
 add("/api/admin/orders/{id}/history", "get", "Admin", "Get order history", { access: "admin" });
-add("/api/admin/customers", "get", "Admin", "List customers", { access: "admin", parameters: [page, limit, search] });
+add("/api/admin/customers", "get", "Admin", "List customers", { access: "admin", parameters: [page, limit, search, query("status", "Customer activity filter", { type: "string", enum: ["Active", "Inactive"] })], description: "Search and status filters apply before pagination. Summary counters cover all customers. Active means an order within the last 30 days. Total spent includes paid orders regardless of delivery status." });
 add("/api/admin/customers/{id}", "get", "Admin", "Get customer details", { access: "admin" });
-add("/api/admin/analytics", "get", "Admin", "Get analytics", { access: "admin", parameters: [query("period", "Analytics period in days (default 30)")] });
+add("/api/admin/analytics", "get", "Admin", "Get analytics", { access: "admin", parameters: [query("period", "Analytics period in days (default 30)")], description: "Revenue, sales and average order value use paid, non-cancelled orders and exclude delivery fees. Growth is null when the previous period is zero and the current period is positive." });
 add("/api/admin/activity", "get", "Admin", "List activity logs", { access: "admin", parameters: [page, { ...limit, schema: { ...limit.schema, default: 20 } }, search, query("type", "Activity action filter")] });
 add("/api/contact", "post", "Contact", "Send store contact message", { access: "public", body: "Contact" });
 add("/api/cron/subscriptions", "get", "Scheduled jobs", "Process subscription emails", { access: "cron" });

@@ -1,8 +1,10 @@
 "use client";
 
+import { formatAmount } from "@/lib/currency";
+
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import CartItem from "@/components/cart/CartItem";
 import EmptyState from "@/components/ui/EmptyState";
@@ -25,7 +27,7 @@ export default function CartPage() {
 }
 
 function CartContent() {
-    const router = useRouter();
+
     const { user } = useAuth();
 
     const [cart, setCart] = useState<Cart>({
@@ -234,7 +236,7 @@ function CartContent() {
 
                                     <span>
                                         Rs.{" "}
-                                        {subtotal.toLocaleString()}
+                                        {formatAmount(subtotal)}
                                     </span>
                                 </div>
 
@@ -252,7 +254,7 @@ function CartContent() {
 
                                         <span className="font-bold text-gray-900">
                                             Rs.{" "}
-                                            {subtotal.toLocaleString()}
+                                            {formatAmount(subtotal)}
                                         </span>
                                     </div>
                                 </div>

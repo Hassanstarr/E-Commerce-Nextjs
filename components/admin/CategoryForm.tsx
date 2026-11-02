@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Input from "@/components/ui/Input";
@@ -186,7 +188,7 @@ export default function CategoryForm({
                             Selected image
                         </p>
 
-                        <img
+                        <Image unoptimized width={128} height={128}
                             src={formData.image}
                             alt="Category preview"
                             className="h-32 w-32 rounded-lg object-cover"

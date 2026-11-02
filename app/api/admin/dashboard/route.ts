@@ -15,5 +15,5 @@ export async function GET(req: NextRequest) {
 
     await connectDB();
 
-    return adminDashboardController(req);
+    return adminDashboardController();
 }
