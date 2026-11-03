@@ -4,7 +4,7 @@ import { getStripe } from "@/lib/stripe";
 import { connectDB } from "@/lib/db";
 import { successResponse } from "@/lib/apiResponse";
 import { errorResponse } from "@/lib/apiError";
-import { applyStripePayment } from "@/services/stripe.service";
+import { applyStripePayment, syncStripeCheckoutRefund } from "@/services/stripe.service";
 import { handleMembershipEvent } from "@/services/membership.service";
 import Order from "@/models/Order";
 import { refundAdminOrder } from "@/services/order-refund.service";
@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
             const intentId = typeof refund.payment_intent === "string" ? refund.payment_intent : refund.payment_intent?.id;
             const order = intentId && await Order.findOne({ stripePaymentIntentId: intentId, orderStatus: "cancelled", paymentStatus: { $in: ["paid", "refund_pending", "refunded"] } }).select("_id");
             if (order) await refundAdminOrder(order._id.toString(), undefined, false);
+            if (intentId) await syncStripeCheckoutRefund(intentId);
             return successResponse({ received: true });
         }
         if (await handleMembershipEvent(event)) return successResponse({ received: true });

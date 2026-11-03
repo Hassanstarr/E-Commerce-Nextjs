@@ -135,8 +135,8 @@ add("/api/checkout/verify-email", "post", "Orders", "Verify checkout email", { b
 add("/api/orders", "get", "Orders", "List your orders", { parameters: [page] });
 add("/api/orders", "post", "Orders", "Place cash on delivery order", { body: "Checkout", status: 201, description: "Requires a nonempty cart and verified checkout email. COD payment starts pending." });
 add("/api/stripe/checkout", "post", "Payments", "Create Stripe order checkout", { body: "StripeCheckout", description: "Requires a nonempty cart and verified checkout email. Reuse requestId when retrying the same payment. Returns a Stripe checkout URL; open it to pay." });
-add("/api/stripe/status/{id}", "get", "Payments", "Check your Stripe checkout status");
-add("/api/stripe/status/{id}", "post", "Payments", "Cancel your pending Stripe checkout");
+add("/api/stripe/status/{id}", "get", "Payments", "Check your Stripe checkout status", { description: "Returns status, refundStatus and orderId. A refund remains refund_pending until Stripe confirms the full amount succeeded." });
+add("/api/stripe/status/{id}", "post", "Payments", "Cancel checkout or retry its failed refund", { parameters: [query("action", "Omit to cancel an unpaid checkout; use retry-refund to retry a failed refund", { type: "string", enum: ["retry-refund"] })], description: "Ownership is required. Refund retries reuse a pending attempt; a failed/canceled attempt gets a new idempotency key." });
 add("/api/stripe/webhook", "post", "Payments", "Receive Stripe payment and membership events", { access: "stripe" });
 paths["/api/stripe/webhook"].post.requestBody = { required: true, content: { "application/json": { schema: { type: "object", description: "Stripe event payload. Signature must match these exact bytes." } } } };
 add("/api/membership", "get", "Membership", "Get monthly membership", { parameters: [query("checkout", "Optional Stripe Checkout Session ID to synchronize")], description: "Customer accounts only; admin accounts receive 403." });
@@ -153,7 +153,7 @@ add("/api/chat/socket", "get", "Chat", "Upgrade to live chat WebSocket", { descr
 paths["/api/chat/socket"].get.responses = { "101": { description: "WebSocket connection established" }, "401": error, "403": error, "429": error, "503": error };
 add("/api/admin/chats", "get", "Admin", "List customer conversations", { access: "admin", parameters: [page, search, query("filter", "Use unread to show unread conversations", { type: "string", enum: ["unread"] })] });
 add("/api/admin/dashboard", "get", "Admin", "Get dashboard totals", { access: "admin", description: "Revenue, paid orders and products sold use paid, non-cancelled orders. Revenue excludes delivery fees." });
-add("/api/admin/orders", "get", "Admin", "List and search orders", { access: "admin", parameters: [page, limit, query("search", "Search order ID or customer"), query("orderStatus", "Filter order status"), query("paymentStatus", "Filter payment status")] });
+add("/api/admin/orders", "get", "Admin", "List and search orders", { access: "admin", parameters: [page, limit, query("search", "Search order ID or customer"), query("orderStatus", "Filter order status"), query("paymentStatus", "Filter payment status")], description: "Returns orders, pagination and global orderSummary counts for every order status. Filters affect the list and pagination, not the summary." });
 add("/api/admin/orders/{id}", "get", "Admin", "Get order details", { access: "admin" });
 add("/api/admin/orders/{id}", "patch", "Admin", "Update order status, payment or note", { access: "admin", body: "OrderUpdate", description: "Existing transition rules apply: adjacent order steps, cancellation and restoration to the previous status. Payment changes remain restricted by the order/payment rules. A note can be sent alone." });
 add("/api/admin/orders/{id}/history", "get", "Admin", "Get order history", { access: "admin" });

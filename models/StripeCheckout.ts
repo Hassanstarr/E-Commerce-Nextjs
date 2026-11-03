@@ -12,6 +12,9 @@ export interface IStripeCheckout extends Document {
     };
     stripeSessionId?: string;
     paymentIntentId?: string;
+    stripeRefundId?: string;
+    refundStatus?: "pending" | "requires_action" | "succeeded" | "failed" | "canceled";
+    updatedAt: Date;
     status: "pending" | "failed" | "canceled" | "paid" | "refund_pending" | "refunded";
     order?: Types.ObjectId;
 }
@@ -39,6 +42,8 @@ const stripeCheckoutSchema = new mongoose.Schema<IStripeCheckout>(
             sparse: true 
         },
         paymentIntentId: String,
+        stripeRefundId: String,
+        refundStatus: { type: String, enum: ["pending", "requires_action", "succeeded", "failed", "canceled"] },
         status: {
             type: String,
             enum: ["pending", "failed", "canceled", "paid", "refund_pending", "refunded"],

@@ -11,6 +11,7 @@ import type { ChatIdentity, ChatMessageData, ChatConversation as ChatConversatio
 import { queueChatNotification, dispatchNotifications } from "@/services/notification-event.service";
 
 export async function getChatIdentity(token: string): Promise<ChatIdentity> {
+    if (!token) throw new AppError("Authentication required", 401);
     const payload = await verifyToken(token);
     if (!payload || !mongoose.Types.ObjectId.isValid(payload.userId)) {
         throw new AppError("Your session has expired. Please log in again.", 401);

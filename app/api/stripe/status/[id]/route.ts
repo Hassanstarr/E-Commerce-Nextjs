@@ -15,10 +15,13 @@ async function checkoutStatus(req: NextRequest, context: RouteContext, cancel: b
     if (blocked) return blocked;
 
     try {
+        const action = req.nextUrl.searchParams.get("action");
+        if (action && (!cancel || action !== "retry-refund")) throw new AppError("Invalid checkout action", 400);
+        if (cancel && req.headers.get("origin") && req.headers.get("origin") !== req.nextUrl.origin) throw new AppError("Invalid checkout request", 403);
         const user = await requireAuth();
         const { id } = await context.params;
         await connectDB();
-        return successResponse(await getStripeCheckoutStatus(user.userId, id, cancel));
+        return successResponse(await getStripeCheckoutStatus(user.userId, id, cancel && !action, action === "retry-refund"));
     } catch (error) {
         if (error instanceof AppError) return errorResponse(error.message, error.statusCode);
         console.error("Stripe payment status error:", error);
