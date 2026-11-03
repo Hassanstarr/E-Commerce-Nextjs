@@ -90,11 +90,41 @@ export async function createStripeCheckout(userId: string, data: CheckoutInput, 
     return { url: stripeSession.url };
 }
 
-async function refundCheckout(checkoutId: string, paymentIntentId: string) {
-    await getStripe().refunds.create({ payment_intent: paymentIntentId }, { idempotencyKey: `checkout-refund-${checkoutId}` });
+async function refundCheckout(checkoutId: string, paymentIntentId: string, retry = false, allowCreate = true) {
+    const checkout = await StripeCheckout.findOne({ _id: checkoutId, paymentIntentId, order: { $exists: false }, status: { $in: ["refund_pending", "refunded"] } }).lean();
+    if (!checkout) return null;
+    const stripe = getStripe();
+    const refunds = await stripe.refunds.list({ payment_intent: paymentIntentId, limit: 100 });
+    const amount = Math.round(checkout.orderData.total * 100);
+    const refunded = refunds.data.filter((refund) => refund.status === "succeeded").reduce((sum, refund) => sum + refund.amount, 0);
+    let completed = refunded === amount;
+    let refund: Stripe.Refund | undefined = refunds.data.find((refund) => refund.status === "pending" || refund.status === "requires_action")
+        || refunds.data.find((refund) => refund.id === checkout.stripeRefundId) || refunds.data[0];
+    if (completed) refund = refunds.data.find((refund) => refund.status === "succeeded");
+    if (!completed) {
+        if (refunded > 0 || refunds.has_more) throw new AppError("This payment needs a refund review. Please contact our store team.", 409);
+        if (!refund && !allowCreate && checkout.status === "refund_pending") return null;
+        if (allowCreate && (!refund || (retry && ["failed", "canceled"].includes(refund.status || "")))) {
+            // Keep the original key and parameters for an initial request with an unknown network outcome.
+            refund = await stripe.refunds.create({ payment_intent: paymentIntentId }, {
+                idempotencyKey: `checkout-refund-${checkoutId}${refund ? `-${refund.id}` : ""}`,
+            });
+        }
+        completed = refund?.status === "succeeded" && refund.amount === amount;
+    }
+    const refundStatus = completed ? "succeeded" : refund?.status || "pending";
     await mongoose.connection.transaction(async (session) => {
-        const checkout = await StripeCheckout.findOneAndUpdate({ _id: checkoutId, status: "refund_pending" }, { $set: { status: "refunded" } }, { returnDocument: "after", session });
-        if (!checkout) return;
+        const updated = await StripeCheckout.findOneAndUpdate({ _id: checkoutId, status: checkout.status, updatedAt: checkout.updatedAt, order: { $exists: false } }, {
+            $set: { status: completed ? "refunded" : "refund_pending", refundStatus, ...(refund ? { stripeRefundId: refund.id } : {}) },
+        }, { returnDocument: "after", session });
+        if (!updated) return;
+        if (!completed) {
+            if (refundStatus === "failed" || refundStatus === "canceled") {
+                await queueNotification({ key: `checkout:${checkoutId}:${refund!.id}:refund-failed:admin`, type: "payment", audience: "admins", checkoutId,
+                    title: "Checkout refund needs attention", message: `A refund for checkout #${checkoutId} failed. Review payment ${paymentIntentId} in Stripe.`, href: "/admin/orders" }, session);
+            }
+            return;
+        }
         await queueNotification({ key: `checkout:${checkoutId}:refunded:customer`, type: "payment", audience: "user", userId: checkout.user.toString(),
             title: "Payment refunded", message: "An item became unavailable. Your card payment was refunded and no order was placed.", href: "/orders" }, session);
         await queueNotification({ key: `checkout:${checkoutId}:refunded:admin`, type: "payment", audience: "admins",
@@ -102,6 +132,11 @@ async function refundCheckout(checkoutId: string, paymentIntentId: string) {
     });
     dispatchNotifications();
     return null;
+}
+
+export async function syncStripeCheckoutRefund(paymentIntentId: string) {
+    const checkout = await StripeCheckout.findOne({ paymentIntentId, order: { $exists: false }, status: { $in: ["refund_pending", "refunded"] } }).select("_id");
+    if (checkout) await refundCheckout(checkout._id.toString(), paymentIntentId, false, false);
 }
 
 export async function applyStripePayment(intent: Stripe.PaymentIntent) {
@@ -205,10 +240,23 @@ export async function applyStripePayment(intent: Stripe.PaymentIntent) {
     return orderId;
 }
 
-export async function getStripeCheckoutStatus(userId: string, checkoutId: string, cancel = false) {
+export async function getStripeCheckoutStatus(userId: string, checkoutId: string, cancel = false, retryRefund = false) {
     if (!mongoose.Types.ObjectId.isValid(checkoutId)) throw new AppError("Invalid checkout ID", 400);
     let checkout = await StripeCheckout.findOne({ _id: checkoutId, user: userId });
     if (!checkout) throw new AppError("Checkout not found", 404);
+
+    if (checkout.status === "refunded" && !checkout.refundStatus && checkout.paymentIntentId) {
+        await syncStripeCheckoutRefund(checkout.paymentIntentId);
+        checkout = await StripeCheckout.findOne({ _id: checkoutId, user: userId });
+        if (!checkout) throw new AppError("Checkout not found", 404);
+    }
+    if (checkout.status === "refunded") return { status: checkout.status, refundStatus: checkout.refundStatus || "succeeded", orderId: null };
+    if (checkout.status === "refund_pending" && checkout.paymentIntentId) {
+        await refundCheckout(checkoutId, checkout.paymentIntentId, retryRefund);
+        checkout = await StripeCheckout.findById(checkoutId);
+        return { status: checkout?.status || "refund_pending", refundStatus: checkout?.refundStatus || null, orderId: null };
+    }
+    if (retryRefund) throw new AppError("This checkout does not have a pending refund", 409);
 
     if (!checkout.order && checkout.stripeSessionId) {
         const stripeSession = await getStripe().checkout.sessions.retrieve(checkout.stripeSessionId, { expand: ["payment_intent"] });
@@ -234,5 +282,5 @@ export async function getStripeCheckoutStatus(userId: string, checkoutId: string
         checkout = await StripeCheckout.findById(checkoutId);
     }
 
-    return { status: checkout?.status || "pending", orderId: checkout?.order?.toString() || null };
+    return { status: checkout?.status || "pending", refundStatus: checkout?.refundStatus || null, orderId: checkout?.order?.toString() || null };
 }
