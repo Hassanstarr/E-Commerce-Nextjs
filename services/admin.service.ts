@@ -214,7 +214,7 @@ export const getAdminOrders = async ({
 
     const skip = (page - 1) * limit;
 
-    const [orders, totalOrders] = await Promise.all([
+    const [orders, totalOrders, statusCounts] = await Promise.all([
         Order.find(query)
             .sort({ createdAt: -1 })
             .skip(skip)
@@ -222,10 +222,19 @@ export const getAdminOrders = async ({
             .lean(),
 
         Order.countDocuments(query),
+        Order.aggregate<{ _id: IOrder["orderStatus"]; count: number }>([
+            { $group: { _id: "$orderStatus", count: { $sum: 1 } } },
+        ]),
     ]);
+
+    const orderSummary = { pending: 0, confirmed: 0, shipped: 0, delivered: 0, cancelled: 0 };
+    for (const status of statusCounts) {
+        if (Object.hasOwn(orderSummary, status._id)) orderSummary[status._id] = status.count;
+    }
 
     return {
         orders: await addOrderDisplayIds(orders),
+        orderSummary,
         pagination: {
             page,
             limit,

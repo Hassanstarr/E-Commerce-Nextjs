@@ -14,18 +14,12 @@ interface OrdersResponse {
         total: number;
         totalPages: number;
     };
-}
-
-interface DashboardResponse {
     orderSummary: {
         pending: number;
         confirmed: number;
         shipped: number;
         delivered: number;
         cancelled: number;
-    };
-    summary: {
-        totalOrders: number;
     };
 }
 
@@ -39,13 +33,7 @@ export default function AdminOrdersPage() {
         totalPages: 0,
     });
 
-    const [orderSummary, setOrderSummary] = useState<DashboardResponse["orderSummary"]>({
-        pending: 0,
-        confirmed: 0,
-        shipped: 0,
-        delivered: 0,
-        cancelled: 0,
-    });
+    const [orderSummary, setOrderSummary] = useState<OrdersResponse["orderSummary"] | null>(null);
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -100,6 +88,7 @@ export default function AdminOrdersPage() {
                 );
 
                 setOrders(response.data.orders);
+                setOrderSummary(response.data.orderSummary);
                 setPagination(response.data.pagination);
 
             } catch (error) {
@@ -118,38 +107,18 @@ export default function AdminOrdersPage() {
         paymentStatus,
     ]);
 
-    useEffect(() => {
-        const loadOrderSummary = async () => {
-            try {
-                const response = await adminFetch<{
-                        success: boolean;
-                        data: DashboardResponse;
-                    }>(
-                        "/api/admin/dashboard"
-                    );
-
-                setOrderSummary(
-                    response.data.orderSummary
-                );
-            } catch (error) {
-                console.error("Failed to load order summary:", error);
-            }
-        };
-
-        loadOrderSummary();
-    }, []);
-
     const totalOrders =
-        orderSummary.pending +
-        orderSummary.confirmed +
-        orderSummary.shipped +
-        orderSummary.delivered +
-        orderSummary.cancelled;
+        (orderSummary?.pending || 0) +
+        (orderSummary?.confirmed || 0) +
+        (orderSummary?.shipped || 0) +
+        (orderSummary?.delivered || 0) +
+        (orderSummary?.cancelled || 0);
 
-    const pendingOrders = orderSummary.pending;
-    const activeOrders = orderSummary.confirmed + orderSummary.shipped;
-    const deliveredOrders = orderSummary.delivered;
-    const cancelledOrders = orderSummary.cancelled;
+    const pendingOrders = orderSummary?.pending || 0;
+    const activeOrders = (orderSummary?.confirmed || 0) + (orderSummary?.shipped || 0);
+    const deliveredOrders = orderSummary?.delivered || 0;
+    const cancelledOrders = orderSummary?.cancelled || 0;
+    const summaryPlaceholder = loading ? "Loading…" : "—";
     
     const handleSearchChange = ( value: string ) => {
         setPagination((current) => ({
@@ -210,7 +179,7 @@ export default function AdminOrdersPage() {
                         </p>
 
                         <p className="mt-2 text-2xl font-bold text-gray-900">
-                            {totalOrders}
+                            {orderSummary ? totalOrders : summaryPlaceholder}
                         </p>
                     </div>
 
@@ -220,7 +189,7 @@ export default function AdminOrdersPage() {
                         </p>
 
                         <p className="mt-2 text-2xl font-bold text-amber-600">
-                            {pendingOrders}
+                            {orderSummary ? pendingOrders : summaryPlaceholder}
                         </p>
                     </div>
 
@@ -230,7 +199,7 @@ export default function AdminOrdersPage() {
                         </p>
 
                         <p className="mt-2 text-2xl font-bold text-blue-600">
-                            {activeOrders}
+                            {orderSummary ? activeOrders : summaryPlaceholder}
                         </p>
 
                         <p className="mt-1 text-xs text-gray-500">
@@ -244,7 +213,7 @@ export default function AdminOrdersPage() {
                         </p>
 
                         <p className="mt-2 text-2xl font-bold text-green-600">
-                            {deliveredOrders}
+                            {orderSummary ? deliveredOrders : summaryPlaceholder}
                         </p>
                     </div>
 
@@ -254,7 +223,7 @@ export default function AdminOrdersPage() {
                         </p>
 
                         <p className="mt-2 text-2xl font-bold text-red-600">
-                            {cancelledOrders}
+                            {orderSummary ? cancelledOrders : summaryPlaceholder}
                         </p>
                     </div>
                 </div>

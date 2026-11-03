@@ -46,6 +46,10 @@ export async function addToCart(
         throw new AppError("Product not found", 404);
     }
 
+    if (product.stock <= 0) {
+        throw new AppError("This product is out of stock", 400);
+    }
+
     if (product.stock < quantity) {
         throw new AppError(
             `Only ${product.stock} item(s) available`,
@@ -113,6 +117,10 @@ export async function updateCartItem(
 
     if (!product) {
         throw new AppError("Product not found", 404);
+    }
+
+    if (product.stock <= 0) {
+        throw new AppError("This product is out of stock", 400);
     }
 
     if (quantity > product.stock) {
